@@ -1,0 +1,60 @@
+\chapter{Machine Learning for Attack Detection}\label{chap:ml}
+
+This chapter covers Task~4. The idea behind it is simple: attack traffic looks statistically different from normal traffic. A machine learning model learns these differences from examples and then flags new traffic that looks like an attack, quickly and automatically.
+
+\section{Why Machine Learning Helps}
+
+A fixed rule such as \enquote{block everything above 100 requests per second} is easy to evade and also hits legitimate users during a busy moment, because a flash crowd looks like an attack. A model can combine many signals and adapt when it is retrained. This matters because attacks are increasingly short and fast (Section~\ref{sec:ddos}), so detection must not wait for a human.
+
+\begin{figure}[ht]
+	\centering
+	\begin{tikzpicture}[font=\small, node distance=0.5cm, every node/.style={draw, rounded corners, minimum height=0.9cm, inner sep=4pt, align=center}]
+		\node (a) {Network\\traffic};
+		\node (b) [right=of a] {Flows and\\features};
+		\node (c) [right=of b] {Trained\\model};
+		\node (d) [right=of c] {Normal or\\attack?};
+		\node (e) [right=of d] {Alert or\\block};
+		\draw[-{Stealth}] (a)--(b); \draw[-{Stealth}] (b)--(c); \draw[-{Stealth}] (c)--(d); \draw[-{Stealth}] (d)--(e);
+	\end{tikzpicture}
+	\caption{Typical detection pipeline.}
+	\label{fig:mlpipeline}
+\end{figure}
+
+Raw packets are first grouped into \emph{flows} (all packets of one conversation) and summarized as numbers called \emph{features} (Figure~\ref{fig:mlpipeline}). Typical features are packets and bytes per second, the mean and variation of packet sizes, the number of packets with SYN or ACK flags, the flow duration, the number of distinct source addresses and the entropy (randomness) of source addresses and ports. In a DDoS attack, the last two change visibly, because many sources send similar packets.
+
+Models are trained in one of two ways. \emph{Supervised} learning uses labeled examples (\enquote{normal} or \enquote{attack}) and reaches high accuracy on attack types it has seen, but it knows nothing about new ones. \emph{Unsupervised} learning, also called anomaly detection, learns what normal traffic looks like and flags anything unusual. It can detect unseen attacks but produces more false alarms.
+
+\section{Algorithms for DDoS Detection}
+
+Table~\ref{tab:ml} lists five algorithms that are used for DDoS detection: four supervised ones and one for anomaly detection.
+
+\begin{table}[ht]
+	\centering
+	\small
+	\begin{tabularx}{\textwidth}{@{}lXXX@{}}
+		\toprule
+		Algorithm & How it works & Why it fits & Limitation \\
+		\midrule
+		Random Forest~\cite{breiman} & Many decision trees, each trained on a random part of the data, vote on the class. & Accurate, robust, handles many features; very common in DDoS research. & Larger models are slower to evaluate; needs labels. \\
+		XGBoost~\cite{xgboost} & Builds trees one after another, each correcting the errors of the previous ones. & Often reaches the best accuracy on tabular flow features. & Needs careful tuning; needs labels. \\
+		Support Vector Machine~\cite{svm} & Finds the boundary that separates normal from attack with the widest margin. & Works well with many features and moderate data sizes. & Training becomes slow for very large datasets. \\
+		LSTM~\cite{lstm} & A neural network with memory that reads a sequence of flows or packets in order. & Captures how traffic changes over time. & Needs more data and computing power; harder to explain. \\
+		Isolation Forest~\cite{iforest} & Random trees try to isolate each sample; unusual samples are isolated with fewer splits. & Needs no labels, so it can flag unseen attacks. & More false positives; the threshold for \enquote{unusual} must be chosen. \\
+		\bottomrule
+	\end{tabularx}
+	\caption{Five machine learning algorithms for DDoS detection.}
+	\label{tab:ml}
+\end{table}
+
+\section{Evaluation, Data and Challenges}
+
+Accuracy alone is a poor measure for a detector. Normal traffic is much more common than attack traffic, so a model that always answers \enquote{normal} can look very accurate and still detect nothing. More useful are \emph{precision} (of the alarms raised, how many were real attacks), \emph{recall} (of the real attacks, how many were found), the F1 score (a combination of both) and the false positive rate (legitimate users wrongly blocked).
+
+A commonly used public dataset is CIC-DDoS2019 of the Canadian Institute for Cybersecurity, which contains labeled flows for many DDoS types, including reflection attacks over DNS, NTP and UDP~\cite{cicddos}. We expect to use it in Labs~2 and~3. Four challenges should be kept in mind:
+
+\begin{itemize}
+	\item \textbf{Old data.} Attacks change, so a model trained on an old dataset can fail on new traffic (concept drift).
+	\item \textbf{False positives.} Blocking real users is costly, so a detector must be tuned carefully.
+	\item \textbf{Speed.} Detection must work in real time at very high packet rates.
+	\item \textbf{Evasion.} Attackers can adapt their traffic so that it looks normal.
+\end{itemize}

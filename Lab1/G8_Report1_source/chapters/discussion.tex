@@ -1,0 +1,22 @@
+\chapter{Discussion}\label{chap:discussion}
+
+\section{Summary}
+
+The captures in Chapter~\ref{chap:results} confirmed the concepts of Task~1 and added details that textbook diagrams leave out. Encapsulation was visible in a single frame (14 bytes of Ethernet, 40 of IPv6 and 40 of TCP), the handshake showed sequence numbers rising by one for the SYN, and the HTTP exchange was fully readable while the TLS exchange was not. The captures also held surprises: ping over IPv6, DNS over IPv4 although IPv6 worked, a connection that needed three SYN retransmissions, and a client racing IPv6 against IPv4. Real traffic is rarely as tidy as the schematic version.
+
+\section{Connecting the Tasks}
+
+Some observations from Task~2 point directly to the attacks of Task~3:
+
+\begin{itemize}
+	\item The server commits resources when it answers a SYN (Section~\ref{sec:res-tcp}). A SYN flood abuses exactly this step, and SYN cookies defend against it.
+	\item DNS runs over UDP without a handshake (Section~\ref{sec:res-dns}), which is what makes spoofing and amplification possible (Section~\ref{sec:ddos}).
+	\item The plain HTTP request exposed the server software and the client program to anyone on the path (Section~\ref{sec:res-encap}). TLS hides the content but not metadata such as the server name (Section~\ref{sec:res-tls}).
+	\item The Facebook outage (Section~\ref{sec:bgp}) and anycast-based DDoS protection (Section~\ref{sec:infra}) both rely on BGP, once as a point of failure and once as a tool.
+\end{itemize}
+
+The two defenses of Section~\ref{sec:defense} complement each other: a provider like Cloudflare absorbs volume far from the victim, while XDP drops unwanted packets cheaply at the host. Machine learning (Chapter~\ref{chap:ml}) can supply the detection part that tells such filters \emph{what} to drop, which is the direction of Labs~2 to~4.
+
+\section{Limitations}
+
+Our measurements come from one laptop on one home network on one day, with captures of a few dozen to a few thousand packets. They illustrate protocol behavior but cannot support statistical claims, and we could not determine the cause of the SYN retransmissions from the capture alone. The attack and defense chapters rely on published reports, whose numbers change quickly; we checked them on 20 October 2026. The attack tools were described from the literature and none was run.

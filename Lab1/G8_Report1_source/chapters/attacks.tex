@@ -1,0 +1,152 @@
+\chapter{Network Attacks and Defense}\label{chap:attacks}
+
+This chapter covers Task~3 and is based on literature and vendor reports only. We did not run any attack tool; Section~\ref{sec:tools} only describes them. Using them against systems one does not own can be a crime in Germany (computer sabotage, \S\,303b StGB).
+
+\section{Five Types of Network Attacks}\label{sec:fiveattacks}
+
+We picked five attacks that hit different layers of the stack (Table~\ref{tab:fiveattacks}).
+
+\begin{table}[ht]
+	\centering
+	\small
+	\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+		\toprule
+		Attack & Idea (and an everyday analogy) & Main defenses \\
+		\midrule
+		DDoS & Many machines flood a target so that real users cannot get through (a crowd blocking a shop door). & rate limiting, scrubbing, anycast and CDN, anti-spoofing \\
+		Man-in-the-middle & An attacker sits unnoticed between two parties and reads or changes their traffic (a postman who opens letters). & TLS with certificate checks, VPN, avoiding untrusted Wi-Fi \\
+		ARP spoofing & On a local network, fake ARP replies make victims send frames to the attacker's MAC address instead of the router's (swapping the name sign on a door). & dynamic ARP inspection, static entries, port security \\
+		DNS spoofing & Forged DNS answers make a name point to the attacker's IP address (a wrong entry in the phone book). & DNSSEC~\cite{rfc4033}, randomized source ports, trusted resolvers \\
+		Port scanning & Probing a host for open ports and services, usually as reconnaissance (trying all doors of a building). & firewall, closing unused services, intrusion detection \\
+		\bottomrule
+	\end{tabularx}
+	\caption{Five network attacks and their main defenses.}
+	\label{tab:fiveattacks}
+\end{table}
+
+\paragraph{Man-in-the-middle (MitM).} The attacker relays traffic between two parties who think they talk directly to each other, for instance through a rogue Wi-Fi access point. Against plain HTTP, the attacker can read and change everything, as the capture in Section~\ref{sec:res-encap} shows. Against HTTPS, the attacker would also need a certificate that the browser accepts, which is exactly the protection TLS provides~\cite{rfc8446}.
+
+\paragraph{ARP spoofing.} ARP maps IPv4 addresses to MAC addresses on a local network~\cite{rfc826} and has no authentication, so any host can claim \enquote{the router's IP address is at my MAC address}. Victims then send their traffic to the attacker, which is a MitM position. Switches can counter this with dynamic ARP inspection. In IPv6, the neighbor discovery messages from Figure~\ref{fig:ping} play the same role and can be abused similarly.
+
+\paragraph{DNS spoofing.} If a forged answer is accepted by a resolver, every user of that resolver is sent to the wrong address. Plain DNS runs over unauthenticated UDP (Section~\ref{sec:res-dns}), so protection relies on unpredictable transaction IDs and source ports and, more fundamentally, on signatures with DNSSEC~\cite{rfc4033}.
+
+\paragraph{Port scanning.} A scan probes many ports and records which ones answer, which reveals running services and often their versions. The best-known scanner is Nmap, which is legitimate on one's own systems~\cite{nmap}. Scans do no damage but usually come before a real attack, so firewalls and intrusion detection systems watch for them.
+
+\section{DDoS Attacks}\label{sec:ddos}
+
+A denial-of-service (DoS) attack makes a service unavailable. In a \emph{distributed} DoS (DDoS), the traffic comes from many machines at the same time, usually a \emph{botnet}: thousands or millions of compromised devices such as cameras, routers and TV boxes, which an attacker controls through a command-and-control (C2) server. The owners typically do not notice. Because the traffic comes from everywhere, simply blocking one source does not help.
+
+\subsection{Types of DDoS Attacks}
+
+DDoS attacks fall into three families, depending on which resource they exhaust (Table~\ref{tab:ddostypes}).
+
+\begin{table}[ht]
+	\centering
+	\small
+	\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{2.6cm}@{}}
+		\toprule
+		Family & Target resource & Examples & Measured in \\
+		\midrule
+		Volumetric & bandwidth & UDP floods, DNS and NTP amplification & bit/s \\
+		Protocol & state and capacity of servers and network devices & SYN flood, fragmentation attacks, ping of death & packets/s \\
+		Application layer & the application itself & HTTP GET/POST floods, Slowloris & requests/s \\
+		\bottomrule
+	\end{tabularx}
+	\caption{The three families of DDoS attacks.}
+	\label{tab:ddostypes}
+\end{table}
+
+The SYN flood connects directly to our captures. A server that receives a SYN reserves memory for a half-open connection and answers with SYN-ACK. If SYNs arrive in huge numbers with spoofed sources, the final ACK never comes, the table of half-open connections fills up and real users are refused. The connection is never established; the damage is resource exhaustion. The standard countermeasure is SYN cookies, where the server keeps no state until the handshake is complete~\cite{rfc4987}.
+
+\subsection{Reflection and Amplification}
+
+In a reflection attack, a third-party server delivers the traffic: the attacker sends a request with the \emph{victim's} address as spoofed source, and the reply goes to the victim. In an amplification attack, the reply is much larger than the request. This works well over UDP, which has no handshake that would expose the spoofed address (Section~\ref{sec:protocols}). CISA lists bandwidth amplification factors of 28 to 54 for DNS, about 557 for NTP and 10\,000 to 51\,000 for memcached~\cite{cisa_amp}, so a request of a few dozen bytes can become megabytes aimed at the victim.
+
+\subsection{Scale and Trends}
+
+DDoS attacks have grown quickly. Cloudflare reports about 47.1 million attacks in 2025, an increase of 121\,\% over 2024, with telecommunications providers and ISPs as the main targets~\cite{thn_aisuru,fastnetmon,cyberinsider}. A single attack in late 2025 reached 31.4 Tbit/s but lasted only 35 seconds and was mitigated automatically~\cite{thn_aisuru}. Such short, extreme bursts are hard to handle by hand, which is why detection is automated (Chapter~\ref{chap:ml}).
+
+\section{Infrastructure Security against DDoS}\label{sec:infra}
+
+No single measure stops all DDoS attacks, so operators combine several (Table~\ref{tab:infra}).
+
+\begin{table}[ht]
+	\centering
+	\small
+	\begin{tabularx}{\textwidth}{@{}lX@{}}
+		\toprule
+		Mechanism & What it does \\
+		\midrule
+		Rate limiting & Caps requests or packets per source or per second. \\
+		Firewalls and ACLs & Drop traffic that does not match the allowed rules. \\
+		Load balancing & Spreads the load over many servers so that none of them collapses. \\
+		Anycast and CDN & The same IP address is announced from many locations by BGP, so attack traffic is split up and absorbed close to where it enters the network. \\
+		Scrubbing centers & Traffic is diverted to a facility that removes the attack traffic and forwards the clean part. \\
+		Blackholing (RTBH) & All traffic to the attacked IP address is dropped at the network edge or at an IXP. The network survives, but the victim address is offline. \\
+		Anti-spoofing (BCP\,38) & Networks drop packets whose source address cannot be genuine, which stops spoofed floods at their origin~\cite{rfc2827}. \\
+		SYN cookies & The server stores no state until the TCP handshake is complete. \\
+		Over-provisioning & Having more bandwidth and capacity than an attacker can send. \\
+		\bottomrule
+	\end{tabularx}
+	\caption{Infrastructure mechanisms against DDoS attacks.}
+	\label{tab:infra}
+\end{table}
+
+Several of these link back to Task~1: anycast is a BGP technique, blackholing is often done at an IXP such as DE-CIX, and BCP\,38 only works if every network along the path takes part.
+
+\section{Attack Tools}\label{sec:tools}
+
+Table~\ref{tab:tools} lists five attack tools and threats from older to newer. The older ones show the principles; the last two explain today's threat level.
+
+\begin{table}[ht]
+	\centering
+	\small
+	\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+		\toprule
+		Tool & What it is & Why it matters \\
+		\midrule
+		LOIC (Low Orbit Ion Cannon) & Open-source flooding tool with a GUI that sends TCP, UDP or HTTP floods~\cite{loic}. Known from Anonymous campaigns around 2010. & Very easy to use, but it does not hide the user's address, so participants could be traced. \\
+		Slowloris & Opens many connections to a web server and sends HTTP headers extremely slowly, so that the server's connections stay occupied~\cite{slowloris}. & Needs very little bandwidth; a good example of an application-layer attack. \\
+		hping3 & Command-line tool that crafts custom TCP, UDP and ICMP packets, including SYN floods and spoofed addresses~\cite{hping}. & Also a legitimate test tool for firewalls, so it is dual-use. \\
+		Mirai & IoT botnet malware from 2016 that logs into devices with default passwords and turns them into bots~\cite{mirai}. Its source code was published, so many variants exist. & Its attack on the DNS provider Dyn in 2016 disrupted many well-known sites; it still shapes botnets today. \\
+		Aisuru / Kimwolf & Recent botnets built from compromised IoT devices and, in the case of Kimwolf, mostly off-brand Android TV boxes, with an estimated one to several million devices~\cite{thn_aisuru,cyberinsider}. & Responsible for the record attacks of 2025 (29.7 and 31.4 Tbit/s~\cite{cf_q3,thn_aisuru}); the most relevant current example. \\
+		\bottomrule
+	\end{tabularx}
+	\caption{Five attack tools and threats.}
+	\label{tab:tools}
+\end{table}
+
+Looking from LOIC to Aisuru shows a clear shift. LOIC needed volunteers to run it on their own computers, which limited its size and exposed them. Mirai and its successors replaced volunteers with hijacked devices, so attackers need nobody's cooperation and are much harder to trace. Attack size is now limited by the number of insecure devices on the Internet, not by the attacker's own resources.
+
+\section{Defense Tools in Detail}\label{sec:defense}
+
+We selected two defenses that work at very different places: Cloudflare, which defends at the network edge in many locations, and eBPF/XDP, which defends on a single Linux host.
+
+\subsection{Cloudflare}
+
+Cloudflare is a content delivery network that sits between its customers' servers and the Internet. Traffic for a protected site reaches the nearest Cloudflare data center through BGP anycast, so an attack is split over many locations instead of hitting one~\cite{cf_dosd}. In each data center, XDP programs called L4Drop first apply the rules of known attacks and send traffic samples to a detection service named \texttt{dosd}. When \texttt{dosd} recognizes an attack, it creates a mitigation rule, which, according to Cloudflare, takes seconds and not minutes~\cite{itbrief_ebpf}. A second system, Gatebot, watches for attacks across the whole network, and HTTP attacks are handled in the web proxy~\cite{cf_dosd}. This is how Cloudflare mitigated the 31.4 Tbit/s attack of 2025 without human intervention~\cite{thn_aisuru}.
+
+The limits are mostly organizational. The customer depends on a third party and its prices, and since traffic passes through the provider, it has to trust it with the data (for HTTPS, the provider typically terminates TLS). Attackers may also bypass the protection by hitting the origin server's real address, if they know it.
+
+\subsection{eBPF and XDP}
+
+eBPF lets small, verified programs run inside the Linux kernel without changing the kernel. The eXpress Data Path (XDP) is a hook for such programs at the earliest possible point, in the network driver, before the kernel has allocated its usual packet structures~\cite{xdp}. A program can inspect each packet, look up its source in a table (an eBPF map) and pass or drop it. Dropping early saves most of the work of the network stack, so one server can discard packets at very high rates. Think of a bouncer who turns visitors away at the door, before they reach the receptionist. Cloudflare uses XDP in exactly this way for L4Drop~\cite{cf_dosd}.
+
+The limits differ from Cloudflare's. XDP needs Linux and programming expertise, and the operator writes and maintains the rules. The bigger limit is that it protects the host and not the link: if an attack fills the incoming link, packets are lost before they reach the machine. This is why the two defenses complement each other (Table~\ref{tab:defcompare}). We will work with XDP in Lab~4.
+
+\begin{table}[ht]
+	\centering
+	\small
+	\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+		\toprule
+		 & Cloudflare & eBPF / XDP \\
+		\midrule
+		Where & in the provider's network, in many locations & on one Linux host, in the network driver \\
+		Strength & absorbs very large volumes; automatic & very fast packet dropping; full control, no third party \\
+		Weakness & dependency, cost, trust in the provider & cannot protect a saturated link; needs expertise \\
+		Best against & volumetric and application-layer floods & protocol floods that reach the host (e.g.\ SYN, UDP) \\
+		\bottomrule
+	\end{tabularx}
+	\caption{Comparison of the two defenses.}
+	\label{tab:defcompare}
+\end{table}

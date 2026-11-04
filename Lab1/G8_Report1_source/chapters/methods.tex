@@ -1,0 +1,26 @@
+\chapter{Methods}\label{chap:methods}
+
+\section{Wireshark}
+
+Wireshark is a free, open-source packet analyzer. It records the frames that pass through a network interface and shows them in three panes: the packet list, the details of the selected packet layer by layer, and the raw bytes. It offers two kinds of filters. A \emph{capture filter} (BPF syntax) is set before recording and discards all other packets for good, whereas a \emph{display filter} only hides packets that are all still stored. We used display filters throughout~\cite{wireshark_guide}.
+
+\section{Test Setup}
+
+All captures were made on one laptop with Ubuntu 24.04.5 LTS and Wireshark 4.2.2, on its Wi-Fi interface (\texttt{wlp3s0}) in our own home network (laptop 192.168.178.23, router 192.168.178.1). We only captured our own traffic, on 20 October 2026. For every exercise, we started a fresh capture, generated the traffic, stopped the capture and applied a display filter. Table~\ref{tab:exercises} lists the exercises.
+
+\begin{table}[ht]
+	\centering
+	\small
+	\begin{tabularx}{\textwidth}{@{}lXX@{}}
+		\toprule
+		Exercise & Traffic generated & Display filter \\
+		\midrule
+		1 ICMP & \texttt{ping -c 4 google.com} & \texttt{icmp or icmpv6} \\
+		2 DNS & Prime Video in the browser, \texttt{nslookup primevideo.com} & \texttt{dns} \\
+		3 TCP and HTTP & \texttt{curl -I http://neverssl.com} & \texttt{tcp.flags.syn == 1 or tcp.flags.ack == 1 and tcp.stream eq 0}, then \texttt{tcp.stream eq 0} and \emph{Follow TCP Stream} \\
+		4 TLS & \texttt{curl https://google.com} & \texttt{tls} \\
+		\bottomrule
+	\end{tabularx}
+	\caption{The Wireshark exercises.}
+	\label{tab:exercises}
+\end{table}
