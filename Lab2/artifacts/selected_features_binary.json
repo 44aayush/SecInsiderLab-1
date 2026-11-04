@@ -1,0 +1,27 @@
+{
+  "target": "binary",
+  "score_func": "chi2",
+  "k": 20,
+  "features": [
+    "Init_Win_bytes_backward",
+    "PSH Flag Count",
+    "Init_Win_bytes_forward",
+    "ACK Flag Count",
+    "Destination Port",
+    "Bwd IAT Total",
+    "Down/Up Ratio",
+    "Fwd IAT Std",
+    "Fwd PSH Flags",
+    "Bwd Packet Length Min",
+    "Idle Max",
+    "Idle Mean",
+    "Idle Min",
+    "URG Flag Count",
+    "Packet Length Mean",
+    "min_seg_size_forward",
+    "Bwd Packet Length Mean",
+    "Bwd IAT Max",
+    "Fwd IAT Total",
+    "Flow Duration"
+  ]
+}

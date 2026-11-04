@@ -1,0 +1,16 @@
+% !TeX encoding = UTF-8
+\chapter{Task 2: The CIC-IDS2017 Dataset}\label{chap:task2_dataset}
+
+CIC-IDS2017 was created by the Canadian Institute for Cybersecurity at the University of New Brunswick~\cite{sharafaldin2018cicids,cicids2017_web}. The flows were extracted with CICFlowMeter~\cite{lashkari2017cicflowmeter}. We use the pre-computed ``MachineLearningCSV'' file \texttt{Thursday-WorkingHours-Morning-WebAttacks.pcap\_ISCX.csv} (52\,MB). It has 170,366 flows and 79 columns: 78 numeric flow features and the \texttt{Label}. It contains no flow ID, IP address or timestamp columns, but \texttt{Destination Port} is present. According to the dataset paper, the attacks (Brute Force, cross-site scripting and SQL injection) were run against the Damn Vulnerable Web Application (DVWA) and automated with Selenium on Thursday morning.
+
+Table~\ref{tab:t2labels} shows the label distribution before and after cleaning (Chapter~\ref{chap:task3_preprocessing}). The dataset is extremely imbalanced: attacks are only 1.28\,\% of the raw flows, and there are just 21 SQL injection flows. A classifier that always answers ``BENIGN'' would already be 98.7\,\% accurate, so accuracy alone is meaningless here, and we report per-class precision, recall and F1, the macro-F1 and confusion matrices throughout. All 2,180 attack flows target destination port 80, while benign traffic is spread over many ports (53, 443, 80, 123, 22, \ldots). This will turn out to be a shortcut that models can exploit (Chapter~\ref{chap:discussion}).
+
+\begin{table}[ht]
+	\centering\small
+	\input{tables/t2_labels}
+	\caption{Label distribution of the Thursday file, raw and after the cleaning steps of Chapter~\ref{chap:task3_preprocessing}.}
+	\label{tab:t2labels}
+\end{table}
+
+
+\FloatBarrier

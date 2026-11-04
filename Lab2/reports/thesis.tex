@@ -1,0 +1,252 @@
+% !TeX spellcheck = en_US
+% !TeX encoding = UTF-8
+
+% COMPILE WITH:
+% `latexmk`
+% You need lualatex and biber (in all TeXLive distributions)
+
+\documentclass[
+numbers=noenddot,
+fontsize=11pt,
+paper=a4,
+oneside,
+titlepage,
+bibliography=totoc,
+chapterprefix=false,
+DIV=calc,
+headheight=14pt,
+footheight=14pt,
+%    draft
+]{scrbook}
+
+% LuaLaTeX-compatible font, graphics, spacing, and typography support.
+\usepackage{fontspec}
+\usepackage{graphicx}
+\usepackage{geometry}
+\geometry{a4paper,margin=2cm,includeheadfoot}
+\usepackage{setspace}
+\setstretch{1}
+\usepackage[protrusion=false]{microtype}
+\usepackage{etoolbox}
+\usepackage{needspace}
+
+% better language support
+\usepackage{polyglossia}
+\setdefaultlanguage{english}
+\setotherlanguage{german}
+
+\usepackage{tocbasic}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{multirow}
+
+\usepackage{scrlayer-scrpage}
+
+% better bibliography (biblatex style)
+% use biber to compile
+\usepackage[citestyle=alphabetic, bibstyle=alphabetic, sorting=nyt, backend=biber, language=english, backref=true, maxcitenames=2]{biblatex}
+% better quotes
+% use \enquote{text}
+\usepackage[autostyle,english=american,german=quotes]{csquotes}
+\addbibresource{bibliography.bib}
+
+% appendix
+\usepackage[titletoc]{appendix}
+
+% Allow natural line breaking in long prose, code fragments, and URLs.
+\setlength{\emergencystretch}{6em}
+% Keep the bibliography compact enough for the report page limit.
+\AtBeginBibliography{\footnotesize\sloppy\raggedright}
+\setlength{\bibitemsep}{0pt}
+\setlength{\bibnamesep}{0pt}
+\setlength{\bibinitsep}{0pt}
+% Omit titles only for redundant online/news sources while retaining authors,
+% dates, URLs, and citation information.
+\AtEveryBibitem{\ifkeyword{notitle}{\clearfield{title}}{}}
+\setcounter{biburlnumpenalty}{0}
+\setcounter{biburlucpenalty}{0}
+\setcounter{biburllcpenalty}{0}
+
+% Compact, continuous sectioning for the requested short A4 layout.
+\newcommand*{\compactchapterspace}{\par}
+\AddtoDoHook{heading/preinit/chapter}{\compactchapterspace}
+\RedeclareSectionCommand[beforeskip=0pt,afterskip=0.45\baselineskip]{chapter}
+\RedeclareSectionCommand[beforeskip=0.75\baselineskip,afterskip=0.2\baselineskip]{section}
+\RedeclareSectionCommand[beforeskip=0.5\baselineskip,afterskip=0.15\baselineskip]{subsection}
+\RedeclareSectionCommand[beforeskip=0.4\baselineskip]{paragraph}
+\setkomafont{chapter}{\normalfont\Large\bfseries}
+\setkomafont{section}{\normalfont\large\bfseries}
+\setkomafont{subsection}{\normalfont\normalsize\bfseries}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5pt plus 0.25pt minus 0.25pt}
+\setlength{\textfloatsep}{5pt plus 2pt minus 2pt}
+\setlength{\floatsep}{4pt plus 2pt minus 2pt}
+\setlength{\intextsep}{5pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{2pt}
+\setlength{\belowcaptionskip}{0pt}
+\setcounter{topnumber}{5}
+\setcounter{bottomnumber}{5}
+\setcounter{totalnumber}{10}
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\bottomfraction}{0.95}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.8}
+
+% where to put all images and figures
+\graphicspath{{images/}{../SS/}{../outputs/task3/figures/}{../outputs/task4/figures/}}
+
+% YOUR PACKAGES
+\usepackage{xcolor}
+\usepackage{placeins}
+\usepackage{listings}
+\usepackage{subcaption}
+\setmonofont{DejaVu Sans Mono}[Scale=MatchLowercase]
+
+% Python listing style (code is included from the real source files)
+\lstdefinestyle{py}{
+	language=Python,
+	basicstyle=\ttfamily\scriptsize,
+	numbers=left,
+	numberstyle=\tiny\color{gray},
+	frame=tb,
+	breaklines=true,
+	columns=fullflexible,
+	showstringspaces=false,
+	keepspaces=true,
+	extendedchars=true,
+	keywordstyle=\color{blue!60!black},
+	commentstyle=\color{green!40!black}\itshape,
+	stringstyle=\color{red!50!black},
+	aboveskip=4pt,
+	belowskip=2pt,
+	captionpos=t,
+	literate=
+		{→}{{\texttt{->}}}1
+		{−}{{-}}1
+		{≥}{{>=}}1
+		{≤}{{<=}}1
+		{×}{{x}}1
+		{�}{{?}}1
+}
+\lstset{style=py}
+\renewcommand{\lstlistingname}{Listing}
+
+% Screenshot figure: shows the image if ../SS/<name>.png exists, else a pending box
+\newcommand{\ssfig}[4][\linewidth]{%
+	\begin{figure}[ht]
+		\centering
+		\IfFileExists{../SS/#2.png}{\includegraphics[width=#1]{../SS/#2.png}}{\fbox{\parbox{0.8\linewidth}{\centering\vspace{0.5cm}Screenshot #2 pending\vspace{0.5cm}}}}
+		\caption{#3}\label{#4}
+	\end{figure}}
+
+
+% Title
+\title{Lab 2: Machine Learning for Network Attack Detection}
+
+% Author
+\newcommand{\authorA}{Justlyn Kaniyanthara Johnson}
+\newcommand{\authorB}{Aayush Kapoor}
+\author{\authorA \& \authorB}
+
+% Group and matriculation numbers (used on the title page)
+\newcommand{\groupno}{8}
+\newcommand{\matrA}{121024}
+\newcommand{\matrB}{120957}
+
+% Date
+\date{\today}
+
+% CHOOSE ACCORDINGLY
+%\newcommand{\thesisType}{Bachelorarbeit}
+\newcommand{\thesisType}{MasterLab}
+
+\makeatletter
+\let\thetitle\@title
+\let\theauthor\@author
+\let\thedate\@date
+\patchcmd{\scr@startchapter}
+{\if@openright\cleardoublepage\else\clearpage\fi}
+{}{}
+{\PackageError{compact-layout}{Continuous chapter patch failed}
+	{Check the installed KOMA-Script chapter implementation.}}
+\makeatother
+
+% PDF metadata and robust links. Keep this near the end of the preamble.
+\usepackage{hyperref}
+\hypersetup{
+	unicode=true,
+	hidelinks,
+	pdftitle={Lab 2: Machine Learning for Network Attack Detection},
+	pdfauthor={\theauthor}
+}
+
+\pagestyle{scrheadings}
+\automark[chapter]{chapter}
+\chead{\leftmark}
+
+\begin{document}
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\frontmatter
+	% CHOOSE ACCORDINGLY
+	%\include{includes/BA-titlepage}
+	\input{includes/MA-titlepage}
+	
+	\tableofcontents
+	
+	% -- ABSTRACT
+	\clearpage
+	\input{includes/abstract}
+	
+	% -- Acknowledgements (optional, left out)
+	% \include{includes/acknowledgements}
+	% \newpage
+	
+	% -- List of figures
+\vspace{4\baselineskip}
+\listoffigures
+
+% -- List of tables
+\vspace{4\baselineskip}
+\listoftables
+
+% -- List of listings
+\vspace{4\baselineskip}
+\lstlistoflistings
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\mainmatter
+	
+	% -- Chapters
+	% following IMRaD structure
+	% adjust for your liking
+	\input{chapters/introduction}
+	\input{chapters/task1_flows}
+	\input{chapters/task2_dataset}
+	\input{chapters/task3_preprocessing}
+	\input{chapters/task4_ml}
+	\input{chapters/task4_realtime}
+	\input{chapters/discussion}
+	
+	% -- Appendix (optional, left out for now: the template's Code/Math/Dataset chapters are empty)
+	% \begin{appendices}
+		%     \input{appendix.tex}
+		% \end{appendices}
+	% \newpage
+	
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\backmatter
+	
+	% -- Bibliography
+	\printbibliography
+	
+	% -- Eidesstattliche Erklärung (= Affadavit)
+	\clearpage
+	\input{includes/eidesstattlicheErklaerung}
+	
+	
+\end{document}

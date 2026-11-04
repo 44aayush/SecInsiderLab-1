@@ -1,0 +1,409 @@
+{
+  "input_features": [
+    "Destination Port",
+    "Flow Duration",
+    "Total Fwd Packets",
+    "Total Backward Packets",
+    "Total Length of Fwd Packets",
+    "Total Length of Bwd Packets",
+    "Fwd Packet Length Max",
+    "Fwd Packet Length Min",
+    "Fwd Packet Length Mean",
+    "Fwd Packet Length Std",
+    "Bwd Packet Length Max",
+    "Bwd Packet Length Min",
+    "Bwd Packet Length Mean",
+    "Bwd Packet Length Std",
+    "Flow Bytes/s",
+    "Flow Packets/s",
+    "Flow IAT Mean",
+    "Flow IAT Std",
+    "Flow IAT Max",
+    "Flow IAT Min",
+    "Fwd IAT Total",
+    "Fwd IAT Mean",
+    "Fwd IAT Std",
+    "Fwd IAT Max",
+    "Fwd IAT Min",
+    "Bwd IAT Total",
+    "Bwd IAT Mean",
+    "Bwd IAT Std",
+    "Bwd IAT Max",
+    "Bwd IAT Min",
+    "Fwd PSH Flags",
+    "Fwd Header Length",
+    "Bwd Header Length",
+    "Fwd Packets/s",
+    "Bwd Packets/s",
+    "Min Packet Length",
+    "Max Packet Length",
+    "Packet Length Mean",
+    "Packet Length Std",
+    "Packet Length Variance",
+    "FIN Flag Count",
+    "RST Flag Count",
+    "PSH Flag Count",
+    "ACK Flag Count",
+    "URG Flag Count",
+    "Down/Up Ratio",
+    "Average Packet Size",
+    "Subflow Bwd Bytes",
+    "Init_Win_bytes_forward",
+    "Init_Win_bytes_backward",
+    "act_data_pkt_fwd",
+    "min_seg_size_forward",
+    "Active Mean",
+    "Active Std",
+    "Active Max",
+    "Active Min",
+    "Idle Mean",
+    "Idle Std",
+    "Idle Max",
+    "Idle Min"
+  ],
+  "random_state": 42,
+  "split": {
+    "test_size": 0.3,
+    "n_train": 114925,
+    "n_test": 49254,
+    "n_rows": 164179,
+    "stratify": "Label"
+  },
+  "trained_at": "2026-11-04T16:24:15.283025+00:00",
+  "versions": {
+    "python": "3.12.15",
+    "sklearn": "1.9.1",
+    "pandas": "3.1.0",
+    "numpy": "2.5.4"
+  },
+  "models": {
+    "binary_lr_default": {
+      "target": "binary",
+      "model": "lr_default",
+      "selected_features": [
+        "Destination Port",
+        "Flow Duration",
+        "Bwd Packet Length Min",
+        "Bwd Packet Length Mean",
+        "Fwd IAT Total",
+        "Fwd IAT Std",
+        "Bwd IAT Total",
+        "Bwd IAT Max",
+        "Fwd PSH Flags",
+        "Packet Length Mean",
+        "PSH Flag Count",
+        "ACK Flag Count",
+        "URG Flag Count",
+        "Down/Up Ratio",
+        "Init_Win_bytes_forward",
+        "Init_Win_bytes_backward",
+        "min_seg_size_forward",
+        "Idle Mean",
+        "Idle Max",
+        "Idle Min"
+      ],
+      "classes": [
+        0,
+        1
+      ],
+      "metrics": {
+        "accuracy": 0.9940106387298494,
+        "macro_f1": 0.8925946063678696,
+        "weighted_f1": 0.9942373685403995,
+        "per_class_f1": {
+          "BENIGN": 0.996962364207383,
+          "ATTACK": 0.7882268485283561
+        }
+      }
+    },
+    "binary_lr_balanced": {
+      "target": "binary",
+      "model": "lr_balanced",
+      "selected_features": [
+        "Destination Port",
+        "Flow Duration",
+        "Bwd Packet Length Min",
+        "Bwd Packet Length Mean",
+        "Fwd IAT Total",
+        "Fwd IAT Std",
+        "Bwd IAT Total",
+        "Bwd IAT Max",
+        "Fwd PSH Flags",
+        "Packet Length Mean",
+        "PSH Flag Count",
+        "ACK Flag Count",
+        "URG Flag Count",
+        "Down/Up Ratio",
+        "Init_Win_bytes_forward",
+        "Init_Win_bytes_backward",
+        "min_seg_size_forward",
+        "Idle Mean",
+        "Idle Max",
+        "Idle Min"
+      ],
+      "classes": [
+        0,
+        1
+      ],
+      "metrics": {
+        "accuracy": 0.9577496243959881,
+        "macro_f1": 0.6789308513923211,
+        "weighted_f1": 0.9703180036928046,
+        "per_class_f1": {
+          "BENIGN": 0.9781299591184723,
+          "ATTACK": 0.3797317436661699
+        }
+      }
+    },
+    "binary_dt_default": {
+      "target": "binary",
+      "model": "dt_default",
+      "selected_features": [
+        "Destination Port",
+        "Flow Duration",
+        "Bwd Packet Length Min",
+        "Bwd Packet Length Mean",
+        "Fwd IAT Total",
+        "Fwd IAT Std",
+        "Bwd IAT Total",
+        "Bwd IAT Max",
+        "Fwd PSH Flags",
+        "Packet Length Mean",
+        "PSH Flag Count",
+        "ACK Flag Count",
+        "URG Flag Count",
+        "Down/Up Ratio",
+        "Init_Win_bytes_forward",
+        "Init_Win_bytes_backward",
+        "min_seg_size_forward",
+        "Idle Mean",
+        "Idle Max",
+        "Idle Min"
+      ],
+      "classes": [
+        0,
+        1
+      ],
+      "metrics": {
+        "accuracy": 0.999634547447923,
+        "macro_f1": 0.9930055707268478,
+        "weighted_f1": 0.9996370359063377,
+        "per_class_f1": {
+          "BENIGN": 0.9998148224352907,
+          "ATTACK": 0.9861963190184049
+        }
+      }
+    },
+    "binary_dt_balanced": {
+      "target": "binary",
+      "model": "dt_balanced",
+      "selected_features": [
+        "Destination Port",
+        "Flow Duration",
+        "Bwd Packet Length Min",
+        "Bwd Packet Length Mean",
+        "Fwd IAT Total",
+        "Fwd IAT Std",
+        "Bwd IAT Total",
+        "Bwd IAT Max",
+        "Fwd PSH Flags",
+        "Packet Length Mean",
+        "PSH Flag Count",
+        "ACK Flag Count",
+        "URG Flag Count",
+        "Down/Up Ratio",
+        "Init_Win_bytes_forward",
+        "Init_Win_bytes_backward",
+        "min_seg_size_forward",
+        "Idle Mean",
+        "Idle Max",
+        "Idle Min"
+      ],
+      "classes": [
+        0,
+        1
+      ],
+      "metrics": {
+        "accuracy": 0.9996142445283632,
+        "macro_f1": 0.9925436437496264,
+        "weighted_f1": 0.9996149816174504,
+        "per_class_f1": {
+          "BENIGN": 0.9998045609307015,
+          "ATTACK": 0.9852827265685515
+        }
+      }
+    },
+    "multiclass_lr_default": {
+      "target": "multiclass",
+      "model": "lr_default",
+      "selected_features": [
+        "Destination Port",
+        "Bwd Packet Length Min",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Std",
+        "Fwd IAT Std",
+        "Bwd IAT Total",
+        "Bwd IAT Max",
+        "Fwd PSH Flags",
+        "Packet Length Mean",
+        "PSH Flag Count",
+        "ACK Flag Count",
+        "URG Flag Count",
+        "Down/Up Ratio",
+        "Average Packet Size",
+        "Init_Win_bytes_forward",
+        "Init_Win_bytes_backward",
+        "min_seg_size_forward",
+        "Idle Mean",
+        "Idle Max",
+        "Idle Min"
+      ],
+      "classes": [
+        "BENIGN",
+        "Web Attack - Brute Force",
+        "Web Attack - Sql Injection",
+        "Web Attack - XSS"
+      ],
+      "metrics": {
+        "accuracy": 0.9854022008364803,
+        "macro_f1": 0.24816185869576332,
+        "weighted_f1": 0.9796886436074025,
+        "per_class_f1": {
+          "BENIGN": 0.9926474347830533,
+          "Web Attack - Brute Force": 0.0,
+          "Web Attack - XSS": 0.0,
+          "Web Attack - Sql Injection": 0.0
+        }
+      }
+    },
+    "multiclass_lr_balanced": {
+      "target": "multiclass",
+      "model": "lr_balanced",
+      "selected_features": [
+        "Destination Port",
+        "Bwd Packet Length Min",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Std",
+        "Fwd IAT Std",
+        "Bwd IAT Total",
+        "Bwd IAT Max",
+        "Fwd PSH Flags",
+        "Packet Length Mean",
+        "PSH Flag Count",
+        "ACK Flag Count",
+        "URG Flag Count",
+        "Down/Up Ratio",
+        "Average Packet Size",
+        "Init_Win_bytes_forward",
+        "Init_Win_bytes_backward",
+        "min_seg_size_forward",
+        "Idle Mean",
+        "Idle Max",
+        "Idle Min"
+      ],
+      "classes": [
+        "BENIGN",
+        "Web Attack - Brute Force",
+        "Web Attack - Sql Injection",
+        "Web Attack - XSS"
+      ],
+      "metrics": {
+        "accuracy": 0.9321476428310391,
+        "macro_f1": 0.3190933476596864,
+        "weighted_f1": 0.9578656687020992,
+        "per_class_f1": {
+          "BENIGN": 0.9689263140033089,
+          "Web Attack - Brute Force": 0.07810650887573964,
+          "Web Attack - XSS": 0.22325043377674958,
+          "Web Attack - Sql Injection": 0.0060901339829476245
+        }
+      }
+    },
+    "multiclass_dt_default": {
+      "target": "multiclass",
+      "model": "dt_default",
+      "selected_features": [
+        "Destination Port",
+        "Bwd Packet Length Min",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Std",
+        "Fwd IAT Std",
+        "Bwd IAT Total",
+        "Bwd IAT Max",
+        "Fwd PSH Flags",
+        "Packet Length Mean",
+        "PSH Flag Count",
+        "ACK Flag Count",
+        "URG Flag Count",
+        "Down/Up Ratio",
+        "Average Packet Size",
+        "Init_Win_bytes_forward",
+        "Init_Win_bytes_backward",
+        "min_seg_size_forward",
+        "Idle Mean",
+        "Idle Max",
+        "Idle Min"
+      ],
+      "classes": [
+        "BENIGN",
+        "Web Attack - Brute Force",
+        "Web Attack - Sql Injection",
+        "Web Attack - XSS"
+      ],
+      "metrics": {
+        "accuracy": 0.9922848905672635,
+        "macro_f1": 0.7289527961178908,
+        "weighted_f1": 0.9922993767228311,
+        "per_class_f1": {
+          "BENIGN": 0.9981588718718821,
+          "Web Attack - Brute Force": 0.6125714285714285,
+          "Web Attack - XSS": 0.39598997493734334,
+          "Web Attack - Sql Injection": 0.9090909090909091
+        }
+      }
+    },
+    "multiclass_dt_balanced": {
+      "target": "multiclass",
+      "model": "dt_balanced",
+      "selected_features": [
+        "Destination Port",
+        "Bwd Packet Length Min",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Std",
+        "Fwd IAT Std",
+        "Bwd IAT Total",
+        "Bwd IAT Max",
+        "Fwd PSH Flags",
+        "Packet Length Mean",
+        "PSH Flag Count",
+        "ACK Flag Count",
+        "URG Flag Count",
+        "Down/Up Ratio",
+        "Average Packet Size",
+        "Init_Win_bytes_forward",
+        "Init_Win_bytes_backward",
+        "min_seg_size_forward",
+        "Idle Mean",
+        "Idle Max",
+        "Idle Min"
+      ],
+      "classes": [
+        "BENIGN",
+        "Web Attack - Brute Force",
+        "Web Attack - Sql Injection",
+        "Web Attack - XSS"
+      ],
+      "metrics": {
+        "accuracy": 0.9913103504283916,
+        "macro_f1": 0.564165396697871,
+        "weighted_f1": 0.9914722212601473,
+        "per_class_f1": {
+          "BENIGN": 0.9977467976747775,
+          "Web Attack - Brute Force": 0.5826771653543307,
+          "Web Attack - XSS": 0.37623762376237624,
+          "Web Attack - Sql Injection": 0.3
+        }
+      }
+    }
+  }
+}

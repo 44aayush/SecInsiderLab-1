@@ -1,0 +1,15 @@
+% !TeX encoding = UTF-8
+\chapter{Introduction}\label{chap:introduction}
+
+This report documents the second lab of the Security Insider Lab. Its goal is to detect network attacks with machine learning. Instead of inspecting packets one by one, we describe each network connection by a vector of statistical features (a \emph{flow}) and train classifiers to tell benign flows from attack flows. The lab has four tasks:
+
+\begin{enumerate}\setlength\itemsep{0pt}
+	\item \textbf{Task 1:} we capture our own traffic and convert it into flows with CICFlowMeter.
+	\item \textbf{Task 2:} we choose and analyze a labeled flow dataset, CIC-IDS2017.
+	\item \textbf{Task 3:} we pre-process the dataset: we handle infinite and missing values, scale the features, and select the 20 most informative ones.
+	\item \textbf{Task 4:} we train Logistic Regression and Decision Tree classifiers, evaluate them, and apply the best model to the flows of our own capture.
+\end{enumerate}
+
+\paragraph{Dataset choice.} The lab slides suggest the Friday DDoS file of CIC-IDS2017. We deliberately chose a different one, \texttt{Thursday-WorkingHours-Morning-WebAttacks}. Web attacks (Brute Force, cross-site scripting and SQL injection against a web application) are low-volume, application-layer attacks. Their flows look like ordinary HTTP requests. For a volumetric DDoS attack, the traffic volume alone reveals the attack. Web attacks are therefore harder, and in our view more interesting, to detect from flow features.
+
+\paragraph{Structure.} Chapter~\ref{chap:task1_flows} describes how we produced flows from our own capture and the problems we ran into. Chapter~\ref{chap:task2_dataset} introduces the dataset, Chapter~\ref{chap:task3_preprocessing} the pre-processing, and Chapter~\ref{chap:task4_ml} the classifiers and their evaluation. Chapter~\ref{chap:task4_realtime} applies the best model to our own flows, and Chapter~\ref{chap:discussion} discusses the results and limitations. All code is in our \texttt{lab2ids} Python package; the listings in this report are excerpts of the real source files.

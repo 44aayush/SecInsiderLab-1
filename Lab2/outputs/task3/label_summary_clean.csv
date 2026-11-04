@@ -1,0 +1,5 @@
+Label,count,percent,ratio_to_benign
+BENIGN,162036,98.6947,1.0
+Web Attack - Brute Force,1470,0.8954,0.009072
+Web Attack - XSS,652,0.3971,0.004024
+Web Attack - Sql Injection,21,0.0128,0.00013

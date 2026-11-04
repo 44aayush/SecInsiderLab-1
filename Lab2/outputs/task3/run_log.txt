@@ -1,0 +1,109 @@
+INFO drop_duplicate_header_column: rows 170366 -> 170366, cols 79 -> 78 {'dropped': ['Fwd Header Length.1']}
+INFO replace_inf_with_nan: rows 170366 -> 170366, cols 78 -> 78 {'inf_per_column': {'Flow Bytes/s': 115, 'Flow Packets/s': 135}, 'nan_per_column': {'Flow Bytes/s': 20}}
+INFO drop_nan_rows: rows 170366 -> 170231, cols 78 -> 78 {'dropped_rows': 135, 'dropped_by_label': {'BENIGN': 135}}
+INFO drop_duplicate_rows: rows 170231 -> 164179, cols 78 -> 78 {'dropped_rows': 6052, 'dropped_by_label': {'BENIGN': 6015, 'Web Attack - Brute Force': 37}}
+INFO drop_constant_columns: rows 164179 -> 164179, cols 78 -> 68 {'dropped': ['Bwd PSH Flags', 'Fwd URG Flags', 'Bwd URG Flags', 'CWE Flag Count', 'Fwd Avg Bytes/Bulk', 'Fwd Avg Packets/Bulk', 'Fwd Avg Bulk Rate', 'Bwd Avg Bytes/Bulk', 'Bwd Avg Packets/Bulk', 'Bwd Avg Bulk Rate']}
+INFO drop_identical_columns: rows 164179 -> 164179, cols 68 -> 61 {'dropped': ['SYN Flag Count', 'ECE Flag Count', 'Avg Fwd Segment Size', 'Avg Bwd Segment Size', 'Subflow Fwd Packets', 'Subflow Fwd Bytes', 'Subflow Bwd Packets'], 'pairs': [['Fwd PSH Flags', 'SYN Flag Count'], ['RST Flag Count', 'ECE Flag Count'], ['Fwd Packet Length Mean', 'Avg Fwd Segment Size'], ['Bwd Packet Length Mean', 'Avg Bwd Segment Size'], ['Total Fwd Packets', 'Subflow Fwd Packets'], ['Total Length of Fwd Packets', 'Subflow Fwd Bytes'], ['Total Backward Packets', 'Subflow Bwd Packets']], 'atol': 1e-06}
+
+========================================================================
+Raw label summary
+========================================================================
+                             count  percent  ratio_to_benign
+Label                                                       
+BENIGN                      168186  98.7204         1.000000
+Web Attack - Brute Force      1507   0.8846         0.008960
+Web Attack - XSS               652   0.3827         0.003877
+Web Attack - Sql Injection      21   0.0123         0.000125
+
+========================================================================
+Cleaning steps
+========================================================================
+- drop_duplicate_header_column: rows 170366 -> 170366, cols 79 -> 78
+    dropped: ['Fwd Header Length.1']
+- replace_inf_with_nan: rows 170366 -> 170366, cols 78 -> 78
+    inf_per_column: {'Flow Bytes/s': 115, 'Flow Packets/s': 135}
+    nan_per_column: {'Flow Bytes/s': 20}
+- drop_nan_rows: rows 170366 -> 170231, cols 78 -> 78
+    dropped_rows: 135
+    dropped_by_label: {'BENIGN': 135}
+- drop_duplicate_rows: rows 170231 -> 164179, cols 78 -> 78
+    dropped_rows: 6052
+    dropped_by_label: {'BENIGN': 6015, 'Web Attack - Brute Force': 37}
+- drop_constant_columns: rows 164179 -> 164179, cols 78 -> 68
+    dropped: ['Bwd PSH Flags', 'Fwd URG Flags', 'Bwd URG Flags', 'CWE Flag Count', 'Fwd Avg Bytes/Bulk', 'Fwd Avg Packets/Bulk', 'Fwd Avg Bulk Rate', 'Bwd Avg Bytes/Bulk', 'Bwd Avg Packets/Bulk', 'Bwd Avg Bulk Rate']
+- drop_identical_columns: rows 164179 -> 164179, cols 68 -> 61
+    dropped: ['SYN Flag Count', 'ECE Flag Count', 'Avg Fwd Segment Size', 'Avg Bwd Segment Size', 'Subflow Fwd Packets', 'Subflow Fwd Bytes', 'Subflow Bwd Packets']
+    pairs: [['Fwd PSH Flags', 'SYN Flag Count'], ['RST Flag Count', 'ECE Flag Count'], ['Fwd Packet Length Mean', 'Avg Fwd Segment Size'], ['Bwd Packet Length Mean', 'Avg Bwd Segment Size'], ['Total Fwd Packets', 'Subflow Fwd Packets'], ['Total Length of Fwd Packets', 'Subflow Fwd Bytes'], ['Total Backward Packets', 'Subflow Bwd Packets']]
+    atol: 1e-06
+
+Final: 164179 rows x 60 features (+ Label, binary_label)
+
+========================================================================
+Final label summary
+========================================================================
+                             count  percent  ratio_to_benign
+Label                                                       
+BENIGN                      162036  98.6947         1.000000
+Web Attack - Brute Force      1470   0.8954         0.009072
+Web Attack - XSS               652   0.3971         0.004024
+Web Attack - Sql Injection      21   0.0128         0.000130
+
+========================================================================
+Split class counts (70/30, stratified on Label)
+========================================================================
+                             train   test
+Label                                    
+BENIGN                      113425  48611
+Web Attack - Brute Force      1029    441
+Web Attack - XSS               456    196
+Web Attack - Sql Injection      15      6
+
+========================================================================
+Top features by chi2: binary
+========================================================================
+ rank                 feature  score   p_value
+    1 Init_Win_bytes_backward   4525         0
+    2          PSH Flag Count   2929         0
+    3  Init_Win_bytes_forward   1617         0
+    4          ACK Flag Count  238.4 8.943e-54
+    5        Destination Port  185.4 3.256e-42
+    6           Bwd IAT Total  100.4 1.238e-23
+    7           Down/Up Ratio  75.32 3.998e-18
+    8             Fwd IAT Std  68.76 1.115e-16
+    9           Fwd PSH Flags  68.03 1.612e-16
+   10   Bwd Packet Length Min  56.82 4.768e-14
+   11                Idle Max   49.8 1.699e-12
+   12               Idle Mean  48.52 3.268e-12
+   13                Idle Min  46.57 8.852e-12
+   14          URG Flag Count  44.97 1.996e-11
+   15      Packet Length Mean  41.21 1.365e-10
+   16    min_seg_size_forward  40.12 2.385e-10
+   17  Bwd Packet Length Mean  39.02 4.202e-10
+   18             Bwd IAT Max  38.44 5.655e-10
+   19           Fwd IAT Total  38.11 6.678e-10
+   20           Flow Duration  37.96 7.216e-10
+
+========================================================================
+Top features by chi2: multiclass
+========================================================================
+ rank                 feature  score   p_value
+    1 Init_Win_bytes_backward   4597         0
+    2          PSH Flag Count   2937         0
+    3  Init_Win_bytes_forward   1621         0
+    4          ACK Flag Count    246  4.76e-53
+    5        Destination Port  185.4   6.1e-40
+    6           Bwd IAT Total  100.4 1.249e-21
+    7           Down/Up Ratio   77.2 1.225e-16
+    8             Fwd IAT Std  70.42 3.468e-15
+    9          URG Flag Count  69.62 5.135e-15
+   10           Fwd PSH Flags  68.03 1.129e-14
+   11   Bwd Packet Length Min  56.82 2.803e-12
+   12                Idle Max   49.8 8.797e-11
+   13               Idle Mean  48.52  1.65e-10
+   14   Bwd Packet Length Std  47.63 2.559e-10
+   15                Idle Min  46.57 4.296e-10
+   16      Packet Length Mean  42.83 2.675e-09
+   17  Bwd Packet Length Mean   41.5 5.128e-09
+   18    min_seg_size_forward  40.12 1.004e-08
+   19     Average Packet Size  39.13 1.627e-08
+   20             Bwd IAT Max  38.67 2.044e-08

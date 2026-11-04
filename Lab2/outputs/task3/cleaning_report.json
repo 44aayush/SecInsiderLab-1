@@ -1,0 +1,181 @@
+{
+  "raw_label_summary": [
+    {
+      "Label": "BENIGN",
+      "count": 168186,
+      "percent": 98.7204,
+      "ratio_to_benign": 1.0
+    },
+    {
+      "Label": "Web Attack - Brute Force",
+      "count": 1507,
+      "percent": 0.8846,
+      "ratio_to_benign": 0.00896
+    },
+    {
+      "Label": "Web Attack - XSS",
+      "count": 652,
+      "percent": 0.3827,
+      "ratio_to_benign": 0.003877
+    },
+    {
+      "Label": "Web Attack - Sql Injection",
+      "count": 21,
+      "percent": 0.0123,
+      "ratio_to_benign": 0.000125
+    }
+  ],
+  "steps": [
+    {
+      "step": "drop_duplicate_header_column",
+      "rows_before": 170366,
+      "cols_before": 79,
+      "rows_after": 170366,
+      "cols_after": 78,
+      "dropped": [
+        "Fwd Header Length.1"
+      ]
+    },
+    {
+      "step": "replace_inf_with_nan",
+      "rows_before": 170366,
+      "cols_before": 78,
+      "rows_after": 170366,
+      "cols_after": 78,
+      "inf_per_column": {
+        "Flow Bytes/s": 115,
+        "Flow Packets/s": 135
+      },
+      "nan_per_column": {
+        "Flow Bytes/s": 20
+      }
+    },
+    {
+      "step": "drop_nan_rows",
+      "rows_before": 170366,
+      "cols_before": 78,
+      "rows_after": 170231,
+      "cols_after": 78,
+      "dropped_rows": 135,
+      "dropped_by_label": {
+        "BENIGN": 135
+      }
+    },
+    {
+      "step": "drop_duplicate_rows",
+      "rows_before": 170231,
+      "cols_before": 78,
+      "rows_after": 164179,
+      "cols_after": 78,
+      "dropped_rows": 6052,
+      "dropped_by_label": {
+        "BENIGN": 6015,
+        "Web Attack - Brute Force": 37
+      }
+    },
+    {
+      "step": "drop_constant_columns",
+      "rows_before": 164179,
+      "cols_before": 78,
+      "rows_after": 164179,
+      "cols_after": 68,
+      "dropped": [
+        "Bwd PSH Flags",
+        "Fwd URG Flags",
+        "Bwd URG Flags",
+        "CWE Flag Count",
+        "Fwd Avg Bytes/Bulk",
+        "Fwd Avg Packets/Bulk",
+        "Fwd Avg Bulk Rate",
+        "Bwd Avg Bytes/Bulk",
+        "Bwd Avg Packets/Bulk",
+        "Bwd Avg Bulk Rate"
+      ]
+    },
+    {
+      "step": "drop_identical_columns",
+      "rows_before": 164179,
+      "cols_before": 68,
+      "rows_after": 164179,
+      "cols_after": 61,
+      "dropped": [
+        "SYN Flag Count",
+        "ECE Flag Count",
+        "Avg Fwd Segment Size",
+        "Avg Bwd Segment Size",
+        "Subflow Fwd Packets",
+        "Subflow Fwd Bytes",
+        "Subflow Bwd Packets"
+      ],
+      "pairs": [
+        [
+          "Fwd PSH Flags",
+          "SYN Flag Count"
+        ],
+        [
+          "RST Flag Count",
+          "ECE Flag Count"
+        ],
+        [
+          "Fwd Packet Length Mean",
+          "Avg Fwd Segment Size"
+        ],
+        [
+          "Bwd Packet Length Mean",
+          "Avg Bwd Segment Size"
+        ],
+        [
+          "Total Fwd Packets",
+          "Subflow Fwd Packets"
+        ],
+        [
+          "Total Length of Fwd Packets",
+          "Subflow Fwd Bytes"
+        ],
+        [
+          "Total Backward Packets",
+          "Subflow Bwd Packets"
+        ]
+      ],
+      "atol": 1e-06
+    }
+  ],
+  "inf_per_column": {
+    "Flow Bytes/s": 115,
+    "Flow Packets/s": 135
+  },
+  "nan_per_column": {
+    "Flow Bytes/s": 20
+  },
+  "final_shape": [
+    164179,
+    62
+  ],
+  "n_features": 60,
+  "final_label_summary": [
+    {
+      "Label": "BENIGN",
+      "count": 162036,
+      "percent": 98.6947,
+      "ratio_to_benign": 1.0
+    },
+    {
+      "Label": "Web Attack - Brute Force",
+      "count": 1470,
+      "percent": 0.8954,
+      "ratio_to_benign": 0.009072
+    },
+    {
+      "Label": "Web Attack - XSS",
+      "count": 652,
+      "percent": 0.3971,
+      "ratio_to_benign": 0.004024
+    },
+    {
+      "Label": "Web Attack - Sql Injection",
+      "count": 21,
+      "percent": 0.0128,
+      "ratio_to_benign": 0.00013
+    }
+  ]
+}
