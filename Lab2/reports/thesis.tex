@@ -136,7 +136,7 @@ footheight=14pt,
 
 % Screenshot figure: shows the image if ../SS/<name>.png exists, else a pending box
 \newcommand{\ssfig}[4][\linewidth]{%
-	\begin{figure}[ht]
+	\begin{figure}[htb]
 		\centering
 		\IfFileExists{../SS/#2.png}{\includegraphics[width=#1]{../SS/#2.png}}{\fbox{\parbox{0.8\linewidth}{\centering\vspace{0.5cm}Screenshot #2 pending\vspace{0.5cm}}}}
 		\caption{#3}\label{#4}

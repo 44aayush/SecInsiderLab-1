@@ -1,7 +1,7 @@
 % !TeX encoding = UTF-8
 \chapter{Task 3: Data Pre-processing}\label{chap:task3_preprocessing}
 
-The task asks us to analyze the labels, handle infinite and NaN values, scale the features with min-max scaling and select the 20 best features with \texttt{SelectKBest}. We implemented this in Python 3.12 with pandas and scikit-learn~\cite{pedregosa2011sklearn} (module \texttt{data.py}, \texttt{features.py} and the script \texttt{task3\_preprocess.py}). The steps are, in this order:
+The task asks us to analyze the labels, handle infinite and NaN values, scale the features with min-max scaling and select the 20 best features with \texttt{SelectKBest}. We implemented this in Python 3.12 with pandas and scikit-learn~\cite{pedregosa2011sklearn} (modules \texttt{data.py} and \texttt{features.py}, script \texttt{task3\_preprocess.py}). The steps are, in this order:
 
 \begin{enumerate}\setlength\itemsep{0pt}
 	\item \textbf{Load and analyze labels.} 65 of the 79 column names carry stray leading spaces and are stripped. The en dash in the attack labels was stored as an invalid byte and decodes as U+FFFD (``\texttt{Web Attack \char"FFFD{} XSS}''). We read the file as UTF-8 with replacement, map that character to ``-'' and collapse whitespace. Every label is validated against the four expected classes.
@@ -22,7 +22,7 @@ The column-level steps 5 and 6 use feature values only, never labels, so they le
 
 \section{Results}\label{sec:t3-results}
 
-Table~\ref{tab:t3cleaning} lists the cleaning steps with their effect, and Table~\ref{tab:t3removed} the removed columns. The 14 of the 6,066 duplicate rows of the raw file that contain infinite or NaN values were already removed in step 3, which leaves 6,052 for step 4. The six bulk-transfer features are always 0 in this CICFlowMeter version. Notably, \texttt{Fwd PSH Flags} is identical to \texttt{SYN Flag Count}, although these are different TCP flags. This points to a feature-extraction problem in the CICFlowMeter version used for CIC-IDS2017, in line with the literature~\cite{engelen2021troubleshooting}.
+Table~\ref{tab:t3cleaning} lists the cleaning steps with their effect, and Table~\ref{tab:t3removed} the removed columns. The raw file has 6,066 duplicate rows, but 14 of them contain infinite or NaN values and are already gone after step 3, so step 4 drops 6,052. The six bulk-transfer features are always 0 in this CICFlowMeter version. \texttt{Fwd PSH Flags} is identical to \texttt{SYN Flag Count}, although PSH and SYN are different TCP flags. This points to a feature-extraction problem in the CICFlowMeter version used for CIC-IDS2017, in line with the literature~\cite{engelen2021troubleshooting}.
 
 \begin{table}[ht]
 	\centering\small
@@ -68,7 +68,7 @@ After cleaning, 164,179 flows with 60 features remain, of which 2,143 (1.31\,\%)
 	\label{fig:ss19}
 \end{figure}
 
-Table~\ref{tab:t3scaling} shows six features before and after scaling (training set). Across all 60 training columns, the scaled minimum is exactly 0 and the maximum 1 (up to floating-point rounding). The heavy-tailed durations, with maxima near the 120\,s timeout, end up with small means after scaling.
+Table~\ref{tab:t3scaling} shows six features before and after scaling (training set). Across all 60 training columns, the scaled minimum is 0 and the maximum 1 (up to floating-point rounding). The heavy-tailed durations, with maxima near the 120\,s timeout, end up with small means after scaling.
 
 \begin{table}[ht]
 	\centering\small
@@ -77,7 +77,7 @@ Table~\ref{tab:t3scaling} shows six features before and after scaling (training 
 	\label{tab:t3scaling}
 \end{table}
 
-Table~\ref{tab:t3top20} lists the 20 selected features per target and Figure~\ref{fig:fsbin} shows the binary scores. The two lists share 18 of 20 features: only \texttt{Fwd IAT Total} and \texttt{Flow Duration} are specific to the binary target, and only \texttt{Average Packet Size} and \texttt{Bwd Packet Length Std} to the multiclass target. The scores are dominated by the top three features (above 1,600 each, against less than 250 for the rest), which is why ranks 6--20 look similar on the linear axis.
+The binary and multiclass feature lists share 18 of 20 features (Table~\ref{tab:t3top20}; binary scores in Figure~\ref{fig:fsbin}): only \texttt{Fwd IAT Total} and \texttt{Flow Duration} are specific to the binary target, and only \texttt{Average Packet Size} and \texttt{Bwd Packet Length Std} to the multiclass target. The top three features score above 1,600 each and the rest below 250, so ranks 6--20 look alike on the linear axis.
 
 \begin{table}[ht]
 	\centering\small
@@ -110,6 +110,6 @@ Table~\ref{tab:t3top20} lists the 20 selected features per target and Figure~\re
 
 \section{Interpretation}\label{sec:t3-interp}
 
-The ranking tells us what the data lets a model learn, and some of it is testbed-specific. The initial TCP window sizes (\texttt{Init\_Win\_bytes\_backward} and \texttt{\_forward}) dominate, but they depend on the operating systems and TCP stacks of the hosts in the 2017 testbed, not on the attack. \texttt{Destination Port} is a shortcut: every attack targets port 80, so a model can learn ``port 80 is suspicious'' instead of the attack behavior. The flag features (\texttt{PSH}, \texttt{ACK}, \texttt{URG}, \texttt{Fwd PSH Flags}) capture HTTP request and response patterns, and the timing features (\texttt{IAT}, \texttt{Idle}, \texttt{Flow Duration}) plausibly capture the regular pacing of the automated attacks. We expect the testbed-specific features to generalize poorly to our own traffic. The $\chi^2$ test on min-max-scaled continuous data is also only a heuristic: it treats scaled values like frequencies, and heavy-tailed features such as \texttt{Flow Bytes/s} are squeezed towards 0, which lowers their scores. The ranking therefore depends on the scaling. The multiclass ranking is given in the right half of Table~\ref{tab:t3top20}.
+Several of the top features are specific to the 2017 testbed. The initial TCP window sizes (\texttt{Init\_Win\_bytes\_backward} and \texttt{\_forward}) dominate, but they depend on the operating systems and TCP stacks of the hosts in the 2017 testbed, not on the attack. \texttt{Destination Port} is a shortcut: every attack targets port 80, so a model can learn ``port 80 is suspicious'' instead of the attack behavior. The flag features (\texttt{PSH}, \texttt{ACK}, \texttt{URG}, \texttt{Fwd PSH Flags}) capture HTTP request and response patterns, and the timing features (\texttt{IAT}, \texttt{Idle}, \texttt{Flow Duration}) plausibly capture the regular pacing of the automated attacks. We expect the testbed-specific features to generalize poorly to our own traffic. The $\chi^2$ test on min-max-scaled continuous data is also only a heuristic: it treats scaled values like frequencies, and heavy-tailed features such as \texttt{Flow Bytes/s} are squeezed towards 0, which lowers their scores. The ranking therefore depends on the scaling.
 
 \FloatBarrier

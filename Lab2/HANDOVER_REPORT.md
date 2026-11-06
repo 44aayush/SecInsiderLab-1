@@ -420,7 +420,8 @@ The metrics are deterministic and were reproduced exactly in three independent r
 | `SS/SS13.png` | Final unit tests: **21 passed**. |
 | `SS/SS14.png` | Final full-dataset tests: **3 passed** (Task 3 numbers, Task 4 regression guards, real-time parity). |
 | `SS/SS15.png` | Wireshark protocol hierarchy of `task1_lab2.pcapng`: IPv4 99.9 % (81,060 of 81,110 packets), IPv6 24 packets (Task 1). |
-| `SS/SS16.png` | **Pending:** a CICFlowMeter offline-conversion screenshot from the teammate who ran Task 1/2. The report reserves a placeholder box for it. |
+| `SS/SS24.png` | Terminal: `sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1` → `= 1`. This is how IPv6 was disabled for the clean third capture (Task 1). |
+| `SS/SS25.png` | CICFlowMeter GUI, offline mode: input `benign_lab2_3.pcap` (the original name of the capture), timeouts 120 s / 5 s, 81,110 packets (81,109 valid, 1 discarded). Its "Total 570 flows" is `countLines()` of the CSV including the header, i.e. 569 flows (`ReadPcapFileWorker.java:178`). |
 | `SS/SS17.png` | `task2_lab2.pcap_Flow.csv` in LibreOffice Calc, columns A–M (Task 1/2). |
 | `SS/SS18.png` | Wireshark, filter `ip.addr==92.226.1.27 && http`: the 7 Steam `GET /appinfo/…` requests and their `200 OK` responses (false-positive evidence). |
 | `SS/SS19.png` | Pre-processing console output: raw label summary (Task 3). |

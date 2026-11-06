@@ -184,10 +184,10 @@ Plan: `/home/aayush/.claude/plans/cheeky-herding-goose.md`. **All report files l
   - *AC:* deterministic, and key cells equal the CSV values.
 - [x] **R4 [S] Chapters + abstract + bibliography** from `HANDOVER_REPORT.md`, with Listings 1–3, figures and generated tables.
   - *AC:* the main matter is about 13 pages and every number traces to `tables/` or HANDOVER.
-- [ ] **R5 [user] Screenshots.** SS15 and SS17–SS23 were received 2026-11-04 (SS19–SS23 are the Task 3 console output, split differently from the plan). **SS16 (CICFlowMeter GUI) is pending from the teammate**, and the report keeps a placeholder box for it.
+- [x] **R5 [user] Screenshots.** SS15 and SS17–SS23 were received 2026-11-04 (SS19–SS23 are the Task 3 console output). SS24 (`sysctl` disabling IPv6) and SS25 (CICFlowMeter GUI conversion) were received 2026-11-06. SS25 replaces the SS16 placeholder, and SS16 is not used.
 - [x] **R6 [H→O] Build + review.**
   - Haiku: page count, undefined refs/citations, missing glyphs, overfull boxes.
   - Opus: page-by-page check of the numbers against the tables and HANDOVER.
-- [ ] **R7 [H] Final.** Verify the BibTeX entries (web search), rebuild after the screenshots, then `cp reports/thesis.pdf reports/G8.Report2.pdf`.
+- [x] **R7 [H] Final.** Verify the BibTeX entries (web search), rebuild after the screenshots, then `cp reports/thesis.pdf reports/G8.Report2.pdf`.
   - Done 2026-11-04: BibTeX verified via Crossref/JMLR, with DOIs and pages added. `G8.Report2.pdf` was built (20 pages, 14 main matter, 0 warnings).
-  - **Open:** rebuild and copy once `SS/SS16.png` (CICFlowMeter, from the teammate) arrives. The `\ssfig` box fills automatically.
+  - 2026-11-06: SS24 and SS25 added, figures moved next to their text (no float-only pages), rebuilt with latexmkrc_2. Result: 21 pages, 15 main matter, 0 warnings, 0 placeholders. `G8.Report2.pdf` updated.

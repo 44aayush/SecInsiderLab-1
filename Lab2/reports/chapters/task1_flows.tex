@@ -9,9 +9,13 @@ A flow summarizes a bidirectional exchange of packets between two endpoints, ide
 
 We recorded our own traffic with Wireshark while browsing, resolving names and running the Steam client. The final capture, \texttt{task1\_lab2.pcapng}, has 81,110 frames over 347.4\,s (2026-11-04, 16:05--16:10). We converted it offline with CICFlowMeter to \texttt{task2\_lab2.pcap\_Flow.csv}. This file is the real-time input of Chapter~\ref{chap:task4_realtime}. Since the traffic is ordinary browsing, we treat all flows as benign by construction.
 
+\ssfig[0.65\linewidth]{SS25}{CICFlowMeter in offline mode converting the capture, under its original file name \texttt{benign\_lab2\_3.pcap}, with the default timeouts (120\,s flow, 5\,s activity): 81,110 packets read (81,109 valid, 1 discarded), the same packet count as \texttt{task1\_lab2.pcapng}. The reported \enquote{Total 570 flows} counts the lines of the output CSV including its header, i.e.\ 569 flows.}{fig:ss25}
+
 \section{The IPv6 Problem}\label{sec:ipv6}
 
-Our first two captures produced CSV files in which most flows were garbage: protocol 0, port 0 and implausible IP addresses. Table~\ref{tab:captures} compares the captures. In the first two, 89--98\,\% of the frames were IPv6. After we disabled IPv6 on the capturing laptop for the third capture, only 24 IPv6 frames (0.03\,\%) remained and the share of valid flows rose from 15\,\% and 5\,\% to 96\,\%.
+Our first two captures produced CSV files in which most flows were garbage: protocol 0, port 0 and implausible IP addresses. Table~\ref{tab:captures} compares the captures. In the first two, 89--98\,\% of the frames were IPv6. After we disabled IPv6 on the capturing laptop for the third capture with \texttt{sudo sysctl -w net.ipv6.conf.all.disable\_ipv6=1} (Figure~\ref{fig:ss24}), only 24 IPv6 frames (0.03\,\%) remained and the share of valid flows rose from 15\,\% and 5\,\% to 96\,\%.
+
+\ssfig[0.55\linewidth]{SS24}{Disabling IPv6 on the capturing laptop before the third capture; \texttt{sysctl} confirms \texttt{net.ipv6.conf.all.disable\_ipv6 = 1}.}{fig:ss24}
 
 \begin{table}[ht]
 	\centering\small
@@ -28,7 +32,7 @@ Our first two captures produced CSV files in which most flows were garbage: prot
 	\label{tab:captures}
 \end{table}
 
-\paragraph{Root cause.} We traced the problem in the CICFlowMeter source. IPv6 support is switched off in the code: \texttt{readIP6 = false} is hard-coded in \texttt{Cmd.java} (line 126) and \texttt{ReadPcapFileWorker.java} (line 152). Every frame that is not IPv4 (IPv6, ARP, HomePlug powerline frames) falls through to \texttt{getVPNInfo()}, which force-parses the raw frame as an IPv4 header starting at byte 0. The fake ``source IP'' is therefore just the EtherType plus two further bytes, and the fake ``destination IP'' is taken from the IPv6 flow label and payload length (Table~\ref{tab:fakeip}). The IPv4 flows themselves are parsed correctly. We decided against enabling CICFlowMeter's IPv6 path, because its UDP branch takes the header length from the TCP header (\texttt{PacketReader.java}, line 204), which is a bug. Disabling IPv6 also matches the training data, which is IPv4 only.
+\paragraph{Root cause.} We traced the problem in the CICFlowMeter source. IPv6 support is switched off in the code: \texttt{readIP6 = false} is hard-coded in \texttt{Cmd.java} (line 126) and \texttt{ReadPcapFileWorker.java} (line 152). Every frame that is not IPv4 (IPv6, ARP, HomePlug powerline frames) falls through to \texttt{getVPNInfo()}, which force-parses the raw frame as an IPv4 header starting at byte 0. The fake ``source IP'' is therefore just the EtherType plus two further bytes, and the fake ``destination IP'' is taken from the IPv6 flow label and payload length (Table~\ref{tab:fakeip}). The IPv4 flows themselves are parsed correctly. We decided against enabling CICFlowMeter's IPv6 path, because its UDP branch wrongly reads the header length from the TCP header (\texttt{PacketReader.java}, line 204). With IPv6 off, our flows are IPv4-only, like the training data.
 
 \begin{table}[ht]
 	\centering\small
@@ -48,7 +52,10 @@ Our first two captures produced CSV files in which most flows were garbage: prot
 
 \section{The Final Capture}\label{sec:final-capture}
 
-Figure~\ref{fig:ss15} shows the protocol hierarchy of the final capture and Figure~\ref{fig:ss16} the offline conversion. The capture contains 47,682 UDP frames (29,682 QUIC, 580 DNS), 33,218 TCP frames (11,994 TLS, 26 HTTP), 160 ICMP frames and 26 ARP frames. Table~\ref{tab:t1flows} summarizes the resulting 569 flows (Figure~\ref{fig:ss17}). More than half of the classified flows (289) are DNS queries to the local resolver, since every query is its own flow; 213 go to port 443 and 15 to port 80. The classified flows contain 80,705 packets, which is 99.8\,\% of the 80,900 IPv4 TCP/UDP frames. The missing packets are single-packet UDP exchanges, mostly traceroute probes, which CICFlowMeter does not write.
+\ssfig[0.8\linewidth]{SS15}{Protocol hierarchy of \texttt{task1\_lab2.pcapng} in Wireshark: 99.94\,\% of the frames are IPv4, only 24 are IPv6.}{fig:ss15}
+\ssfig[0.8\linewidth]{SS17}{First rows of \texttt{task2\_lab2.pcap\_Flow.csv} in LibreOffice Calc: flow ID, endpoints, protocol, timestamp and the first features. (The \texttt{Label} column further to the right reads \texttt{NeedManualLabel}.)}{fig:ss17}
+
+The final capture contains 47,682 UDP frames (29,682 QUIC, 580 DNS), 33,218 TCP frames (11,994 TLS, 26 HTTP), 160 ICMP frames and 26 ARP frames (Figure~\ref{fig:ss15}). Its offline conversion (Figure~\ref{fig:ss25}) yields 569 flows (Table~\ref{tab:t1flows}, Figure~\ref{fig:ss17}). More than half of the classified flows (289) are DNS queries to the local resolver, since every query is its own flow; 213 go to port 443 and 15 to port 80. The classified flows contain 80,705 packets, which is 99.8\,\% of the 80,900 IPv4 TCP/UDP frames. The missing packets are single-packet UDP exchanges, mostly traceroute probes, which CICFlowMeter does not write.
 
 \begin{table}[ht]
 	\centering\small
@@ -57,10 +64,7 @@ Figure~\ref{fig:ss15} shows the protocol hierarchy of the final capture and Figu
 	\label{tab:t1flows}
 \end{table}
 
-The 22 protocol-0 flows consist of 15 real ICMP flows (CICFlowMeter only sets the protocol number for TCP and UDP), 4 left-over IPv6 frames and 3 ARP frames, the last two mis-parsed as described above. The real-time detector drops all 22 (3.9\,\%) and logs the count. There are no infinite or NaN values in the remaining flows, and all 77 features map to the training feature names (Section~\ref{sec:realtime-setup}). About 70\,\% of the valid flows are UDP (DNS, QUIC and Steam). The application mix (e.g.\ QUIC and Steam) and the network itself differ from the 2017 testbed, so we expect domain shift (Chapter~\ref{chap:task4_realtime}).
+The 22 protocol-0 flows consist of 15 real ICMP flows (CICFlowMeter only sets the protocol number for TCP and UDP), 4 flows from left-over IPv6 frames and 3 from ARP frames, the last two groups mis-parsed as described above. The real-time detector drops all 22 (3.9\,\%) and logs the count. There are no infinite or NaN values in the remaining flows, and all 77 features map to the training feature names (Section~\ref{sec:realtime-setup}). About 70\,\% of the valid flows are UDP (DNS, QUIC and Steam). The application mix (e.g.\ QUIC and Steam) and the network itself differ from the 2017 testbed, so we expect domain shift (Chapter~\ref{chap:task4_realtime}).
 
-\ssfig[0.8\linewidth]{SS15}{Protocol hierarchy of \texttt{task1\_lab2.pcapng} in Wireshark: 99.94\,\% of the frames are IPv4, only 24 are IPv6.}{fig:ss15}
-\ssfig[0.8\linewidth]{SS16}{CICFlowMeter offline conversion of \texttt{task1\_lab2.pcapng} into \texttt{task2\_lab2.pcap\_Flow.csv}.}{fig:ss16}
-\ssfig[0.8\linewidth]{SS17}{First rows of \texttt{task2\_lab2.pcap\_Flow.csv} in LibreOffice Calc: flow ID, endpoints, protocol, timestamp and the first features. (The \texttt{Label} column further to the right reads \texttt{NeedManualLabel}.)}{fig:ss17}
 
 \FloatBarrier
