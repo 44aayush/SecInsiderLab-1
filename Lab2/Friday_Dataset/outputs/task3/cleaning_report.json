@@ -1,0 +1,163 @@
+{
+  "raw_label_summary": [
+    {
+      "Label": "BENIGN",
+      "count": 97718,
+      "percent": 43.2869,
+      "ratio_to_benign": 1.0
+    },
+    {
+      "Label": "DDoS",
+      "count": 128027,
+      "percent": 56.7131,
+      "ratio_to_benign": 1.310168
+    }
+  ],
+  "steps": [
+    {
+      "step": "drop_duplicate_header_column",
+      "rows_before": 225745,
+      "cols_before": 79,
+      "rows_after": 225745,
+      "cols_after": 78,
+      "dropped": [
+        "Fwd Header Length.1"
+      ]
+    },
+    {
+      "step": "replace_inf_with_nan",
+      "rows_before": 225745,
+      "cols_before": 78,
+      "rows_after": 225745,
+      "cols_after": 78,
+      "inf_per_column": {
+        "Flow Bytes/s": 30,
+        "Flow Packets/s": 34
+      },
+      "nan_per_column": {
+        "Flow Bytes/s": 4
+      }
+    },
+    {
+      "step": "drop_nan_rows",
+      "rows_before": 225745,
+      "cols_before": 78,
+      "rows_after": 225711,
+      "cols_after": 78,
+      "dropped_rows": 34,
+      "dropped_by_label": {
+        "BENIGN": 32,
+        "DDoS": 2
+      }
+    },
+    {
+      "step": "drop_duplicate_rows",
+      "rows_before": 225711,
+      "cols_before": 78,
+      "rows_after": 223082,
+      "cols_after": 78,
+      "dropped_rows": 2629,
+      "dropped_by_label": {
+        "BENIGN": 2618,
+        "DDoS": 11
+      }
+    },
+    {
+      "step": "drop_constant_columns",
+      "rows_before": 223082,
+      "cols_before": 78,
+      "rows_after": 223082,
+      "cols_after": 68,
+      "dropped": [
+        "Bwd PSH Flags",
+        "Fwd URG Flags",
+        "Bwd URG Flags",
+        "CWE Flag Count",
+        "Fwd Avg Bytes/Bulk",
+        "Fwd Avg Packets/Bulk",
+        "Fwd Avg Bulk Rate",
+        "Bwd Avg Bytes/Bulk",
+        "Bwd Avg Packets/Bulk",
+        "Bwd Avg Bulk Rate"
+      ]
+    },
+    {
+      "step": "drop_identical_columns",
+      "rows_before": 223082,
+      "cols_before": 68,
+      "rows_after": 223082,
+      "cols_after": 60,
+      "dropped": [
+        "SYN Flag Count",
+        "ECE Flag Count",
+        "Avg Fwd Segment Size",
+        "Avg Bwd Segment Size",
+        "Subflow Fwd Packets",
+        "Subflow Fwd Bytes",
+        "Subflow Bwd Packets",
+        "Subflow Bwd Bytes"
+      ],
+      "pairs": [
+        [
+          "Fwd PSH Flags",
+          "SYN Flag Count"
+        ],
+        [
+          "RST Flag Count",
+          "ECE Flag Count"
+        ],
+        [
+          "Fwd Packet Length Mean",
+          "Avg Fwd Segment Size"
+        ],
+        [
+          "Bwd Packet Length Mean",
+          "Avg Bwd Segment Size"
+        ],
+        [
+          "Total Fwd Packets",
+          "Subflow Fwd Packets"
+        ],
+        [
+          "Total Length of Fwd Packets",
+          "Subflow Fwd Bytes"
+        ],
+        [
+          "Total Backward Packets",
+          "Subflow Bwd Packets"
+        ],
+        [
+          "Total Length of Bwd Packets",
+          "Subflow Bwd Bytes"
+        ]
+      ],
+      "atol": 1e-06
+    }
+  ],
+  "inf_per_column": {
+    "Flow Bytes/s": 30,
+    "Flow Packets/s": 34
+  },
+  "nan_per_column": {
+    "Flow Bytes/s": 4
+  },
+  "final_shape": [
+    223082,
+    61
+  ],
+  "n_features": 59,
+  "final_label_summary": [
+    {
+      "Label": "BENIGN",
+      "count": 95068,
+      "percent": 42.6157,
+      "ratio_to_benign": 1.0
+    },
+    {
+      "Label": "DDoS",
+      "count": 128014,
+      "percent": 57.3843,
+      "ratio_to_benign": 1.346552
+    }
+  ]
+}

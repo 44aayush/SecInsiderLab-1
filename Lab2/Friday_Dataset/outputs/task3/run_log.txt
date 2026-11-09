@@ -1,0 +1,72 @@
+
+========================================================================
+Raw label summary
+========================================================================
+         count  percent  ratio_to_benign
+Label                                   
+BENIGN   97718  43.2869         1.000000
+DDoS    128027  56.7131         1.310168
+
+========================================================================
+Cleaning steps
+========================================================================
+- drop_duplicate_header_column: rows 225745 -> 225745, cols 79 -> 78
+    dropped: ['Fwd Header Length.1']
+- replace_inf_with_nan: rows 225745 -> 225745, cols 78 -> 78
+    inf_per_column: {'Flow Bytes/s': 30, 'Flow Packets/s': 34}
+    nan_per_column: {'Flow Bytes/s': 4}
+- drop_nan_rows: rows 225745 -> 225711, cols 78 -> 78
+    dropped_rows: 34
+    dropped_by_label: {'BENIGN': 32, 'DDoS': 2}
+- drop_duplicate_rows: rows 225711 -> 223082, cols 78 -> 78
+    dropped_rows: 2629
+    dropped_by_label: {'BENIGN': 2618, 'DDoS': 11}
+- drop_constant_columns: rows 223082 -> 223082, cols 78 -> 68
+    dropped: ['Bwd PSH Flags', 'Fwd URG Flags', 'Bwd URG Flags', 'CWE Flag Count', 'Fwd Avg Bytes/Bulk', 'Fwd Avg Packets/Bulk', 'Fwd Avg Bulk Rate', 'Bwd Avg Bytes/Bulk', 'Bwd Avg Packets/Bulk', 'Bwd Avg Bulk Rate']
+- drop_identical_columns: rows 223082 -> 223082, cols 68 -> 60
+    dropped: ['SYN Flag Count', 'ECE Flag Count', 'Avg Fwd Segment Size', 'Avg Bwd Segment Size', 'Subflow Fwd Packets', 'Subflow Fwd Bytes', 'Subflow Bwd Packets', 'Subflow Bwd Bytes']
+    pairs: [['Fwd PSH Flags', 'SYN Flag Count'], ['RST Flag Count', 'ECE Flag Count'], ['Fwd Packet Length Mean', 'Avg Fwd Segment Size'], ['Bwd Packet Length Mean', 'Avg Bwd Segment Size'], ['Total Fwd Packets', 'Subflow Fwd Packets'], ['Total Length of Fwd Packets', 'Subflow Fwd Bytes'], ['Total Backward Packets', 'Subflow Bwd Packets'], ['Total Length of Bwd Packets', 'Subflow Bwd Bytes']]
+    atol: 1e-06
+
+Final: 223082 rows x 59 features (+ Label, binary_label)
+
+========================================================================
+Final label summary
+========================================================================
+         count  percent  ratio_to_benign
+Label                                   
+BENIGN   95068  42.6157         1.000000
+DDoS    128014  57.3843         1.346552
+
+========================================================================
+Split class counts (70/30, stratified on Label)
+========================================================================
+        train   test
+Label               
+DDoS    89610  38404
+BENIGN  66547  28521
+
+========================================================================
+Top features by chi2: binary
+========================================================================
+ rank                feature     score  p_value
+    1         URG Flag Count 3.006e+04        0
+    2       Destination Port 2.848e+04        0
+    3  Bwd Packet Length Max  2.22e+04        0
+    4  Bwd Packet Length Std  1.52e+04        0
+    5 Bwd Packet Length Mean 1.363e+04        0
+    6          Bwd IAT Total  1.01e+04        0
+    7      Max Packet Length      9941        0
+    8     Packet Length Mean      9736        0
+    9  Fwd Packet Length Max      9338        0
+   10      Packet Length Std      9283        0
+   11    Average Packet Size      8361        0
+   12 Fwd Packet Length Mean      8327        0
+   13          Fwd PSH Flags      7104        0
+   14 Packet Length Variance      6817        0
+   15            Bwd IAT Max      6626        0
+   16  Fwd Packet Length Std      6519        0
+   17         PSH Flag Count      5772        0
+   18          Down/Up Ratio      4500        0
+   19  Fwd Packet Length Min      3409        0
+   20            Bwd IAT Std      3352        0

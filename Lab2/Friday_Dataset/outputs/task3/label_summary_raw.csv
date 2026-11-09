@@ -1,0 +1,3 @@
+Label,count,percent,ratio_to_benign
+BENIGN,97718,43.2869,1.0
+DDoS,128027,56.7131,1.310168

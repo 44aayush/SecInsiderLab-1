@@ -1,0 +1,16 @@
+% !TeX encoding = UTF-8
+\chapter{Task 2: The CIC-IDS2017 Dataset}\label{chap:task2_dataset}
+
+CIC-IDS2017 was created by the Canadian Institute for Cybersecurity at the University of New Brunswick~\cite{sharafaldin2018cicids,cicids2017_web}. The flows were extracted with CICFlowMeter~\cite{lashkari2017cicflowmeter}. We use the pre-computed ``MachineLearningCSV'' file \texttt{Friday-WorkingHours-Afternoon-DDos.csv} (77\,MB). It has 225,745 flows and 79 columns: 78 numeric flow features and the \texttt{Label}. It contains no flow ID, IP address or timestamp columns, but \texttt{Destination Port} is present. The file covers the DDoS attack of the Friday afternoon, as described in the dataset paper.
+
+The file has two labels, BENIGN and DDoS, and the attack is the \emph{majority} class: DDoS makes up 56.71\,\% of the raw flows (Table~\ref{tab:t2labels}). The classes are therefore reasonably balanced, and accuracy is less misleading than on a dataset with a rare attack. We still report per-class precision, recall and F1, the macro-F1 and confusion matrices throughout, never accuracy alone. Virtually all DDoS flows target destination port 80, while benign traffic is spread over several ports (mostly 53, 443 and 80). Models can exploit this as a shortcut (Section~\ref{sec:t3-interp} and Chapter~\ref{chap:discussion}).
+
+\begin{table}[ht]
+	\centering\small
+	\input{tables/t2_labels}
+	\caption{Label distribution of the Friday file, raw and after the cleaning steps of Chapter~\ref{chap:task3_preprocessing}.}
+	\label{tab:t2labels}
+\end{table}
+
+
+\FloatBarrier

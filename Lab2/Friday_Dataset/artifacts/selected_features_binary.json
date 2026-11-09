@@ -1,0 +1,27 @@
+{
+  "target": "binary",
+  "score_func": "chi2",
+  "k": 20,
+  "features": [
+    "URG Flag Count",
+    "Destination Port",
+    "Bwd Packet Length Max",
+    "Bwd Packet Length Std",
+    "Bwd Packet Length Mean",
+    "Bwd IAT Total",
+    "Max Packet Length",
+    "Packet Length Mean",
+    "Fwd Packet Length Max",
+    "Packet Length Std",
+    "Average Packet Size",
+    "Fwd Packet Length Mean",
+    "Fwd PSH Flags",
+    "Packet Length Variance",
+    "Bwd IAT Max",
+    "Fwd Packet Length Std",
+    "PSH Flag Count",
+    "Down/Up Ratio",
+    "Fwd Packet Length Min",
+    "Bwd IAT Std"
+  ]
+}

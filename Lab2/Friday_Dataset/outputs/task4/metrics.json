@@ -1,0 +1,284 @@
+{
+  "binary_lr_default": {
+    "classes": [
+      "BENIGN",
+      "DDoS"
+    ],
+    "class_values": [
+      0,
+      1
+    ],
+    "per_class": {
+      "BENIGN": {
+        "precision": 0.998305595300851,
+        "recall": 0.9295957364748781,
+        "f1": 0.9627262659089671,
+        "support": 28521
+      },
+      "DDoS": {
+        "precision": 0.9502563975524562,
+        "recall": 0.9988282470575982,
+        "f1": 0.9739371088344695,
+        "support": 38404
+      }
+    },
+    "accuracy": 0.9693238700037355,
+    "macro_f1": 0.9683316873717183,
+    "weighted_f1": 0.9691594554750633,
+    "confusion_matrix": [
+      [
+        26513,
+        2008
+      ],
+      [
+        45,
+        38359
+      ]
+    ],
+    "infer_ms_per_1k": 0.7167454015645455,
+    "infer_ms_per_1k_runs": [
+      0.7102706761264301,
+      0.702363750457692,
+      0.8630813896238734,
+      0.7795818154729237,
+      0.7167454015645455
+    ],
+    "n_test": 66925,
+    "fit_s": 6.451317721999658,
+    "lr_n_iter": 48,
+    "lr_max_iter": 5000,
+    "lr_converged": true,
+    "selected_features": [
+      "Destination Port",
+      "Fwd Packet Length Max",
+      "Fwd Packet Length Min",
+      "Fwd Packet Length Mean",
+      "Fwd Packet Length Std",
+      "Bwd Packet Length Max",
+      "Bwd Packet Length Mean",
+      "Bwd Packet Length Std",
+      "Bwd IAT Total",
+      "Bwd IAT Std",
+      "Bwd IAT Max",
+      "Fwd PSH Flags",
+      "Max Packet Length",
+      "Packet Length Mean",
+      "Packet Length Std",
+      "Packet Length Variance",
+      "PSH Flag Count",
+      "URG Flag Count",
+      "Down/Up Ratio",
+      "Average Packet Size"
+    ]
+  },
+  "binary_lr_balanced": {
+    "classes": [
+      "BENIGN",
+      "DDoS"
+    ],
+    "class_values": [
+      0,
+      1
+    ],
+    "per_class": {
+      "BENIGN": {
+        "precision": 0.998307761732852,
+        "recall": 0.9307878405385506,
+        "f1": 0.9633661749496489,
+        "support": 28521
+      },
+      "DDoS": {
+        "precision": 0.9510574467557583,
+        "recall": 0.9988282470575982,
+        "f1": 0.9743576717426369,
+        "support": 38404
+      }
+    },
+    "accuracy": 0.9698319013821441,
+    "macro_f1": 0.9688619233461429,
+    "weighted_f1": 0.9696734957242161,
+    "confusion_matrix": [
+      [
+        26547,
+        1974
+      ],
+      [
+        45,
+        38359
+      ]
+    ],
+    "infer_ms_per_1k": 1.9959642584813546,
+    "infer_ms_per_1k_runs": [
+      2.8785539036408383,
+      1.7366202166524036,
+      1.0650133134166737,
+      1.9959642584813546,
+      2.224499245415279
+    ],
+    "n_test": 66925,
+    "fit_s": 5.972825022001416,
+    "lr_n_iter": 48,
+    "lr_max_iter": 5000,
+    "lr_converged": true,
+    "selected_features": [
+      "Destination Port",
+      "Fwd Packet Length Max",
+      "Fwd Packet Length Min",
+      "Fwd Packet Length Mean",
+      "Fwd Packet Length Std",
+      "Bwd Packet Length Max",
+      "Bwd Packet Length Mean",
+      "Bwd Packet Length Std",
+      "Bwd IAT Total",
+      "Bwd IAT Std",
+      "Bwd IAT Max",
+      "Fwd PSH Flags",
+      "Max Packet Length",
+      "Packet Length Mean",
+      "Packet Length Std",
+      "Packet Length Variance",
+      "PSH Flag Count",
+      "URG Flag Count",
+      "Down/Up Ratio",
+      "Average Packet Size"
+    ]
+  },
+  "binary_dt_default": {
+    "classes": [
+      "BENIGN",
+      "DDoS"
+    ],
+    "class_values": [
+      0,
+      1
+    ],
+    "per_class": {
+      "BENIGN": {
+        "precision": 0.9991240057465223,
+        "recall": 0.9997545668104204,
+        "f1": 0.9994391868208903,
+        "support": 28521
+      },
+      "DDoS": {
+        "precision": 0.9998176418485907,
+        "recall": 0.99934902614311,
+        "f1": 0.999583279072796,
+        "support": 38404
+      }
+    },
+    "accuracy": 0.9995218528203212,
+    "macro_f1": 0.9995112329468432,
+    "weighted_f1": 0.9995218721976881,
+    "confusion_matrix": [
+      [
+        28514,
+        7
+      ],
+      [
+        25,
+        38379
+      ]
+    ],
+    "infer_ms_per_1k": 0.6953536944132389,
+    "infer_ms_per_1k_runs": [
+      0.6487985655605297,
+      0.7531055808617436,
+      0.6953536944132389,
+      0.7083279940029286,
+      0.6916368472153568
+    ],
+    "n_test": 66925,
+    "fit_s": 2.197949993000293,
+    "selected_features": [
+      "Destination Port",
+      "Fwd Packet Length Max",
+      "Fwd Packet Length Min",
+      "Fwd Packet Length Mean",
+      "Fwd Packet Length Std",
+      "Bwd Packet Length Max",
+      "Bwd Packet Length Mean",
+      "Bwd Packet Length Std",
+      "Bwd IAT Total",
+      "Bwd IAT Std",
+      "Bwd IAT Max",
+      "Fwd PSH Flags",
+      "Max Packet Length",
+      "Packet Length Mean",
+      "Packet Length Std",
+      "Packet Length Variance",
+      "PSH Flag Count",
+      "URG Flag Count",
+      "Down/Up Ratio",
+      "Average Packet Size"
+    ]
+  },
+  "binary_dt_balanced": {
+    "classes": [
+      "BENIGN",
+      "DDoS"
+    ],
+    "class_values": [
+      0,
+      1
+    ],
+    "per_class": {
+      "BENIGN": {
+        "precision": 0.9991240057465223,
+        "recall": 0.9997545668104204,
+        "f1": 0.9994391868208903,
+        "support": 28521
+      },
+      "DDoS": {
+        "precision": 0.9998176418485907,
+        "recall": 0.99934902614311,
+        "f1": 0.999583279072796,
+        "support": 38404
+      }
+    },
+    "accuracy": 0.9995218528203212,
+    "macro_f1": 0.9995112329468432,
+    "weighted_f1": 0.9995218721976881,
+    "confusion_matrix": [
+      [
+        28514,
+        7
+      ],
+      [
+        25,
+        38379
+      ]
+    ],
+    "infer_ms_per_1k": 0.7165347628090509,
+    "infer_ms_per_1k_runs": [
+      0.6861834291936753,
+      0.6958248337600652,
+      0.7165347628090509,
+      1.1795095106432694,
+      1.252054015674959
+    ],
+    "n_test": 66925,
+    "fit_s": 1.252335528999538,
+    "selected_features": [
+      "Destination Port",
+      "Fwd Packet Length Max",
+      "Fwd Packet Length Min",
+      "Fwd Packet Length Mean",
+      "Fwd Packet Length Std",
+      "Bwd Packet Length Max",
+      "Bwd Packet Length Mean",
+      "Bwd Packet Length Std",
+      "Bwd IAT Total",
+      "Bwd IAT Std",
+      "Bwd IAT Max",
+      "Fwd PSH Flags",
+      "Max Packet Length",
+      "Packet Length Mean",
+      "Packet Length Std",
+      "Packet Length Variance",
+      "PSH Flag Count",
+      "URG Flag Count",
+      "Down/Up Ratio",
+      "Average Packet Size"
+    ]
+  }
+}

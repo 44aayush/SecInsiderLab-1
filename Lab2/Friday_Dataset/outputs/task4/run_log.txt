@@ -1,0 +1,76 @@
+Data: 223082 rows, 59 features; train 156157 / test 66925
+
+========================================================================
+binary_lr_default
+========================================================================
+       class  precision  recall     f1  support
+      BENIGN     0.9983  0.9296 0.9627    28521
+        DDoS     0.9503  0.9988 0.9739    38404
+   macro avg     0.9743  0.9642 0.9683    66925
+weighted avg        NaN     NaN 0.9692    66925
+    accuracy        NaN     NaN 0.9693    66925
+accuracy = 0.9693 | macro-F1 = 0.9683 | weighted-F1 = 0.9692
+Confusion matrix (rows = true, cols = predicted):
+             pred BENIGN  pred DDoS
+true BENIGN        26513       2008
+true DDoS             45      38359
+fit = 6.45 s | inference = 0.717 ms per 1,000 flows
+LR converged: True (n_iter=48/5000)
+
+========================================================================
+binary_lr_balanced
+========================================================================
+       class  precision  recall     f1  support
+      BENIGN     0.9983  0.9308 0.9634    28521
+        DDoS     0.9511  0.9988 0.9744    38404
+   macro avg     0.9747  0.9648 0.9689    66925
+weighted avg        NaN     NaN 0.9697    66925
+    accuracy        NaN     NaN 0.9698    66925
+accuracy = 0.9698 | macro-F1 = 0.9689 | weighted-F1 = 0.9697
+Confusion matrix (rows = true, cols = predicted):
+             pred BENIGN  pred DDoS
+true BENIGN        26547       1974
+true DDoS             45      38359
+fit = 5.97 s | inference = 1.996 ms per 1,000 flows
+LR converged: True (n_iter=48/5000)
+
+========================================================================
+binary_dt_default
+========================================================================
+       class  precision  recall     f1  support
+      BENIGN     0.9991  0.9998 0.9994    28521
+        DDoS     0.9998  0.9993 0.9996    38404
+   macro avg     0.9995  0.9996 0.9995    66925
+weighted avg        NaN     NaN 0.9995    66925
+    accuracy        NaN     NaN 0.9995    66925
+accuracy = 0.9995 | macro-F1 = 0.9995 | weighted-F1 = 0.9995
+Confusion matrix (rows = true, cols = predicted):
+             pred BENIGN  pred DDoS
+true BENIGN        28514          7
+true DDoS             25      38379
+fit = 2.20 s | inference = 0.695 ms per 1,000 flows
+
+========================================================================
+binary_dt_balanced
+========================================================================
+       class  precision  recall     f1  support
+      BENIGN     0.9991  0.9998 0.9994    28521
+        DDoS     0.9998  0.9993 0.9996    38404
+   macro avg     0.9995  0.9996 0.9995    66925
+weighted avg        NaN     NaN 0.9995    66925
+    accuracy        NaN     NaN 0.9995    66925
+accuracy = 0.9995 | macro-F1 = 0.9995 | weighted-F1 = 0.9995
+Confusion matrix (rows = true, cols = predicted):
+             pred BENIGN  pred DDoS
+true BENIGN        28514          7
+true DDoS             25      38379
+fit = 1.25 s | inference = 0.717 ms per 1,000 flows
+
+========================================================================
+Comparison table
+========================================================================
+               key target       model  accuracy  macro_f1  weighted_f1  f1_BENIGN  f1_DDoS  ddos_precision  ddos_recall  fit_s  infer_ms_per_1k
+ binary_lr_default binary  lr_default    0.9693    0.9683       0.9692     0.9627   0.9739          0.9503       0.9988 6.4513           0.7167
+binary_lr_balanced binary lr_balanced    0.9698    0.9689       0.9697     0.9634   0.9744          0.9511       0.9988 5.9728           1.9960
+ binary_dt_default binary  dt_default    0.9995    0.9995       0.9995     0.9994   0.9996          0.9998       0.9993 2.1979           0.6954
+binary_dt_balanced binary dt_balanced    0.9995    0.9995       0.9995     0.9994   0.9996          0.9998       0.9993 1.2523           0.7165
