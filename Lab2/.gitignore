@@ -43,6 +43,3 @@ ENV/
 .DS_Store
 Thumbs.db
 .ruff_cache/
-
-# Local task tracking (not part of the shipped repo)
-Presentation.md
