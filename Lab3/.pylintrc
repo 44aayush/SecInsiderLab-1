@@ -1,0 +1,22 @@
+[MAIN]
+# mccabe extension enforces max-complexity (CLAUDE.md 8)
+load-plugins=pylint.extensions.mccabe
+# script/ is the import root, so "import common" and "from clf import ..." resolve
+source-roots=script
+# lets "pylint script tests" descend into the packages
+recursive=yes
+
+[MCCABE]
+max-complexity=10
+
+[DESIGN]
+# ModelResult contract, CLAUDE.md 5 (8 fields; the pylint default is 7)
+max-attributes=8
+
+[TYPECHECK]
+# torch builds many members dynamically; this avoids E1101 false positives without disabling it
+generated-members=torch.*
+
+[BASIC]
+# short names allowed by CLAUDE.md 8
+good-names=i,j,k,ex,Run,_,x,y,df,ax,fig

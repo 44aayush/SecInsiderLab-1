@@ -1,0 +1,7 @@
+# outputs/ is deliberately NOT ignored: the report and the deck reuse it (CLAUDE.md 4.2).
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# LibreOffice lock files
+.~lock.*#

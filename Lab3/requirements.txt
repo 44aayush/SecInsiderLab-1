@@ -1,0 +1,27 @@
+# Lab 3 requirements (direct dependencies only, pinned to the set resolved in T1.1 on 2026-11-13).
+#
+# Install with uv (recommended; the CPU torch build avoids several GB of CUDA wheels):
+#   uv venv --python 3.12 .venv
+#   uv pip install --python .venv/bin/python -r requirements.txt --torch-backend=cpu
+#
+# Plain pip alternative (must pull torch from the CPU index):
+#   pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+
+# --- data and classical ML ---
+numpy==2.5.4
+pandas==3.1.0
+scikit-learn==1.9.1
+xgboost==3.4.1
+
+# --- deep learning (CPU build) ---
+torch==2.15.0
+
+# --- reporting (figures and table export: to_markdown needs tabulate, to_latex needs jinja2) ---
+matplotlib==3.11.2
+tabulate==0.10.0
+jinja2==3.1.6
+
+# --- dev tools (lint, tests, complexity) ---
+pylint==4.1.3
+pytest==9.2.0
+radon==6.0.1
