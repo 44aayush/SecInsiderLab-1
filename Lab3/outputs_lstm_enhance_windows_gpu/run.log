@@ -1,0 +1,64 @@
+2026-11-15 18:00:21,679 INFO __main__: DL device: cuda
+2026-11-15 18:00:22,492 INFO preprocess: inf/NaN rows dropped: {'n': 34, 'by_class': {'BENIGN': 32, 'DDoS': 2}} (inf {'Flow Bytes/s': 30, 'Flow Packets/s': 34}, NaN {'Flow Bytes/s': 4})
+2026-11-15 18:00:23,361 INFO preprocess: duplicate rows dropped: {'n': 2629, 'by_class': {'BENIGN': 2618, 'DDoS': 11}}
+2026-11-15 18:00:23,757 INFO preprocess: constant columns dropped (10): ['Bwd PSH Flags', 'Fwd URG Flags', 'Bwd URG Flags', 'CWE Flag Count', 'Fwd Avg Bytes/Bulk', 'Fwd Avg Packets/Bulk', 'Fwd Avg Bulk Rate', 'Bwd Avg Bytes/Bulk', 'Bwd Avg Packets/Bulk', 'Bwd Avg Bulk Rate']
+2026-11-15 18:00:29,547 INFO preprocess: identical columns dropped (9): {'SYN Flag Count': 'Fwd PSH Flags', 'ECE Flag Count': 'RST Flag Count', 'Avg Fwd Segment Size': 'Fwd Packet Length Mean', 'Avg Bwd Segment Size': 'Bwd Packet Length Mean', 'Fwd Header Length.1': 'Fwd Header Length', 'Subflow Fwd Packets': 'Total Fwd Packets', 'Subflow Fwd Bytes': 'Total Length of Fwd Packets', 'Subflow Bwd Packets': 'Total Backward Packets', 'Subflow Bwd Bytes': 'Total Length of Bwd Packets'}
+2026-11-15 18:00:30,178 INFO preprocess: split sizes: {'train': 156157, 'val': 33462, 'test': 33463}
+2026-11-15 18:00:30,204 INFO __main__: running LSTM
+2026-11-15 18:00:30,216 INFO dl.dl_common: LSTM: training on device cuda
+2026-11-15 18:00:30,216 INFO dl.dl_common: LSTM architecture:
+LstmNet(
+  (lstm): LSTM(1, 32, batch_first=True)
+  (head): Linear(in_features=32, out_features=1, bias=True)
+)
+2026-11-15 18:00:30,216 INFO dl.dl_common: LSTM settings: batch 1024, lr 0.0005, max epochs 40, patience 7, grad clip 1.0
+2026-11-15 18:00:35,418 INFO dl.dl_common: epoch 1/40: train_loss 0.67538, val_loss 0.59486 (2.2 s)
+2026-11-15 18:00:37,294 INFO dl.dl_common: epoch 2/40: train_loss 0.37469, val_loss 0.17661 (1.9 s)
+2026-11-15 18:00:39,367 INFO dl.dl_common: epoch 3/40: train_loss 0.11927, val_loss 0.08995 (2.1 s)
+2026-11-15 18:00:41,459 INFO dl.dl_common: epoch 4/40: train_loss 0.06953, val_loss 0.05849 (2.1 s)
+2026-11-15 18:00:43,325 INFO dl.dl_common: epoch 5/40: train_loss 0.05249, val_loss 0.06298 (1.9 s)
+2026-11-15 18:00:45,249 INFO dl.dl_common: epoch 6/40: train_loss 0.04795, val_loss 0.10269 (1.9 s)
+2026-11-15 18:00:47,298 INFO dl.dl_common: epoch 7/40: train_loss 0.04651, val_loss 0.04675 (2.0 s)
+2026-11-15 18:00:49,589 INFO dl.dl_common: epoch 8/40: train_loss 0.04408, val_loss 0.04173 (2.3 s)
+2026-11-15 18:00:51,710 INFO dl.dl_common: epoch 9/40: train_loss 0.04028, val_loss 0.04206 (2.1 s)
+2026-11-15 18:00:54,098 INFO dl.dl_common: epoch 10/40: train_loss 0.04125, val_loss 0.04301 (2.4 s)
+2026-11-15 18:00:56,289 INFO dl.dl_common: epoch 11/40: train_loss 0.03687, val_loss 0.03292 (2.2 s)
+2026-11-15 18:00:58,445 INFO dl.dl_common: epoch 12/40: train_loss 0.03338, val_loss 0.03875 (2.2 s)
+2026-11-15 18:01:00,727 INFO dl.dl_common: epoch 13/40: train_loss 0.03143, val_loss 0.03780 (2.3 s)
+2026-11-15 18:01:02,871 INFO dl.dl_common: epoch 14/40: train_loss 0.03008, val_loss 0.04371 (2.1 s)
+2026-11-15 18:01:04,859 INFO dl.dl_common: epoch 15/40: train_loss 0.02764, val_loss 0.03197 (2.0 s)
+2026-11-15 18:01:06,727 INFO dl.dl_common: epoch 16/40: train_loss 0.02598, val_loss 0.03211 (1.9 s)
+2026-11-15 18:01:08,967 INFO dl.dl_common: epoch 17/40: train_loss 0.02528, val_loss 0.02243 (2.2 s)
+2026-11-15 18:01:11,250 INFO dl.dl_common: epoch 18/40: train_loss 0.02258, val_loss 0.01656 (2.3 s)
+2026-11-15 18:01:13,384 INFO dl.dl_common: epoch 19/40: train_loss 0.01875, val_loss 0.01907 (2.1 s)
+2026-11-15 18:01:15,541 INFO dl.dl_common: epoch 20/40: train_loss 0.01921, val_loss 0.05258 (2.2 s)
+2026-11-15 18:01:17,591 INFO dl.dl_common: epoch 21/40: train_loss 0.01588, val_loss 0.00847 (2.1 s)
+2026-11-15 18:01:19,772 INFO dl.dl_common: epoch 22/40: train_loss 0.01292, val_loss 0.01341 (2.2 s)
+2026-11-15 18:01:21,900 INFO dl.dl_common: epoch 23/40: train_loss 0.00919, val_loss 0.04121 (2.1 s)
+2026-11-15 18:01:24,036 INFO dl.dl_common: epoch 24/40: train_loss 0.01181, val_loss 0.00729 (2.1 s)
+2026-11-15 18:01:26,217 INFO dl.dl_common: epoch 25/40: train_loss 0.01047, val_loss 0.00638 (2.2 s)
+2026-11-15 18:01:28,301 INFO dl.dl_common: epoch 26/40: train_loss 0.01317, val_loss 0.01562 (2.1 s)
+2026-11-15 18:01:30,563 INFO dl.dl_common: epoch 27/40: train_loss 0.01112, val_loss 0.01037 (2.3 s)
+2026-11-15 18:01:32,683 INFO dl.dl_common: epoch 28/40: train_loss 0.00790, val_loss 0.07894 (2.1 s)
+2026-11-15 18:01:34,834 INFO dl.dl_common: epoch 29/40: train_loss 0.01357, val_loss 0.00581 (2.1 s)
+2026-11-15 18:01:37,015 INFO dl.dl_common: epoch 30/40: train_loss 0.02879, val_loss 0.00577 (2.2 s)
+2026-11-15 18:01:39,090 INFO dl.dl_common: epoch 31/40: train_loss 0.01657, val_loss 0.01134 (2.1 s)
+2026-11-15 18:01:41,237 INFO dl.dl_common: epoch 32/40: train_loss 0.00956, val_loss 0.00518 (2.1 s)
+2026-11-15 18:01:43,302 INFO dl.dl_common: epoch 33/40: train_loss 0.01766, val_loss 0.00511 (2.1 s)
+2026-11-15 18:01:45,466 INFO dl.dl_common: epoch 34/40: train_loss 0.02883, val_loss 0.00523 (2.2 s)
+2026-11-15 18:01:47,551 INFO dl.dl_common: epoch 35/40: train_loss 0.02605, val_loss 0.00980 (2.1 s)
+2026-11-15 18:01:49,720 INFO dl.dl_common: epoch 36/40: train_loss 0.01564, val_loss 0.00595 (2.2 s)
+2026-11-15 18:01:51,927 INFO dl.dl_common: epoch 37/40: train_loss 0.00663, val_loss 0.01082 (2.2 s)
+2026-11-15 18:01:53,973 INFO dl.dl_common: epoch 38/40: train_loss 0.01062, val_loss 0.01060 (2.0 s)
+2026-11-15 18:01:56,138 INFO dl.dl_common: epoch 39/40: train_loss 0.01043, val_loss 0.12280 (2.2 s)
+2026-11-15 18:01:58,213 INFO dl.dl_common: epoch 40/40: train_loss 0.01158, val_loss 0.00486 (2.1 s)
+2026-11-15 18:01:58,309 INFO dl.dl_common: LSTM: train 88.00 s, test predict 0.05 s
+2026-11-15 18:01:58,310 INFO __main__: LSTM: train 88.00 s, predict 0.047 s
+2026-11-15 18:01:58,361 INFO __main__: lstm test F1 = 0.9993
+2026-11-15 18:02:01,824 INFO plots_metrics: wrote 7 metric charts to outputs_lstm_enhance_windows_gpu\figures
+2026-11-15 18:02:02,504 INFO plots_confusion: wrote 3 confusion figures to outputs_lstm_enhance_windows_gpu\figures
+2026-11-15 18:02:04,416 INFO roc_curves: no models for roc_test_ml, skipping
+2026-11-15 18:02:04,699 INFO comparison: figure index lists 18 figures
+2026-11-15 18:02:04,706 INFO __main__: test comparison:
+Model Family  Accuracy  Precision  Recall     F1  Macro-F1  ROC-AUC    TP    TN  FP  FN  Train time (s)  Predict time (s)
+ LSTM     DL    0.9993     0.9995  0.9992 0.9993    0.9992   0.9999 19187 14251  10  15          87.998             0.047
