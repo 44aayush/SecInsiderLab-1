@@ -9,8 +9,10 @@ from dl.dl_common import DEFAULT_DEVICE, run_dl, set_seed
 
 KEY = "mlp"
 NAME = "MLP"
-# 30 epochs chosen from the 2026-11-13 experiment: it improved every MLP test metric.
-MAX_EPOCHS = 30
+# Chosen on validation evidence only: with cap 15 the MLP never early-stopped; with cap 30 its best
+# validation epoch was 29 (cap hit); with cap 40 it early-stops at epoch 32, best epoch still 29
+# (val loss 0.00167), so the cap no longer ends training and the restored model is identical.
+MAX_EPOCHS = 40
 HIDDEN_1, HIDDEN_2, DROPOUT = 128, 64, 0.2
 
 

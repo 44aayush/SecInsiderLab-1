@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+import pytest
+
 import common
 import plots_confusion
 import plots_metrics
@@ -71,3 +74,49 @@ def test_eight_models_grid_rows(fake_metrics, tmp_path: Path) -> None:
     plots_metrics.plot_all(eight, fig_dir)
     plots_confusion.plot_all(eight, fig_dir)
     _assert_written(fig_dir, METRIC_STEMS + CONFUSION_STEMS)
+
+
+def _capture_figures(monkeypatch: pytest.MonkeyPatch) -> dict:
+    """Replace common.save_figure so the Figure objects can be inspected.
+
+    Args:
+        monkeypatch: pytest fixture.
+
+    Returns:
+        Dict filled with {stem name: Figure} as figures are saved.
+    """
+    captured: dict = {}
+    monkeypatch.setattr(common, "save_figure", lambda fig, stem: captured.update({stem.name: fig}))
+    return captured
+
+
+def test_roc_lines_not_step_drawn(fake_results, splits, tmp_path: Path,
+                                  monkeypatch: pytest.MonkeyPatch) -> None:
+    """ROC curves are straight segments (default drawstyle), so the area equals the AUC."""
+    captured = _capture_figures(monkeypatch)
+    roc_curves.plot_roc(fake_results, splits.y_test, tmp_path)
+    lines = [ln for ax in captured["roc_test"].axes for ln in ax.lines]
+    assert len(lines) > len(fake_results)  # curves plus the chance line
+    assert all(ln.get_drawstyle() == "default" for ln in lines)
+
+
+def test_confusion_single_titles_differ(fake_metrics: dict, tmp_path: Path,
+                                        monkeypatch: pytest.MonkeyPatch) -> None:
+    """The two panels of a per-model confusion figure have distinct titles."""
+    captured = _capture_figures(monkeypatch)
+    plots_confusion.plot_all({"rf": fake_metrics["rf"]}, tmp_path)
+    titles = [ax.get_title() for ax in captured["confusion_rf"].axes]
+    assert titles == ["counts", "row-normalised rates"]
+
+
+def test_densify_log_interpolates_in_linear_fpr() -> None:
+    """A segment straight in linear FPR is sampled so it bends correctly on a log axis."""
+    fpr = np.array([0.0, 0.02, 1.0])
+    tpr = np.array([0.0, 1.0, 1.0])
+    xs, ys = roc_curves.densify_log(fpr, tpr)
+    assert {0.0, 0.02, 1.0} <= set(xs)  # original points are kept
+    assert np.interp(1e-3, xs, ys) == pytest.approx(0.05, abs=1e-3)
+    assert np.all(np.diff(xs) >= 0)
+    # A vertical jump stays vertical: both of its points survive.
+    vx, vy = roc_curves.densify_log(np.array([0.0, 0.0, 1.0]), np.array([0.0, 0.5, 1.0]))
+    assert (vx == 0.0).sum() == 2 and vy[0] == 0.0 and vy[1] == 0.5

@@ -1,6 +1,6 @@
 # CLAUDE.md: Security Insider Lab, Lab 3 (Training ML and DL models for DDoS detection)
 
-Lab 3 trains 5 classical classifiers (Task 1) and 3 neural networks (Task 2) on the CIC-IDS2017 Friday DDoS flow file, then compares all 8 models (Task 3). Task 4 and the deck-only Task 5 (eBPF/XDP filtering) are planned in `TASKS.md` P7 and start only after Tasks 1–3 are done (user decision D2).
+Lab 3 trains 5 classical classifiers (Task 1) and 3 neural networks (Task 2) on the CIC-IDS2017 Friday DDoS flow file, then compares all 8 models (Task 3). Task 4 and the deck-only Task 5 (eBPF/XDP filtering) were done after Tasks 1–3 (user decision D2) in `TASKS.md` P7 (complete, 2026-11-15; code and screenshots in `xdp/`).
 
 - Course: Security Insider Lab, Uni Passau, group **G8** (max 2 members per group).
 - Specs: `Task1.png` … `Task4.png` in this folder, which are slides 7–10 of `Security_Insider_lab_3.pptx`. Slide 11 adds a **Task 5** (xdp-tools) that is not in the PNGs. Progress is tracked in `TASKS.md`.
@@ -38,8 +38,8 @@ Rules:
 | 1 | "Apply 5 different classifiers; select by yourself or go with: Gaussian NB, Gradient Boosting, AdaBoost, KNN, SVM" (`Task1.png`, slide 7) | **User's choice:** Gaussian Naive Bayes, Logistic Regression, KNN, Random Forest, XGBoost. One file each, in `script/clf/`. |
 | 2 | "Apply Multi Layer Perceptron, LSTM, CNN" (`Task2.png`, slide 8) | PyTorch (CPU), in `script/dl/`: `mlp_dl.py`, `lstm_dl.py`, `cnn_dl.py` |
 | 3 | "Generate comparison table; compare Accuracy, F-score, Precision and Recall; compare and draw ROC curves" (`Task3.png`, slide 9) | In `script/`: `comparison.py` (tables, figure index), `plots_metrics.py`, `plots_confusion.py`, `plots_training.py`, `roc_curves.py` |
-| 4 | eBPF/XDP theory: what it is, use cases, available tools discussed briefly; write a small XDP filter program (`Task4.png`, slide 10) | Planned, `TASKS.md` P7. Starts after Tasks 1–3 (D2). |
-| 5 | Deck only (slide 11): download and configure `github.com/xdp-project/xdp-tools`; may slip to the Lab 4 deadline | Planned, `TASKS.md` P7 |
+| 4 | eBPF/XDP theory: what it is, use cases, available tools discussed briefly; write a small XDP filter program (`Task4.png`, slide 10) | Done (P7): `xdp/THEORY.md`, `xdp/xdp_filter.c`, `xdp/Makefile`, `xdp/README.md`, screenshots `xdp/SS_T7/` |
+| 5 | Deck only (slide 11): download and configure `github.com/xdp-project/xdp-tools`; may slip to the Lab 4 deadline | Done (P7): xdp-tools built in `~/src/xdp-tools`, `xdp/logs/xdp-tools-build.log`, `xdp/README.md` Task 5 section |
 
 Binding user instructions (2026-11-13):
 
@@ -55,7 +55,7 @@ Binding user instructions (2026-11-13):
 - **D3:** the report and the presentation are deferred; keep the §10 structure.
 - **D4:** keep all the extra comparison outputs (§4.11 metrics, the val table, md/tex exports), and generate **several chart and grid variants** (§5.1). The user picks figures from `outputs/figures/INDEX.md`, and the report and the deck reuse that selection.
 
-- **D6 (2026-11-13):** `WINDOWS.md` for running on Windows with an RTX 3050 6 GB (`--device cuda`); a `--log-txt` report; TP and TN columns. **Per-model DL epoch limits** (MLP 30, CNN 30, LSTM 15) were chosen by experiment, under the user's rule that a longer limit is adopted only if no test metric gets worse. At 30 epochs MLP and CNN improved on every metric; the LSTM's precision and FP got worse, so it stayed at 15. **Superseded for the LSTM on 2026-11-15 (D7).**
+- **D6 (2026-11-13):** `WINDOWS.md` for running on Windows with an RTX 3050 6 GB (`--device cuda`); a `--log-txt` report; TP and TN columns. **Per-model DL epoch limits** (MLP 30, CNN 30, LSTM 15) were first chosen by an experiment judged on **test** metrics (user rule: a longer limit only if no metric gets worse). The Fable audit (2026-11-15, M2) flagged this as test-set reuse; the caps are now justified on **validation** evidence: with cap 15 no DL model early-stopped, and with cap 30 the best validation epochs are MLP 29 and CNN 22 (CNN early-stops at 25). Because MLP's best epoch 29 sat at the cap, its cap was raised to **40** (2026-11-15, m12): it then early-stops at 32 with the same best epoch 29 (val loss 0.00167), so the model is identical and the cap no longer ends training. Final caps: MLP 40, CNN 30, LSTM 40. The report must disclose that the test set informed the first choice. **Superseded for the LSTM on 2026-11-15 (D7).**
 - **D7 (2026-11-15, user):** the LSTM gets gradient clipping 1.0, its own learning rate and patience. Values chosen by Opus by lowest **validation** loss over a 3-config grid (Linux CPU): lr 5e-4 / patience 7 / cap 40 (val loss 0.00529) beat lr 5e-4 / p5 / cap 30 (0.00567, hit the cap) and lr 3e-4 / p5 / cap 40 (0.00720). Settings live in `dl/lstm_dl.py` (`LEARNING_RATE`, `PATIENCE`, `MAX_EPOCHS`, `GRAD_CLIP_NORM`) and reach `run_dl` as `dl_common.TrainSettings`; MLP and CNN keep the shared lr 1e-3, patience 3, no clipping.
 
 The Task 1 slide names Gradient Boosting, AdaBoost and SVM but allows an own selection. LR, RF and XGBoost are the user's choice; the report states this.
@@ -90,7 +90,7 @@ Both copies have sha256 `646fd1282cf584bd330caf4dab51c689799b223425cf643edde172a
 - **Lab 2 baselines** (70/30, MinMax + chi2 top-20, so not directly comparable): Decision Tree DDoS-F1 0.9996, Logistic Regression ≈ 0.974. Expect near-perfect scores for RF, XGB and the DL models. The differences will show in the FP/FN counts.
 - **Fixture** `../Lab2/Friday_Dataset/tests/fixtures/sample_ddos.csv`: 3,187 rows (1,665 BENIGN / 1,522 DDoS), with 34 inf rows.
 
-### Final results (test split, 2026-11-13, Linux CPU; `outputs/run_report.txt`, metrics files as of commit afa8747)
+### Final results (test split, final run 2026-11-15 after the Fable fixes, Linux CPU; caps MLP 40 / CNN 30 / LSTM 40, D7 LSTM; `outputs/metrics/comparison_test.md`, `outputs/run_report.txt`, 303 s)
 
 | Model | Acc | Prec | Rec | F1 | ROC-AUC | TP | TN | FP | FN |
 |---|---|---|---|---|---|---|---|---|---|
@@ -98,12 +98,12 @@ Both copies have sha256 `646fd1282cf584bd330caf4dab51c689799b223425cf643edde172a
 | Random Forest | 0.9999 | 1.0000 | 0.9998 | 0.9999 | 1.0000 | 19199 | 14261 | 0 | 3 |
 | KNN | 0.9998 | 0.9999 | 0.9997 | 0.9998 | 0.9999 | 19197 | 14260 | 1 | 5 |
 | MLP | 0.9995 | 0.9997 | 0.9994 | 0.9995 | 1.0000 | 19190 | 14255 | 6 | 12 |
+| LSTM | 0.9990 | 0.9992 | 0.9992 | 0.9992 | 1.0000 | 19186 | 14245 | 16 | 16 |
 | 1D-CNN | 0.9990 | 0.9993 | 0.9990 | 0.9991 | 1.0000 | 19182 | 14248 | 13 | 20 |
 | Logistic Regression | 0.9980 | 0.9977 | 0.9988 | 0.9983 | 0.9999 | 19179 | 14217 | 44 | 23 |
-| LSTM | 0.9935 | 0.9947 | 0.9939 | 0.9943 | 0.9998 | 19084 | 14160 | 101 | 118 |
 | Gaussian NB | 0.9895 | 0.9832 | 0.9986 | 0.9909 | 0.9880 | 19176 | 13934 | 327 | 26 |
 
-### Windows GPU run (test split, 2026-11-15; RTX 3050 6 GB Laptop, torch 2.15.0+cu132, 16 threads; `outputs/run_report_windows.txt`, current `outputs/metrics/*`)
+### Windows GPU run (test split, 2026-11-15; RTX 3050 6 GB Laptop, torch 2.15.0+cu132, 16 threads; `outputs/runs/run_report_windows_gpu_full_untuned_lstm.txt`)
 
 Same CSV sha256, same preprocessing and split counts. Only the rows that differ from the CPU table:
 
@@ -120,12 +120,13 @@ GNB, KNN, RF and XGBoost are identical. Opus analysis: §9 "Cross-platform".
 
 | Run | Settings | Acc | Prec | Rec | F1 | ROC-AUC | FP | FN | Best / stop epoch |
 |---|---|---|---|---|---|---|---|---|---|
-| Linux CPU, `outputs/run.log` (2026-11-13) | lr 1e-3, p3, cap 15, no clip | 0.9935 | 0.9947 | 0.9939 | 0.9943 | 0.9998 | 101 | 118 | 14 / 15 |
-| Windows GPU, `outputs/` (2026-11-15) | same | 0.9866 | 0.9781 | 0.9991 | 0.9885 | 0.9986 | 430 | 17 | 4 / 7 |
-| Linux CPU, `outputs_lstm_clip_linux_cpu/` | + clip 1.0 | 0.9958 | 0.9940 | 0.9988 | 0.9964 | 0.9998 | 116 | 23 | 12 / 15 |
-| **Linux CPU, `outputs_lstm_enhance_linux_cpu/` (final, D7)** | lr 5e-4, p7, cap 40, clip 1.0 | **0.9990** | **0.9992** | **0.9992** | **0.9992** | **1.0000** | **16** | **16** | 31 / 38 |
+| Linux CPU, `runs/run_report_linux_cpu_full_untuned_lstm.txt` (2026-11-13) | lr 1e-3, p3, cap 15, no clip | 0.9935 | 0.9947 | 0.9939 | 0.9943 | 0.9998 | 101 | 118 | 14 / 15 |
+| Windows GPU, `runs/run_report_windows_gpu_full_untuned_lstm.txt` (2026-11-15) | same | 0.9866 | 0.9781 | 0.9991 | 0.9885 | 0.9986 | 430 | 17 | 4 / 7 |
+| Linux CPU, `runs/run_report_lstm_clip_linux_cpu.txt` | + clip 1.0 | 0.9958 | 0.9940 | 0.9988 | 0.9964 | 0.9998 | 116 | 23 | 12 / 15 |
+| **Linux CPU, `runs/run_report_lstm_enhance_linux_cpu.txt` (final, D7; = consolidated `outputs/`)** | lr 5e-4, p7, cap 40, clip 1.0 | **0.9990** | **0.9992** | **0.9992** | **0.9992** | **1.0000** | **16** | **16** | 31 / 38 |
+| **Windows GPU, `runs/run_report_lstm_enhance_windows_gpu.txt` (final, D7)** | same | **0.9993** | **0.9995** | **0.9992** | **0.9993** | **0.9999** | **10** | **15** | 40 / 40 (cap) |
 
-The D7 LSTM is better than every earlier LSTM on every test metric, and it now ranks between MLP (F1 0.9995) and 1D-CNN (0.9991). Training takes 137 s on CPU. `outputs/` still holds the old LSTM; re-run the full pipeline before the report to get consistent 8-model tables and figures.
+The D7 LSTM is better than every earlier LSTM on every test metric, and it now ranks between MLP (F1 0.9995) and 1D-CNN (0.9991). Training takes 137–141 s on CPU and 88 s on the RTX 3050. On the GPU the best epoch was the last one (40, val loss 0.00486, after a 0.123 spike at epoch 39), so the GPU run hit the cap; CPU vs GPU differ by 6 FP and 1 FN, which is run-to-run noise. The consolidated `outputs/` run (2026-11-15) uses the D7 LSTM.
 
 ---
 
@@ -143,7 +144,7 @@ The D7 LSTM is better than every earlier LSTM on every test metric, and it now r
    - The data-stack pins reuse Lab 2's verified set (numpy 2.5.4, pandas 3.1.0, scikit-learn 1.9.1, matplotlib 3.11.2). The others are pinned to what T1.1 resolved on 2026-11-13: torch 2.15.0 (installed as `2.15.0+cpu`), xgboost 3.4.1, tabulate 0.10.0, jinja2 3.1.6, pylint 4.1.3, pytest 9.2.0, radon 6.0.1. The `.venv` is 1.5 GB.
    - No `pyproject.toml`, so uv stays out of project mode. Tool config lives in `.pylintrc` and `pytest.ini`.
    - git: `outputs/` is **tracked**, because the report and the deck reuse it. `.gitignore` covers `.venv/`, the caches and the LibreOffice lock files.
-3. **DL framework: PyTorch, CPU build.** The machine has no GPU (6 cores, 15 GiB RAM).
+3. **DL framework: PyTorch, CPU build.** The Linux machine has no GPU (6 cores, 15 GiB RAM); `--device cuda` was used on the user's Windows laptop (RTX 3050 6 GB, D6).
 4. **Cleaning.** `preprocess.load_raw` does step 1 and `preprocess.clean(df)` does steps 2–6:
    1. load, strip column names and label values
    2. replace ±inf with NaN
@@ -167,8 +168,8 @@ The D7 LSTM is better than every earlier LSTM on every test metric, and it now r
    - XGBoost: early stopping (`early_stopping_rounds=20` on val logloss).
    - DL models: early stopping on val loss (patience 3), restoring the best weights.
    - Val metrics are reported for every model. For the early-stopped models (XGB, MLP, LSTM, CNN) the val scores are **selection-biased** (optimistic); the test scores are the unbiased figures.
-   - There is no hyper-parameter search (not asked for).
-   - The test set is used **once**, for the final tables and figures.
+   - There is no broad hyper-parameter search. Two small selections were made: the DL epoch caps (D6) and the LSTM settings (D7, a 3-config grid). D7 and the D6 caps (re-justified 2026-11-15) are selected on **validation** loss.
+   - The test set produces the final tables and figures. Disclosure for the report: the first D6 decision (2026-11-13) compared test metrics, so the test set is not perfectly untouched for the MLP/CNN epoch caps; the effect is small (MLP F1 0.9994 → 0.9995).
 9. **Hyper-parameters** (fixed; module-level constants in each model file):
 
    | Key | Model |
@@ -183,7 +184,7 @@ The D7 LSTM is better than every earlier LSTM on every test metric, and it now r
    | `cnn` | input reshaped to (batch, 1, n_features); Conv1d(1→32, k=3, pad=1) + ReLU + MaxPool1d(2) → Conv1d(32→64, k=3, pad=1) + ReLU → AdaptiveMaxPool1d(1) → Linear(64 → 1). Needs n_features ≥ 2. |
 
    - **DL models:** each `nn.Module` takes `n_features: int` in its constructor, and `run` passes `splits.x_train.shape[1]`. Each model reshapes its input inside `forward()`, so all DL models take the same 2-D float32 arrays.
-   - **Shared DL settings:** the numeric constants live in `common.py` (batch 1024, lr 1e-3, max 15 epochs, patience 3, `SEED`). `dl_common.py` creates the loss (`BCEWithLogitsLoss`) and the optimiser (Adam). `common.py` never imports torch.
+   - **Shared DL settings:** the numeric constants live in `common.py` (batch 1024, shared lr 1e-3, shared patience 3, `SEED`; each `*_dl.py` sets its own `MAX_EPOCHS`, and the LSTM its own lr/patience/clip via `TrainSettings`, D7). `dl_common.py` creates the loss (`BCEWithLogitsLoss`) and the optimiser (Adam). `common.py` never imports torch.
    - **Seeding:** each `*_dl.run` calls `dl_common.set_seed(SEED)` (torch, numpy, `random`) **before** it instantiates its model. `run_dl` does not re-seed. The DataLoader shuffles with a generator seeded with `SEED`.
 10. **Prediction rule:** every model outputs P(DDoS) as its score. `y_pred = (score > 0.5)`, which is the same tie-break as sklearn's `predict` (an exact 0.5 → BENIGN). Fable verified that this equals `predict` for all 5 classifiers.
 11. **Metrics** (val and test, DDoS as the positive class, `zero_division=0`):
@@ -197,7 +198,7 @@ The D7 LSTM is better than every earlier LSTM on every test metric, and it now r
     - `common.save_figure` writes PNG (200 dpi) and PDF.
     - Use one fixed colour per model, from `common.MODEL_COLORS`: the Okabe–Ito colour-blind-safe palette, with yellow replaced by grey for contrast. ML models are drawn with solid lines and DL models with dashed ones.
     - Every plot function works for **any number of models ≥ 1**, because smoke runs use 3. Grids use 4 columns and `ceil(n / 4)` rows. A figure whose model set is empty (for example `roc_test_dl` without DL models) is skipped with a log line.
-    - The catalog is in §5.1. `comparison.write_figure_index` writes `outputs/figures/INDEX.md`, which lists every generated figure with its chart type and purpose and links the PNG, so the user can choose.
+    - The catalog is in §5.1. `figure_index.write_figure_index` (re-exported by `comparison`) writes `outputs/figures/INDEX.md`: one table per tier (1 Core 7, 2 Recommended +5, 3 Alternatives 6, 4 Appendix 8), each row linking the PNG with its chart type and purpose, so the user can choose (2026-11-15).
 13. **Logging:** `logging` to the console and to `outputs/run.log`, opened with mode `"w"`. `setup_logging` removes and closes any existing root handlers first, so it is safe to call twice (the tests call `main()` in-process). Modules never call `print`.
 14. **Lazy model imports:** `main.py` maps each key to a module name (`clf.gnb_clf`, …, `dl.cnn_dl`) and imports it with `importlib`, so `--models gnb lr` never imports torch.
 
@@ -252,10 +253,11 @@ The best epoch is `argmin(history["val_loss"])`, which is the epoch whose weight
 | `preprocess.py` | `load_raw(csv_path) -> pd.DataFrame` (step 1), `clean(df) -> tuple[pd.DataFrame, dict]` (steps 2–6, plus their part of the summary), `encode_labels`, `split_data`, `scale_splits`, and `preprocess(csv_path: Path) -> tuple[DataSplits, dict]` (runs them all and returns the full summary below) |
 | `clf/ml_common.py` | `run_sklearn(model, key: str, name: str, splits: DataSplits, fit_kwargs: dict \| None = None) -> ModelResult`: times the fit and the test predict, and returns `predict_proba[:, 1]` for val and test |
 | `clf/*_clf.py` | `KEY`, `NAME`, `build_model()`, `run(splits) -> ModelResult` (family `"ML"`) |
-| `dl/dl_common.py` | `set_seed(seed)`; `make_loader(x, y, shuffle) -> DataLoader`; `class EarlyStopper(patience)` with `update(val_loss: float, model) -> bool` (True means stop; deep-copies the best `state_dict`) and `restore(model)`; `train_model(model, splits, max_epochs) -> dict` (the history; uses `EarlyStopper`; restores the best weights); `predict_scores(model, x) -> np.ndarray` (sigmoid; batched; eval mode; `no_grad`); `make_step(model, optimizer, grad_clip_norm)` (optional `clip_grad_norm_`, then `optimizer.step()`); `TrainSettings(lr, patience, grad_clip_norm)` (frozen; defaults = the shared `common` values, no clipping); `run_dl(model, key, name, splits, max_epochs, device="cpu", settings=None) -> ModelResult` |
-| `dl/*_dl.py` | `KEY`, `NAME`, one `nn.Module` subclass `__init__(self, n_features: int)`, `run(splits, max_epochs: int = DL_MAX_EPOCHS) -> ModelResult` (family `"DL"`; seeds before building the model) |
+| `dl/dl_common.py` | `set_seed(seed)`; `make_loader(x, y, shuffle) -> DataLoader`; `class EarlyStopper(patience)` with `update(val_loss: float, model) -> bool` (True means stop; deep-copies the best `state_dict`) and `restore(model)`; `train_model(model, splits, max_epochs, device="cpu", settings=None) -> dict` (the history; uses `EarlyStopper`; restores the best weights); `predict_scores(model, x, device="cpu") -> np.ndarray` (sigmoid; batched; eval mode; `no_grad`); `make_step(model, optimizer, grad_clip_norm)` (optional `clip_grad_norm_`, then `optimizer.step()`); `TrainSettings(lr, patience, grad_clip_norm)` (frozen; defaults = the shared `common` values, no clipping); `run_dl(model, key, name, splits, max_epochs, device="cpu", settings=None) -> ModelResult` |
+| `dl/*_dl.py` | `KEY`, `NAME`, one `nn.Module` subclass `__init__(self, n_features: int)`, `MAX_EPOCHS`, `run(splits, max_epochs: int | None = None, device: str = "cpu") -> ModelResult` (None = the module's `MAX_EPOCHS`) (family `"DL"`; seeds before building the model) |
 | `evaluate.py` | `compute_metrics(y_true, y_score) -> dict`; `evaluate_all(results: list[ModelResult], splits) -> dict` (schemas below) |
-| `comparison.py` | `FIGURE_CATALOG` (stem → (chart type, purpose), §5.1); `build_table(metrics, split) -> pd.DataFrame`; `save_table(df, metrics_dir, stem)` (csv/md/tex); `plot_table_image(df, fig_dir)`; `run_comparison(results, metrics, out_dir)` (tables, then `plots_metrics`, `plots_confusion` and `plots_training`); `write_figure_index(out_dir)` |
+| `figure_index.py` | `TIERS` (tier → (title, guidance)); `FIGURE_CATALOG` (stem → (tier, chart type, purpose), §5.1); `write_figure_index(out_dir)` |
+| `comparison.py` | re-exports `FIGURE_CATALOG` and `write_figure_index`; `build_table(metrics, split) -> pd.DataFrame`; `save_table(df, metrics_dir, stem)` (csv/md/tex); `plot_table_image(df, fig_dir)`; `run_comparison(results, metrics, out_dir)` (tables, then `plots_metrics`, `plots_confusion` and `plots_training`); `write_figure_index(out_dir)` |
 | `plots_metrics.py` | `plot_all(metrics, fig_dir)`, plus one small function per metric chart of §5.1 |
 | `plots_confusion.py` | `plot_all(metrics, fig_dir)`, covering the grids and the per-model matrices |
 | `plots_training.py` | `plot_all(results, fig_dir)`; skipped with a log line when no result has a `history` |
@@ -334,7 +336,7 @@ All module paths in this table are relative to `script/`.
 | `dl_history_overlay` | plots_training | val loss of all DL models on one axis | convergence compared |
 | `dl_history_grid` | plots_training | one panel per DL model: train and val loss, best epoch marked | early stopping shown |
 
-`INDEX.md` lists only the stems that exist after a run. For the full 8-model run that is 26 stems (8 of them `confusion_<key>`).
+`INDEX.md` lists only the stems that exist after a run, grouped by tier. For the full 8-model run that is 26 stems (8 of them `confusion_<key>`). Tiers: **1 Core (short report):** comparison_table, metrics_bar_grouped, errors_bar, roc_test, roc_test_zoom, confusion_grid_counts, dl_history_grid. **2 Recommended (full report = 1 + 2 = 12):** metrics_heatmap, roc_test_logx, time_bar, confusion_grid_normalized, dl_history_overlay. **3 Alternatives (swap, not add):** metrics_small_multiples, metrics_radar, metrics_dot, roc_grid, roc_test_ml, roc_test_dl. **4 Appendix:** confusion_<key>.
 
 ---
 
@@ -350,19 +352,20 @@ Lab3/
 │   ├── main.py                                           # entry point: Tasks 1–3
 │   ├── common.py                                         # constants, dataclasses, logging, save_figure
 │   ├── preprocess.py                                     # cleaning, 70/15/15 split, scaling
-│   ├── evaluate.py  comparison.py  plots_metrics.py  plots_confusion.py  plots_training.py  roc_curves.py   # Task 3
+│   ├── evaluate.py  comparison.py  figure_index.py  run_report.py  plots_metrics.py  plots_confusion.py  plots_training.py  roc_curves.py   # Task 3
 │   ├── clf/   __init__.py  ml_common.py  gnb_clf.py  lr_clf.py  knn_clf.py  rf_clf.py  xgb_clf.py      # Task 1
 │   └── dl/    __init__.py  dl_common.py  mlp_dl.py  lstm_dl.py  cnn_dl.py                            # Task 2
 ├── tests/    conftest.py  fixtures/sample_ddos.csv  test_*.py
 ├── outputs/  GENERATED, tracked (see below)
-└── xdp/      Tasks 4–5 (planned, P7)
+└── xdp/      Tasks 4–5 (done, P7): xdp_filter.c, Makefile, README.md, THEORY.md, logs/, SS_T7/
 ```
 
 Generated by `python script/main.py`:
 
 ```
 outputs/
-├── run.log
+├── run.log  run_report.txt   # --log-txt outputs/run_report.txt
+├── runs/      evidence of the side runs (2026-11-15; text only): Windows GPU full run with the untuned LSTM, LSTM clip-only and enhanced runs (Linux CPU, Windows GPU)
 ├── metrics/   preprocess_summary.json  metrics.json  comparison_test.{csv,md,tex}  comparison_val.{csv,md,tex}
 └── figures/   INDEX.md  plus every §5.1 stem as .png and .pdf
 ```
@@ -417,16 +420,16 @@ pytest -m e2e -q                                                              # 
 - **Never install the default torch wheel.** It pulls several GB of `nvidia-*` CUDA packages. Always pass `--torch-backend=cpu` (a uv option). Plain `pip` users need `--extra-index-url https://download.pytorch.org/whl/cpu`; `requirements.txt` says so in a comment. `uv pip list | grep -i -E 'nvidia|cuda|triton'` may show only `nvidia-nccl-cu13` (about 200 MB). The xgboost Linux wheel depends on it, and it is harmless on CPU. Any other match means a CUDA torch build was installed.
 - pandas `to_markdown` needs `tabulate` and `to_latex` needs `jinja2`; both are in `requirements.txt`.
 - **XGBoost** prints one line per round unless `fit(..., verbose=False)` is passed (§4.9).
-- **LSTM** needs `batch_first=True` (§4.9). Final run (2026-11-13, CPU, per-model epochs): the whole `main.py` takes 5.1 min (308 s). DL training: MLP 39 s (30 epochs), LSTM 53 s (15), CNN 68 s (early-stopped at 25). Earlier runs took 14 and 39 min only because other jobs were loading the CPU at the same time.
+- **LSTM** needs `batch_first=True` (§4.9). Final run (2026-11-15, CPU, D7): the whole `main.py` takes about 5 min (303 s). DL training: MLP 42 s (early-stopped at 32 of 40), LSTM 141 s (early-stopped at 38 of 40), CNN 67 s (early-stopped at 25). Earlier runs took 14 and 39 min only because other jobs were loading the CPU at the same time.
 - **KNN** `predict_proba` with k=5 takes only the values {0, 0.2, …, 1}, so its ROC curve has few points. This is expected; say so in the report. KNN prediction (66k rows against 156k training rows, brute force) is the slowest classical step.
 - **Near-perfect scores are expected.** The `errors_bar` figure, the FP/FN columns and the zoomed and log-x ROC figures exist for that reason.
 - **GNB** is the weakest model, but not by much. In the P3 preview it reached F1 0.9909 on test: 327 FP against 0–44 for the others. Its errors are mostly false alarms. Report it as it is.
 - **Cross-platform (Windows GPU vs Linux CPU, 2026-11-15).**
-  - Epoch 1 of every DL model is identical on both (same seed, init and shuffle order); the runs drift from epoch 2 because CUDA/cuDNN kernels round differently. So DL numbers match only to about 3 decimals.
-  - The **LSTM training is unstable on both platforms**: the train loss spikes (CPU epoch 3: 0.13→0.28; GPU epoch 5: 0.05→0.30). With patience 3 the GPU run stopped at epoch 7. Likely cause: exploding gradients over the 59-step sequence on heavy-tailed standardised inputs, with no gradient clipping. **User decision 2026-11-15: LSTM uses gradient clipping** (`GRAD_CLIP_NORM = 1.0` in `dl/lstm_dl.py`, `run_dl(..., grad_clip_norm=...)`; MLP/CNN do not clip, verified bit-identical MLP rerun). Linux CPU result (`outputs_lstm_clip_linux_cpu/`): F1 0.9943→0.9964, acc 0.9935→0.9958, recall 0.9939→0.9988, FN 118→23, ROC-AUC 0.9998 equal, but precision 0.9947→0.9940 and FP 101→116. The train-loss spikes are smaller, but the val loss still oscillates (0.016–0.086), so clipping reduces the instability without removing it. `outputs/` (full Windows run) still holds the unclipped LSTM.
+  - Same seed, init and shuffle order on both. Epoch 1 of the LSTM is identical on CPU and GPU (0.58013 / 0.27506 untuned; 0.67538 / 0.59486 D7); MLP and CNN already differ in epoch 1 (MLP train loss 0.12449 vs 0.12388; CNN in the 5th decimal), because CUDA/cuDNN kernels round differently. So DL numbers match only to about 3 decimals.
+  - The **LSTM training is unstable on both platforms**: the train loss spikes (CPU epoch 3: 0.13→0.28; GPU epoch 5: 0.05→0.30). With patience 3 the GPU run stopped at epoch 7. Likely cause: exploding gradients over the 59-step sequence on heavy-tailed standardised inputs, with no gradient clipping. **User decision 2026-11-15: LSTM uses gradient clipping** (`GRAD_CLIP_NORM = 1.0` in `dl/lstm_dl.py`, passed as `run_dl(..., settings=TrainSettings(...))`; MLP/CNN do not clip, verified bit-identical MLP rerun). Linux CPU result (`outputs/runs/run_report_lstm_clip_linux_cpu.txt`): F1 0.9943→0.9964, acc 0.9935→0.9958, recall 0.9939→0.9988, FN 118→23, ROC-AUC 0.9998 equal, but precision 0.9947→0.9940 and FP 101→116. The train-loss spikes are smaller, but the val loss still oscillates (0.016–0.086), so clipping reduces the instability without removing it. 
   - LR differs by 3 FP: lbfgs stops at its tolerance, and different BLAS builds/thread counts reach it at a slightly different point. ML models are therefore "identical up to solver tolerance", not bit-identical.
   - **Times are not comparable across machines.** The Linux LR fit of 110 s was contention: re-measured on 2026-11-15 it takes 12.3 s (80 lbfgs iterations, OpenBLAS, 6 threads). The GPU gives no speed-up for the small MLP (≈1.7 s/epoch plus ≈7 s CUDA start-up) but a ≈1.8× per-epoch speed-up for the LSTM.
-  - Artefacts: Linux CPU = `outputs/run.log` + `outputs/run_report.txt`; Windows GPU = `outputs/run_windows.log` + `outputs/run_report_windows.txt` (the user renamed the log on Windows for that run; `LOG_FILE_NAME` is back to `run.log`). `outputs/metrics/*` and `outputs/figures/*` hold the Windows run. A single-model re-run must use its own `--out` (WINDOWS.md §10).
+  - Artefacts: `outputs/` holds the consolidated Linux CPU run (`run.log`, `run_report.txt`, `metrics/`, `figures/`). Evidence of all other runs is in `outputs/runs/`: `run_linux_cpu_full_untuned_lstm.log` + `run_report_linux_cpu_full_untuned_lstm.txt` (2026-11-13), `run_windows_gpu_full_untuned_lstm.log` + `run_report_windows_gpu_full_untuned_lstm.txt`, `run_report_lstm_clip_linux_cpu.txt`, `run_report_lstm_enhance_linux_cpu.txt`, `run_report_lstm_enhance_windows_gpu.txt`. Side runs go to a git-ignored `outputs_<name>/` (WINDOWS.md §10).
 - **Log-x ROC:** FPR = 0 cannot be drawn on a log axis, so clip it at 1e-5 (one false positive on the test set is about 7e-5).
 - LR may warn with `ConvergenceWarning` on the heavy-tailed standardized data. Log the warning; do not silence it.
 - The deck is open in LibreOffice (`.~lock.Security_Insider_lab_3.pptx#`). Never touch the lock file or the deck.

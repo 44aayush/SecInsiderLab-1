@@ -2,31 +2,63 @@
 
 Pick the figures for the report and the deck. Every figure also exists as PDF.
 
-| Stem | Chart type | Purpose | PNG |
-|---|---|---|---|
-| `metrics_bar_grouped` | grouped bars | Accuracy, Precision, Recall and F1 per model | [metrics_bar_grouped.png](metrics_bar_grouped.png) |
-| `metrics_small_multiples` | small multiples, sorted bars | ranking per metric | [metrics_small_multiples.png](metrics_small_multiples.png) |
-| `metrics_heatmap` | annotated heatmap | everything at a glance | [metrics_heatmap.png](metrics_heatmap.png) |
-| `metrics_radar` | radar chart | the profile of each model | [metrics_radar.png](metrics_radar.png) |
-| `metrics_dot` | Cleveland dot plot | a compact comparison | [metrics_dot.png](metrics_dot.png) |
-| `errors_bar` | grouped bars, log y-axis | FP and FN, where near-perfect models differ | [errors_bar.png](errors_bar.png) |
-| `time_bar` | horizontal bars, log x-axis | train and predict cost | [time_bar.png](time_bar.png) |
-| `comparison_table` | table image | a slide-ready test table | [comparison_table.png](comparison_table.png) |
-| `confusion_grid_counts` | confusion heatmap grid, counts | all models side by side | [confusion_grid_counts.png](confusion_grid_counts.png) |
-| `confusion_grid_normalized` | confusion heatmap grid, row-normalised rates | rates (0-1, 4 decimals) instead of counts | [confusion_grid_normalized.png](confusion_grid_normalized.png) |
-| `confusion_gnb` | single confusion heatmap | one model on one slide | [confusion_gnb.png](confusion_gnb.png) |
-| `confusion_lr` | single confusion heatmap | one model on one slide | [confusion_lr.png](confusion_lr.png) |
-| `confusion_knn` | single confusion heatmap | one model on one slide | [confusion_knn.png](confusion_knn.png) |
-| `confusion_rf` | single confusion heatmap | one model on one slide | [confusion_rf.png](confusion_rf.png) |
-| `confusion_xgb` | single confusion heatmap | one model on one slide | [confusion_xgb.png](confusion_xgb.png) |
-| `confusion_mlp` | single confusion heatmap | one model on one slide | [confusion_mlp.png](confusion_mlp.png) |
-| `confusion_lstm` | single confusion heatmap | one model on one slide | [confusion_lstm.png](confusion_lstm.png) |
-| `confusion_cnn` | single confusion heatmap | one model on one slide | [confusion_cnn.png](confusion_cnn.png) |
-| `roc_test` | ROC curves, full axes | the Task 3 ROC figure | [roc_test.png](roc_test.png) |
-| `roc_test_zoom` | ROC curves, FPR 0-0.05, TPR 0.95-1 | separates the near-perfect models | [roc_test_zoom.png](roc_test_zoom.png) |
-| `roc_test_logx` | ROC curves, log-scale FPR | low false-alarm behaviour | [roc_test_logx.png](roc_test_logx.png) |
-| `roc_grid` | ROC small multiples | each curve on its own | [roc_grid.png](roc_grid.png) |
-| `roc_test_ml` | ROC curves, ML only | the family comparison | [roc_test_ml.png](roc_test_ml.png) |
-| `roc_test_dl` | ROC curves, DL only | the family comparison | [roc_test_dl.png](roc_test_dl.png) |
-| `dl_history_overlay` | line chart | validation loss of all DL models, convergence compared | [dl_history_overlay.png](dl_history_overlay.png) |
-| `dl_history_grid` | line chart grid | train and val loss per DL model, best epoch marked | [dl_history_grid.png](dl_history_grid.png) |
+- Tier 1 Core (7 figures): short report. Slides: Tier 1 minus dl_history_grid.
+- Tier 2 Recommended additions (+5): full report = Tier 1 + Tier 2 (12).
+- Tier 3 Alternatives: swap in for a Tier 1/2 figure; not in addition.
+- Tier 4 Appendix: one confusion matrix per model run.
+
+## Tier 1 - Core (7 figures)
+
+_a short report uses only these._
+
+| Figure | Chart type | Purpose |
+|---|---|---|
+| [comparison_table](comparison_table.png) | table image | a slide-ready test table |
+| [metrics_bar_grouped](metrics_bar_grouped.png) | grouped bars | Accuracy, Precision, Recall and F1 per model |
+| [errors_bar](errors_bar.png) | grouped bars, log y-axis | FP and FN, where near-perfect models differ |
+| [roc_test](roc_test.png) | ROC curves, full axes | the Task 3 ROC figure |
+| [roc_test_zoom](roc_test_zoom.png) | ROC curves, FPR 0-0.05, TPR 0.95-1 | separates the near-perfect models |
+| [confusion_grid_counts](confusion_grid_counts.png) | confusion heatmap grid, counts | all models side by side |
+| [dl_history_grid](dl_history_grid.png) | line chart grid | train and val loss per DL model, best epoch marked |
+
+## Tier 2 - Recommended additions (5 figures)
+
+_a full 10-15 page report uses Tier 1 + Tier 2._
+
+| Figure | Chart type | Purpose |
+|---|---|---|
+| [metrics_heatmap](metrics_heatmap.png) | annotated heatmap | everything at a glance |
+| [roc_test_logx](roc_test_logx.png) | ROC curves, log-scale FPR | low false-alarm behaviour |
+| [time_bar](time_bar.png) | horizontal bars, log x-axis | train and predict cost |
+| [confusion_grid_normalized](confusion_grid_normalized.png) | confusion heatmap grid, row-normalised rates | rates (0-1, 4 decimals) instead of counts |
+| [dl_history_overlay](dl_history_overlay.png) | line chart | validation loss of all DL models, convergence compared |
+
+## Tier 3 - Alternatives (6 figures)
+
+_swap one in for the Tier 1/2 figure named under 'alternative to'; not in addition._
+
+| Figure | Chart type | Purpose |
+|---|---|---|
+| [metrics_small_multiples](metrics_small_multiples.png) | small multiples, sorted bars | ranking per metric; alternative to metrics_bar_grouped |
+| [metrics_radar](metrics_radar.png) | radar chart | the profile of each model; alternative to metrics_heatmap |
+| [metrics_dot](metrics_dot.png) | Cleveland dot plot | a compact comparison; alternative to metrics_bar_grouped |
+| [roc_grid](roc_grid.png) | ROC small multiples | each curve on its own; alternative to roc_test |
+| [roc_test_ml](roc_test_ml.png) | ROC curves, ML only | the family comparison; alternative to roc_test_zoom |
+| [roc_test_dl](roc_test_dl.png) | ROC curves, DL only | the family comparison; alternative to roc_test_zoom |
+
+## Tier 4 - Appendix (per-model detail) (8 figures)
+
+_one confusion matrix per model run._
+
+| Figure | Chart type | Purpose |
+|---|---|---|
+| [confusion_gnb](confusion_gnb.png) | single confusion heatmap | one model on one slide |
+| [confusion_lr](confusion_lr.png) | single confusion heatmap | one model on one slide |
+| [confusion_knn](confusion_knn.png) | single confusion heatmap | one model on one slide |
+| [confusion_rf](confusion_rf.png) | single confusion heatmap | one model on one slide |
+| [confusion_xgb](confusion_xgb.png) | single confusion heatmap | one model on one slide |
+| [confusion_mlp](confusion_mlp.png) | single confusion heatmap | one model on one slide |
+| [confusion_lstm](confusion_lstm.png) | single confusion heatmap | one model on one slide |
+| [confusion_cnn](confusion_cnn.png) | single confusion heatmap | one model on one slide |
+
+Total: 26 figures listed.

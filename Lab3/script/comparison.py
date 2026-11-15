@@ -5,7 +5,6 @@ writes ``figures/INDEX.md`` so the user can pick figures (decision D4).
 """
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import pandas as pd
@@ -15,8 +14,11 @@ import common
 import plots_confusion
 import plots_metrics
 import plots_training
+from figure_index import FIGURE_CATALOG, write_figure_index
 
-log = logging.getLogger(__name__)
+# Re-exported: the catalog and index writer live in figure_index.py (module size limit).
+__all__ = ["FIGURE_CATALOG", "write_figure_index", "build_table", "save_table",
+           "plot_table_image", "run_comparison", "table_markdown"]
 
 SCORE_COLUMNS = ["Accuracy", "Precision", "Recall", "F1", "Macro-F1", "ROC-AUC"]
 COLUMNS = ["Model", "Family", *SCORE_COLUMNS, "TP", "TN", "FP", "FN", "Train time (s)",
@@ -27,33 +29,13 @@ SCORE_DECIMALS, TIME_DECIMALS = 4, 3   # scores as decimals (user decision); tim
 SPLITS = ("test", "val")
 TABLE_FONT = 11
 TABLE_ROW_SCALE = 1.9
+TABLE_ROW_H = 0.32                     # inches per table row
+TABLE_TITLE_PAD = 36                   # points between the table and its title
+TABLE_HEADER_H = 0.7                   # inches for the header row and title
+LATEX_NOTE = ("% booktabs table (4-decimal scores, 3-decimal times). Wide: wrap it in\n"
+              "% \\resizebox{\\textwidth}{!}{ ... } and \\usepackage{booktabs}.\n")
 TABLE_COL_W = 1.05                     # inches per column of the image table
 HEADER_COLOR = "#D9E2EC"
-CONFUSION_PATTERN = "confusion_<key>"
-
-FIGURE_CATALOG: dict[str, tuple[str, str]] = {
-    "metrics_bar_grouped": ("grouped bars", "Accuracy, Precision, Recall and F1 per model"),
-    "metrics_small_multiples": ("small multiples, sorted bars", "ranking per metric"),
-    "metrics_heatmap": ("annotated heatmap", "everything at a glance"),
-    "metrics_radar": ("radar chart", "the profile of each model"),
-    "metrics_dot": ("Cleveland dot plot", "a compact comparison"),
-    "errors_bar": ("grouped bars, log y-axis", "FP and FN, where near-perfect models differ"),
-    "time_bar": ("horizontal bars, log x-axis", "train and predict cost"),
-    "comparison_table": ("table image", "a slide-ready test table"),
-    "confusion_grid_counts": ("confusion heatmap grid, counts", "all models side by side"),
-    "confusion_grid_normalized": ("confusion heatmap grid, row-normalised rates",
-                                  "rates (0-1, 4 decimals) instead of counts"),
-    CONFUSION_PATTERN: ("single confusion heatmap", "one model on one slide"),
-    "roc_test": ("ROC curves, full axes", "the Task 3 ROC figure"),
-    "roc_test_zoom": ("ROC curves, FPR 0-0.05, TPR 0.95-1", "separates the near-perfect models"),
-    "roc_test_logx": ("ROC curves, log-scale FPR", "low false-alarm behaviour"),
-    "roc_grid": ("ROC small multiples", "each curve on its own"),
-    "roc_test_ml": ("ROC curves, ML only", "the family comparison"),
-    "roc_test_dl": ("ROC curves, DL only", "the family comparison"),
-    "dl_history_overlay": ("line chart", "validation loss of all DL models, convergence compared"),
-    "dl_history_grid": ("line chart grid", "train and val loss per DL model, best epoch marked"),
-}
-
 
 def build_table(metrics: dict, split: str) -> pd.DataFrame:
     """Build the comparison table of one split, sorted by F1 (descending).
@@ -66,16 +48,17 @@ def build_table(metrics: dict, split: str) -> pd.DataFrame:
         DataFrame with the columns of CLAUDE.md 5; scores rounded to 4 decimals.
     """
     rows = []
-    for entry in metrics.values():
+    # Sort on the raw F1 first: two models equal after rounding must keep their true order.
+    # sorted() is stable, so exact ties keep run order.
+    ordered = sorted(metrics.values(), key=lambda e: e[split]["f1"], reverse=True)
+    for entry in ordered:
         part = entry[split]
         scores = [round(part[k], SCORE_DECIMALS) for k in SCORE_KEYS]
         counts = [part[k] for k in ("tp", "tn", "fp", "fn")]
         rows.append([entry["name"], entry["family"], *scores, *counts,
                      round(entry["train_time_s"], TIME_DECIMALS),
                      round(entry["predict_time_s"], TIME_DECIMALS)])
-    # Sort on the unrounded-equivalent F1; ties keep run order (stable sort).
-    return pd.DataFrame(rows, columns=COLUMNS).sort_values("F1", ascending=False,
-                                                           kind="stable").reset_index(drop=True)
+    return pd.DataFrame(rows, columns=COLUMNS)
 
 
 def _formatters() -> dict[str, str]:
@@ -89,8 +72,25 @@ def _formatters() -> dict[str, str]:
     return spec
 
 
+def table_markdown(df: pd.DataFrame) -> str:
+    """Render a table as markdown with 4-decimal scores and 3-decimal times.
+
+    Args:
+        df: Table from ``build_table``.
+
+    Returns:
+        Markdown text (no trailing newline); shared by the .md export and the text report.
+    """
+    spec = _formatters()
+    return df.to_markdown(index=False, floatfmt=[spec.get(c, "g") for c in df.columns])
+
+
 def save_table(df: pd.DataFrame, metrics_dir: Path, stem: str) -> None:
     """Write ``stem.csv``, ``stem.md`` and ``stem.tex`` (rounded values, as in the table).
+
+    The csv stays numeric (scores rounded to 4, times to 3 decimals); md and tex are formatted
+    with fixed decimals. The tex is booktabs style and should be wrapped in
+    ``\\resizebox{\\textwidth}{!}{...}`` by the report.
 
     Args:
         df: Table from ``build_table``.
@@ -100,12 +100,11 @@ def save_table(df: pd.DataFrame, metrics_dir: Path, stem: str) -> None:
     metrics_dir.mkdir(parents=True, exist_ok=True)
     spec = _formatters()
     df.to_csv(metrics_dir / f"{stem}.csv", index=False)
-    floatfmt = [spec.get(c, "g") for c in df.columns]
-    (metrics_dir / f"{stem}.md").write_text(df.to_markdown(index=False, floatfmt=floatfmt) + "\n",
-                                            encoding="utf-8")
+    (metrics_dir / f"{stem}.md").write_text(table_markdown(df) + "\n", encoding="utf-8")
     formatters = {c: f"{{:{s}}}".format for c, s in spec.items()}
-    (metrics_dir / f"{stem}.tex").write_text(df.to_latex(index=False, formatters=formatters),
-                                             encoding="utf-8")
+    # The comment header tells the report author how to fit the 14 columns on a page.
+    (metrics_dir / f"{stem}.tex").write_text(
+        LATEX_NOTE + df.to_latex(index=False, formatters=formatters), encoding="utf-8")
 
 
 def plot_table_image(df: pd.DataFrame, fig_dir: Path) -> None:
@@ -118,7 +117,7 @@ def plot_table_image(df: pd.DataFrame, fig_dir: Path) -> None:
     spec = _formatters()
     cells = [[format(v, spec[c]) if c in spec else str(v) for c, v in row.items()]
              for row in df.to_dict("records")]
-    fig = Figure(figsize=(TABLE_COL_W * len(df.columns), 1 + 0.5 * len(df)), layout="constrained")
+    fig = Figure(figsize=(TABLE_COL_W * len(df.columns), TABLE_HEADER_H + TABLE_ROW_H * len(df)))
     ax = fig.add_subplot(1, 1, 1)
     ax.axis("off")
     table = ax.table(cellText=cells, colLabels=list(df.columns), loc="center", cellLoc="center",
@@ -127,7 +126,8 @@ def plot_table_image(df: pd.DataFrame, fig_dir: Path) -> None:
     table.set_fontsize(TABLE_FONT)
     table.auto_set_column_width(list(range(len(df.columns))))
     table.scale(1, TABLE_ROW_SCALE)
-    ax.set_title("Model comparison on the test set (sorted by F1)", fontsize=TABLE_FONT + 3)
+    ax.set_title("Model comparison on the test set (sorted by F1)", fontsize=TABLE_FONT + 3,
+                 pad=TABLE_TITLE_PAD)
     common.save_figure(fig, fig_dir / "comparison_table")
 
 
@@ -146,38 +146,3 @@ def run_comparison(results: list[common.ModelResult], metrics: dict, out_dir: Pa
     plots_metrics.plot_all(metrics, fig_dir)
     plots_confusion.plot_all(metrics, fig_dir)
     plots_training.plot_all(results, fig_dir)
-
-
-def _existing_entries(fig_dir: Path) -> list[tuple[str, str, str]]:
-    """List (stem, chart type, purpose) of the catalog stems present as PNG.
-
-    Args:
-        fig_dir: Figure directory.
-
-    Returns:
-        Entries in catalog order; the confusion pattern expands to one entry per model key.
-    """
-    entries = []
-    for stem, (chart, purpose) in FIGURE_CATALOG.items():
-        names = [stem]
-        if stem == CONFUSION_PATTERN:
-            names = [f"confusion_{k}" for k in common.MODEL_COLORS]
-        entries += [(n, chart, purpose) for n in names if (fig_dir / f"{n}.png").exists()]
-    return entries
-
-
-def write_figure_index(out_dir: Path) -> None:
-    """Write ``figures/INDEX.md`` listing only the figures that exist.
-
-    Args:
-        out_dir: Output root.
-    """
-    fig_dir = out_dir / "figures"
-    entries = _existing_entries(fig_dir)
-    lines = ["# Figure index", "",
-             "Pick the figures for the report and the deck. Every figure also exists as PDF.", "",
-             "| Stem | Chart type | Purpose | PNG |", "|---|---|---|---|"]
-    lines += [f"| `{s}` | {c} | {p} | [{s}.png]({s}.png) |" for s, c, p in entries]
-    fig_dir.mkdir(parents=True, exist_ok=True)
-    (fig_dir / "INDEX.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    log.info("figure index lists %d figures", len(entries))

@@ -22,6 +22,7 @@ CMAP = "Blues"
 SINGLE_SIZE = 5.5
 CELL_FONT = 14
 RATE_DECIMALS = 4                  # row-normalised rates as 0.9999 (user decision)
+PANEL_TITLES = {False: "counts", True: "row-normalised rates"}  # per-model figure panels
 LIGHT_TEXT_FRACTION = 0.5          # cells darker than this share of the maximum get white text
 
 
@@ -90,8 +91,8 @@ def _single(key: str, entry: dict, fig_dir: Path) -> None:
         fig_dir: Figure directory.
     """
     fig = Figure(figsize=(2 * SINGLE_SIZE, SINGLE_SIZE), layout="constrained")
-    for i, normalized in enumerate((False, True)):
-        _draw(fig.add_subplot(1, 2, i + 1), _matrix(entry), entry["name"], normalized)
+    for i, (normalized, title) in enumerate(PANEL_TITLES.items()):
+        _draw(fig.add_subplot(1, 2, i + 1), _matrix(entry), title, normalized)
     fig.suptitle(f"{entry['name']}: confusion matrix on the test set", fontsize=FONT_TITLE)
     common.save_figure(fig, fig_dir / f"confusion_{key}")
 

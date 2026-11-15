@@ -1,9 +1,12 @@
 # Lab 3, Task 4: XDP source-IP blocklist filter
 
-`xdp_filter.c` is a small XDP program. It parses Ethernet and IPv4, and for TCP and UDP it
-bounds-checks the L4 header. If the packet's source IPv4 address is in the BPF hash map `blocklist`,
-it returns `XDP_DROP`; everything else (non-IPv4, truncated or malformed headers, unlisted sources) returns
-`XDP_PASS`. A per-CPU array map `stats` counts the verdicts (index 0 = PASS, 1 = DROP).
+`xdp_filter.c` is a small XDP program. It parses only the Ethernet header and the fixed 20-byte IPv4
+header. If the packet's source IPv4 address is in the BPF hash map `blocklist`, it returns `XDP_DROP`;
+everything else returns `XDP_PASS`. The blocklist lookup happens right after the IPv4 header bounds check, so a
+truncated or malformed packet (bad options, cut-off L4 header) from a blocked source is dropped too. No L4 parsing
+is done, because the decision reads only `iph->saddr`. A per-CPU array map `stats` counts the verdicts
+(index 0 = PASS, 1 = DROP). **Not filtered (always passed):** IPv6 and VLAN-tagged (802.1Q) frames, because
+their EtherType is not `ETH_P_IP`; ARP and other non-IPv4 traffic as well.
 Theory is in `THEORY.md`.
 
 ## Prerequisites
@@ -58,7 +61,9 @@ The Makefile uses `IFACE=lo` by default. Run each command in `Lab3/xdp/`.
    ```
    The output has one entry per index (key 0 = PASS, key 1 = DROP) with one value per CPU. Add up the
    CPU values for each key to get the totals; DROP should be at least 3 (one per blocked echo request;
-   ping retries are included).
+   ping retries are included). PASS counts every other packet that reached the hook (non-IPv4 and short
+   frames included), so only the DROP count and the IPv4-versus-blocked decisions are exact figures
+   of interest; do not read PASS as "IPv4 packets allowed".
    Screenshot 3: the `make stats` output, with your sums noted.
 
 6. Optional TCP check (two terminals).
@@ -87,3 +92,33 @@ The Makefile uses `IFACE=lo` by default. Run each command in `Lab3/xdp/`.
   ```
 - **`bpftool prog show name ...` finds nothing**: bpftool truncates program names to 15 characters;
   `xdp_filter_prog` is exactly 15. You can also use `sudo bpftool net show dev lo`.
+
+## Task 5: xdp-tools
+
+Build (no root; log to `xdp/logs/xdp-tools-build.log`):
+
+```bash
+git clone --recurse-submodules https://github.com/xdp-project/xdp-tools ~/src/xdp-tools
+cd ~/src/xdp-tools
+./configure
+make 2>&1 | tee ~/Desktop/SecInsiderLab1/SecInsiderLab-1/Lab3/xdp/logs/xdp-tools-build.log
+```
+
+Demo with `xdp-filter` and `xdp-loader` on `lo` (generic/skb mode), run in any directory:
+
+```bash
+XF=~/src/xdp-tools/xdp-filter/xdp-filter; XL=~/src/xdp-tools/xdp-loader/xdp-loader
+sudo LIBXDP_OBJECT_PATH=$HOME/src/xdp-tools/xdp-filter $XF load lo -m skb -f ipv4
+sudo $XL status
+sudo $XF ip 127.0.0.2 -m src
+ping -c 3 127.0.0.1
+ping -c 3 -I 127.0.0.2 127.0.0.1
+sudo $XF status
+sudo $XF unload lo
+sudo $XL status
+```
+
+Why `LIBXDP_OBJECT_PATH`: this is an uninstalled build (no `make install`). libxdp looks for the
+`xdp-filter` BPF object in its default directory `/usr/local/lib/bpf`, where nothing was installed, so the
+variable points it at the build directory that holds the object. Without it, `load` fails with an object-not-found
+error. The `ping` from 127.0.0.2 should fail after the `ip` rule, the one from 127.0.0.1 should work.

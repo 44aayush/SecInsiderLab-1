@@ -9,6 +9,8 @@
  *   one derived from the DDoS detections of Tasks 1-3, can be enforced in the
  *   driver hook before the kernel allocates an skb.
  *   Every verdict is counted in the per-CPU `stats` map (PASS / DROP).
+ *   Only the Ethernet and the fixed IPv4 header are parsed; the decision
+ *   needs nothing else, so no options or L4 parsing is done.
  *
  * Build   : make                 (clang -O2 -g -target bpf, see Makefile)
  * Attach  : sudo make attach     (generic mode on IFACE, default lo)
@@ -18,14 +20,10 @@
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
 #include <linux/ip.h>
-#include <linux/tcp.h>
-#include <linux/udp.h>
-#include <linux/in.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
 #define BLOCKLIST_MAX_ENTRIES 1024 /* upper bound on blocked source IPs */
-#define IP_MIN_IHL            5    /* minimum IPv4 header length in 32-bit words */
 
 /* Indices into the `stats` array. */
 enum stat_index {
@@ -81,48 +79,25 @@ int xdp_filter_prog(struct xdp_md *ctx)
 	void *data_end = (void *)(long)ctx->data_end;
 	struct ethhdr *eth = data;
 	struct iphdr *iph;
-	__u32 ihl_bytes;
-	void *l4;
 
 	/* Bounds check: the Ethernet header must lie fully inside the packet,
 	 * otherwise the verifier rejects any read of eth->h_proto. */
 	if ((void *)(eth + 1) > data_end)
 		return verdict(STAT_PASS, XDP_PASS);
 
-	/* Only IPv4 is filtered; ARP, IPv6, etc. pass untouched. */
+	/* Only plain IPv4 is filtered; ARP, IPv6 and VLAN-tagged (802.1Q) frames
+	 * pass untouched, because h_proto is then not ETH_P_IP. */
 	if (eth->h_proto != bpf_htons(ETH_P_IP))
 		return verdict(STAT_PASS, XDP_PASS);
 
 	iph = (struct iphdr *)(eth + 1);
 
-	/* Bounds check: the fixed 20-byte IPv4 header must be present. */
+	/* Bounds check: the fixed 20-byte IPv4 header must be present. This is
+	 * all the decision needs (it reads only iph->saddr), so the lookup
+	 * follows immediately: a packet from a blocked source is dropped even if
+	 * its options or L4 header are truncated or malformed. */
 	if ((void *)(iph + 1) > data_end)
 		return verdict(STAT_PASS, XDP_PASS);
-
-	/* ihl is the header length in 32-bit words; below 5 the header is
-	 * malformed, so let the kernel deal with it. */
-	if (iph->ihl < IP_MIN_IHL)
-		return verdict(STAT_PASS, XDP_PASS);
-
-	/* The L4 header starts after the IP header including its options. */
-	ihl_bytes = iph->ihl * 4;
-	l4 = (void *)iph + ihl_bytes;
-
-	/* Bounds check for the options area: l4 must still be inside. */
-	if (l4 > data_end)
-		return verdict(STAT_PASS, XDP_PASS);
-
-	if (iph->protocol == IPPROTO_TCP) {
-		/* Truncated TCP header: pass, the kernel will handle it. */
-		if (l4 + sizeof(struct tcphdr) > data_end)
-			return verdict(STAT_PASS, XDP_PASS);
-	} else if (iph->protocol == IPPROTO_UDP) {
-		/* Truncated UDP header: pass, the kernel will handle it. */
-		if (l4 + sizeof(struct udphdr) > data_end)
-			return verdict(STAT_PASS, XDP_PASS);
-	}
-	/* Other protocols (ICMP, ...) need no L4 parsing: the decision only
-	 * uses the source address. */
 
 	/* Blocklist lookup with the raw network-order source address. */
 	__u32 saddr = iph->saddr;

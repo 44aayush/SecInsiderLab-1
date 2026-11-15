@@ -5,3 +5,6 @@ __pycache__/
 .pytest_cache/
 # LibreOffice lock files
 .~lock.*#
+# Side runs go to their own outputs_*/ folder and are not committed; the single tracked
+# folder is outputs/ (CLAUDE.md 4.2).
+outputs_*/

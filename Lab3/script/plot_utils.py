@@ -22,7 +22,13 @@ LINESTYLES = {"ML": "-", "DL": "--"}  # ML solid, DL dashed (CLAUDE.md 4.12)
 DECIMALS = 4                      # user decision 2026-11-13: decimals, not percent
 ZOOM_PAD = 0.5                    # floor sits this fraction of the gap below the minimum
 ZOOM_MIN_SPAN = 0.002             # minimum gap so identical scores still get headroom
-AXIS_TOP_PAD = 0.01               # headroom above 1.0
+AXIS_TOP_PAD = 0.001              # headroom above 1.0 on the dot plot (axis must not run on)
+GRID_ALPHA = 0.3                  # light grid lines
+BAR_LABEL_PAD = 3                 # points between a bar end and its value label
+MAX_SCORE = 1.0                   # scores never exceed 1, neither do their ticks
+# Paul Tol "bright" qualitative set (colour-blind safe, grey dropped). Used for metric series
+# and train/val lines; no entry equals a colour of common.MODEL_COLORS.
+SERIES_COLORS = ["#4477AA", "#EE6677", "#228833", "#CCBB44", "#66CCEE", "#AA3377"]
 LEGEND_ANCHOR = (1.02, 1.0)       # legend outside the axes so it never hides data
 
 SCORE_KEYS = ["accuracy", "precision", "recall", "f1", "macro_f1", "roc_auc"]
@@ -79,6 +85,21 @@ def axis_floor(values: list[float]) -> float:
     return max(0.0, low - ZOOM_PAD * gap)
 
 
+def cap_score_ticks(ax: Axes, axis: str) -> None:
+    """Drop the ticks above 1.0 on a score axis (headroom may extend past 1.0).
+
+    Args:
+        ax: Target axes.
+        axis: "x" or "y".
+    """
+    ticks = ax.get_xticks() if axis == "x" else ax.get_yticks()
+    kept = [t for t in ticks if t <= MAX_SCORE + 1e-9]  # tolerance for float noise
+    if axis == "x":
+        ax.set_xticks(kept)
+    else:
+        ax.set_yticks(kept)
+
+
 def make_grid(n_panels: int, **subplot_kw: Any) -> tuple[Figure, list[Axes]]:
     """Create a figure with a 4-column grid; unused panels are removed.
 
@@ -109,5 +130,5 @@ def style_axis(ax: Axes, title: str, xlabel: str = "", ylabel: str = "") -> None
     ax.set_xlabel(xlabel, fontsize=FONT_LABEL)
     ax.set_ylabel(ylabel, fontsize=FONT_LABEL)
     ax.tick_params(labelsize=FONT_TICK)
-    ax.grid(alpha=0.3)
+    ax.grid(alpha=GRID_ALPHA)
     ax.set_axisbelow(True)

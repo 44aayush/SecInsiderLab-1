@@ -9,7 +9,8 @@ from dl.dl_common import DEFAULT_DEVICE, run_dl, set_seed
 
 KEY = "cnn"
 NAME = "1D-CNN"
-# 30 epochs chosen from the 2026-11-13 experiment: it improved every CNN test metric.
+# Chosen on validation evidence only: with cap 15 the CNN never early-stopped; with cap 30 the best
+# validation epoch is 22 and it early-stops at epoch 25, so the cap is not binding.
 MAX_EPOCHS = 30
 CONV_1, CONV_2, KERNEL, PADDING, POOL = 32, 64, 3, 1, 2
 

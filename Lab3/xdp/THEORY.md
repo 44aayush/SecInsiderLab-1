@@ -89,9 +89,10 @@ xdp-tools is the subject of Task 5.
 
 ## 5. Our filter
 
-`xdp_filter.c` is a small libbpf-style program: it parses Ethernet and IPv4 (and checks the TCP/UDP header
-bounds), drops packets whose source IPv4 address is in the `blocklist` hash map, and counts PASS and
-DROP in the per-CPU `stats` array. Build and demo steps are in `README.md`. The code is commented
+`xdp_filter.c` is a small libbpf-style program: it parses only Ethernet and the fixed IPv4 header (no options or
+L4 parsing, the decision reads only the source address), drops packets whose source IPv4 address is in the `blocklist` hash map, and counts PASS and
+DROP in the per-CPU `stats` array. The lookup follows the IPv4 header bounds check directly, so malformed
+packets from a blocked source are dropped too. IPv6 and VLAN-tagged (802.1Q) frames are passed unfiltered. Build and demo steps are in `README.md`. The code is commented
 at every verifier bounds check.
 
 ## Sources

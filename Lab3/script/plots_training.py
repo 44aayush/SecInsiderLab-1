@@ -14,14 +14,16 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator
 
 import common
-from plot_utils import (FONT_TICK, FONT_TITLE, LEGEND_ANCHOR, LINE_WIDTH, line_style,
-                        make_grid, model_color, style_axis)
+from plot_utils import (FONT_TICK, FONT_TITLE, LEGEND_ANCHOR, LINE_WIDTH, SERIES_COLORS,
+                        line_style, make_grid, model_color, style_axis)
 
 log = logging.getLogger(__name__)
 
 SINGLE_W, SINGLE_H = 9.0, 5.5
 BEST_MARKER_SIZE = 14
-TRAIN_COLOR, VAL_COLOR = "#0072B2", "#D55E00"
+# Not model colours (common.MODEL_COLORS): these lines stand for train/val, not for a model.
+TRAIN_COLOR, VAL_COLOR = SERIES_COLORS[0], SERIES_COLORS[1]
+BEST_Z = 5                         # best-epoch star is drawn above every line
 
 
 def _epochs(values: list[float]) -> np.ndarray:
@@ -63,10 +65,12 @@ def _overlay(dl_results: list[common.ModelResult], fig_dir: Path) -> None:
         ax.plot(_epochs(val), val, color=color, ls=line_style(res.family), lw=LINE_WIDTH,
                 marker="o", label=res.name)
         best = _best_epoch(val)
-        ax.plot(best, val[best - 1], marker="*", color=color, ms=BEST_MARKER_SIZE)
+        ax.plot(best, val[best - 1], marker="*", color=color, ms=BEST_MARKER_SIZE, zorder=BEST_Z,
+                markeredgecolor="white")  # white rim keeps the star visible on its own line
     style_axis(ax, "Validation loss of the DL models (star = best epoch)", "Epoch",
                "Validation loss")
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))  # epochs are whole numbers
+    ax.set_yscale("log")  # later epochs differ by small amounts; log shows them
     ax.legend(loc="upper left", bbox_to_anchor=LEGEND_ANCHOR, fontsize=FONT_TICK)
     common.save_figure(fig, fig_dir / "dl_history_overlay")
 
@@ -86,7 +90,8 @@ def _grid(dl_results: list[common.ModelResult], fig_dir: Path) -> None:
         ax.plot(_epochs(val), val, color=VAL_COLOR, marker="s", lw=LINE_WIDTH, label="Val loss")
         best = _best_epoch(val)
         ax.axvline(best, color="grey", ls=":", label=f"Best epoch ({best})")
-        style_axis(ax, res.name, "Epoch", "Loss")
+        style_axis(ax, res.name, "Epoch", "Loss (log scale)")
+        ax.set_yscale("log")  # later epochs differ by small amounts; log shows them
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax.legend(fontsize=FONT_TICK)
     fig.suptitle("Training history per DL model", fontsize=FONT_TITLE)

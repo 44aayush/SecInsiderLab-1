@@ -24,8 +24,8 @@ NEGATIVE_LABEL, POSITIVE_LABEL = "BENIGN", "DDoS"  # encoded 0 / 1
 # Read at call time by preprocess.clean so tests can monkeypatch it (decision D1).
 DROP_DUPLICATES = True
 IDENTICAL_ATOL = 1e-6
-# DL_DEFAULT_MAX_EPOCHS is only the fallback; each dl/*_dl.py module owns its MAX_EPOCHS.
-DL_BATCH_SIZE, DL_LR, DL_DEFAULT_MAX_EPOCHS, DL_PATIENCE = 1024, 1e-3, 15, 3
+# Shared DL defaults; each dl/*_dl.py module owns its MAX_EPOCHS (and may override lr/patience).
+DL_BATCH_SIZE, DL_LR, DL_PATIENCE = 1024, 1e-3, 3
 FIG_DPI = 200
 # Okabe-Ito colour-blind-safe palette, yellow replaced by grey for contrast.
 MODEL_COLORS = {

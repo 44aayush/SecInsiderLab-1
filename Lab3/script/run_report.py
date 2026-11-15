@@ -149,9 +149,10 @@ def config_text(csv: Path, models: list[str], limits: dict[str, int]) -> str:
              f"{common.TEST_FRAC}",
              f"DROP_DUPLICATES: {common.DROP_DUPLICATES}",
              f"IDENTICAL_ATOL: {common.IDENTICAL_ATOL}",
-             f"DL batch size: {common.DL_BATCH_SIZE}", f"DL learning rate: {common.DL_LR}",
+             f"DL batch size: {common.DL_BATCH_SIZE}",
+             f"DL learning rate, shared default (MLP, CNN): {common.DL_LR}",
              f"DL max epochs per model (this run): {limits or 'n/a'}",
-             f"DL patience: {common.DL_PATIENCE}",
+             f"DL patience, shared default (MLP, CNN): {common.DL_PATIENCE}",
              f"DL train settings per model: {_train_settings(models) or 'n/a'}",
              f"selected models: {' '.join(models)}", f"csv path: {csv}"]
     if csv.is_file():
@@ -255,7 +256,7 @@ def finish_report(path: Path, out_dir: Path, summary: Any, results: list[common.
              _section("PER-MODEL DETAILS"), "\n".join(_model_text(r) for r in results)]
     for split in comparison.SPLITS[::-1]:  # val first, then test
         parts += [_section(f"COMPARISON TABLE ({split.upper()})"),
-                  comparison.build_table(metrics, split).to_markdown(index=False) + "\n"]
+                  comparison.table_markdown(comparison.build_table(metrics, split)) + "\n"]
     parts += [_section("CONFUSION MATRICES"), _confusions_text(metrics),
               _section("FILES WRITTEN UNDER --out"), _files_text(out_dir, path)]
     with path.open("a", encoding="utf-8") as handle:

@@ -64,7 +64,10 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
                         help="torch device of the DL models (auto = cuda if available)")
     parser.add_argument("--log-txt", type=Path, default=None, dest="log_txt",
                         help="write one self-contained plain-text report (for sharing)")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.epochs is not None and args.epochs < 1:
+        parser.error("--epochs must be >= 1")
+    return args
 
 
 def resolve_device(keys: list[str], requested: str) -> str | None:
@@ -97,7 +100,9 @@ def epoch_limits(keys: list[str], override: int | None) -> dict[str, int]:
     limits = {}
     for key in (k for k in DL_KEYS if k in keys):
         # Safe import: resolve_device already loaded torch for any DL selection.
-        limits[key] = override or importlib.import_module(_module_name(key)).MAX_EPOCHS
+        module = importlib.import_module(_module_name(key))
+        # "is None", not "or": an explicit override is honoured as given (0 is rejected earlier).
+        limits[key] = module.MAX_EPOCHS if override is None else override
     return limits
 
 

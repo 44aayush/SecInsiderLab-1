@@ -44,13 +44,13 @@ uv pip install -r requirements.txt --torch-backend=auto
 ```
 If `auto` picks a wrong build or CUDA is not detected later, force one: `--torch-backend=cu128` (or `cu126` for older drivers).
 
-`requirements.txt` pins `torch==2.15.0`. Locally the installed version shows as a local variant such as `2.15.0+cu128`; that is the same release with CUDA support.
+`requirements.txt` pins `torch==2.15.0`. Locally the installed version shows as a local variant such as `2.15.0+cu132` (or `+cu128`); the suffix depends on the driver, and it is the same release with CUDA support.
 
 Verify the GPU is visible:
 ```powershell
 python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 ```
-Expected: `2.15.0+cu128 True NVIDIA GeForce RTX 3050 ...`. If `python` opens the Microsoft Store, use `.venv\Scripts\python.exe` instead (see section 9).
+Expected: `2.15.0+cu132 True NVIDIA GeForce RTX 3050 ...`. If `python` opens the Microsoft Store, use `.venv\Scripts\python.exe` instead (see section 9).
 
 ## 4. Quality checks (optional)
 
@@ -84,8 +84,9 @@ Where each result lands (under `--out`, default `outputs\`):
 
 Full pipeline (all 8 models; DL on the GPU) with the shareable report:
 ```powershell
-python script\main.py --device cuda --log-txt outputs\run_report_windows.txt
+python script\main.py --device cuda --log-txt outputs\run_report.txt
 ```
+This writes everything into one consolidated folder, `outputs\` (log: `outputs\run.log`).
 ML models only (no torch is loaded):
 ```powershell
 python script\main.py --models gnb lr knn rf xgb
@@ -99,13 +100,9 @@ python script\main.py --models mlp lstm cnn --device cuda
 One DL model alone: `python script\main.py --models lstm --device cuda` (also `mlp`, `cnn`).
 
 CPU fallback: `--device cpu`. The default `--device auto` uses CUDA if available, else CPU.
-Epoch limits: each DL model has its own maximum (`MAX_EPOCHS` in its module: MLP 30, CNN 30, LSTM 40; early stopping may stop sooner). The LSTM also has its own learning rate 5e-4, patience 7 and gradient clipping 1.0 (constants in `script\dl\lstm_dl.py`). `--epochs N` overrides the limit of all DL models, e.g. `--epochs 5`.
+Epoch limits: each DL model has its own maximum (`MAX_EPOCHS` in its module: MLP 40, CNN 30, LSTM 40; early stopping may stop sooner). The LSTM also has its own learning rate 5e-4, patience 7 and gradient clipping 1.0 (constants in `script\dl\lstm_dl.py`). `--epochs N` overrides the limit of all DL models, e.g. `--epochs 5`.
 
-Keep CPU and GPU runs apart with separate output folders:
-```powershell
-python script\main.py --device cpu  --out outputs_cpu --log-txt outputs_cpu\run_report.txt
-python script\main.py --device cuda --out outputs_gpu --log-txt outputs_gpu\run_report.txt
-```
+Single-model re-runs go to a separate `outputs_<name>` folder so they do not overwrite `outputs\` (see section 10). These folders are git-ignored and can be deleted afterwards.
 Quick smoke run on the small fixture (seconds, any machine):
 ```powershell
 python script\main.py --csv tests\fixtures\sample_ddos.csv --epochs 1 --out outputs_smoke --log-txt outputs_smoke\run_report.txt
@@ -121,9 +118,9 @@ If `python` does not resolve to the venv, write `.venv\Scripts\python.exe script
 
 ## 8. Expected runtime and results
 
-Reference run (Linux, CPU only, per-model epoch limits, 2026-11-13): the full run took 5.1 min (308 s). DL training times: MLP 39 s, LSTM 53 s, 1D-CNN 68 s (the CNN early-stopped at epoch 25). The DL models should be faster on the RTX 3050; the ML models run on the CPU either way.
+Reference run (Linux, CPU only, per-model epoch limits, consolidated run of 2026-11-15): the full run took 298 s. DL training times: MLP 39 s (about 39 to 42 s; early-stopped at epoch 32 with cap 40), LSTM 141 s (stopped at epoch 38), 1D-CNN 67 s (stopped at epoch 25). The DL models should be faster on the RTX 3050; the ML models run on the CPU either way.
 
-Reference test results (F1 / FP / FN): XGB 1.0000 / 0 / 0, RF 0.9999 / 0 / 3, KNN 0.9998 / 1 / 5, MLP 0.9995 / 6 / 12, CNN 0.9991 / 13 / 20, LR 0.9983 / 44 / 23, LSTM 0.9943 / 101 / 118, GNB 0.9909 / 327 / 26. GNB, KNN, RF and XGBoost matched the Linux results exactly on the 2026-11-15 Windows run, while Logistic Regression differed by 3 FP (lbfgs stops at its tolerance, and different BLAS builds reach it at a slightly different point). DL results on the GPU may differ slightly in the last decimals: CUDA kernels are not bit-identical to the CPU ones, even with cuDNN deterministic mode enabled by the code.
+Reference test results (F1 / FP / FN): XGB 1.0000 / 0 / 0, RF 0.9999 / 0 / 3, KNN 0.9998 / 1 / 5, MLP 0.9995 / 6 / 12, LSTM 0.9992 / 16 / 16, CNN 0.9991 / 13 / 20, LR 0.9983 / 44 / 23, GNB 0.9909 / 327 / 26. GNB, KNN, RF and XGBoost matched the Linux results exactly on the 2026-11-15 Windows run, while Logistic Regression differed by 3 FP (lbfgs stops at its tolerance, and different BLAS builds reach it at a slightly different point). DL results on the GPU may differ slightly in the last decimals: CUDA kernels are not bit-identical to the CPU ones, even with cuDNN deterministic mode enabled by the code.
 
 ## 9. Troubleshooting
 
@@ -140,26 +137,25 @@ The LSTM now uses enhanced settings (2026-11-15), chosen by lowest validation lo
 
 1. Pull the new code: `git pull` (then `git lfs pull` if the CSV is a pointer).
 
-Use a NEW output folder. `--out` defaults to `outputs\`, and a single-model run overwrites `metrics\metrics.json`, `metrics\comparison_*.*`, `figures\` and `run.log` there with a 1-model result. It must not touch `outputs\`, `outputs_lstm_clip_linux_cpu\` or `outputs_lstm_enhance_linux_cpu\`.
+Use a NEW output folder. `--out` defaults to `outputs\`, and a single-model run overwrites `metrics\metrics.json`, `metrics\comparison_*.*`, `figures\` and `run.log` there with a 1-model result. The `outputs_<name>` folder is git-ignored and can be deleted after the run; do not commit it.
 
 ```powershell
 .venv\Scripts\Activate.ps1
-python script\main.py --models lstm --device cuda --out outputs_lstm_enhance_windows_gpu --log-txt outputs_lstm_enhance_windows_gpu\run_report_lstm_enhance_windows_gpu.txt
+python script\main.py --models lstm --device cuda --out outputs_lstm --log-txt outputs_lstm\run_report_lstm_enhance_windows_gpu.txt
 ```
 
-For a comparison on the same machine, run the CPU variant (several minutes, up to 40 epochs):
-```powershell
-python script\main.py --models lstm --device cpu --out outputs_lstm_enhance_windows_cpu --log-txt outputs_lstm_enhance_windows_cpu\run_report_lstm_enhance_windows_cpu.txt
-```
+How to check: open `outputs_lstm\metrics\comparison_test.md`. The report file lists the per-epoch losses and the settings line (lr 0.0005, patience 7, grad clip 1); look for "early stop at epoch" and for jumps in the loss.
 
-If you already ran the clip-only command, that run (`outputs_lstm_clip_windows_gpu`) is now outdated code-wise: it used lr 1e-3, patience 3 and cap 15. Keep its folder for comparison.
-
-How to check: open `outputs_lstm_enhance_windows_gpu\metrics\comparison_test.md`. The report file lists the per-epoch losses and the settings line (lr 0.0005, patience 7, grad clip 1); look for "early stop at epoch" and for jumps in the loss.
+Run evidence is kept as text files in `outputs\runs\`:
+- `run_report_windows_gpu_full_untuned_lstm.txt` and `run_windows_gpu_full_untuned_lstm.log`: full Windows GPU run, before the LSTM changes.
+- `run_report_lstm_clip_linux_cpu.txt`: Linux CPU, clip-only LSTM.
+- `run_report_lstm_enhance_linux_cpu.txt`: Linux CPU, enhanced LSTM.
+- `run_report_lstm_enhance_windows_gpu.txt`: Windows GPU, enhanced LSTM.
 
 Notes:
 - The LSTM's maximum is 40 epochs (`MAX_EPOCHS` in `script\dl\lstm_dl.py`); `--epochs N` overrides it.
 - Preprocessing reruns every time (a few seconds).
 - Results reproduce on the same machine and device, but GPU and CPU differ (see section 8).
-- Reference numbers, before clipping. Full Windows GPU run, 2026-11-15: LSTM test F1 0.9885, FP 430, FN 17, early stop at epoch 7 (best epoch 4). Linux CPU: F1 0.9943, FP 101, FN 118, all 15 epochs.
-- Linux CPU clip-only (2026-11-15, `outputs_lstm_clip_linux_cpu\metrics\comparison_test.md`): F1 0.9964, FP 116, FN 23.
-- Linux CPU enhanced (2026-11-15, `outputs_lstm_enhance_linux_cpu\metrics\comparison_test.md`): accuracy 0.9990, precision 0.9992, recall 0.9992, F1 0.9992, ROC-AUC 1.0000, FP 16, FN 16; best epoch 31, early stop at 38; training 137 s on CPU.
+- Reference numbers, before clipping. Full Windows GPU run, 2026-11-15: LSTM test F1 0.9885, FP 430, FN 17, early stop at epoch 7 (best epoch 4). Linux CPU (old cap): F1 0.9943, FP 101, FN 118.
+- Linux CPU clip-only (2026-11-15): F1 0.9964, FP 116, FN 23.
+- Linux CPU enhanced (2026-11-15): accuracy 0.9990, precision 0.9992, recall 0.9992, F1 0.9992, ROC-AUC 1.0000, FP 16, FN 16; best epoch 31, early stop at 38; training 137 s on CPU.

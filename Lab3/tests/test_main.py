@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -70,7 +71,9 @@ def test_smoke_run_figures_and_index(smoke_out: Path) -> None:
         assert (smoke_out / "figures" / f"{stem}.png").exists(), stem
         assert (smoke_out / "figures" / f"{stem}.pdf").exists(), stem
     index = (smoke_out / "figures" / "INDEX.md").read_text()
-    listed = [line.split("`")[1] for line in index.splitlines() if line.startswith("| `")]
+    # Table rows start with a link: | [stem](stem.png) | ...
+    listed = [line.split("[")[1].split("]")[0] for line in index.splitlines()
+              if line.startswith("| [")]
     assert sorted(listed) == sorted(FIG_STEMS)
 
 
@@ -117,6 +120,9 @@ def test_device_cpu_and_log_txt(fixture_csv: Path, tmp_path: Path) -> None:
     assert positions == sorted(positions)
     assert "torch device: cpu" in text and "csv sha256:" in text and "<- best" in text
     assert "metrics/comparison_test.md" in text
+    # Tables in the report use the 4-decimal score format of comparison_*.md.
+    table = text[text.index("== COMPARISON TABLE (TEST)"):text.index("== CONFUSION MATRICES")]
+    assert re.search(r"\| +0\.\d{4} +\|", table) and not re.search(r"0\.\d{5,}", table)
 
 
 def test_auto_device_resolves_to_cpu_here(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -131,6 +137,14 @@ def test_epoch_limits_per_model_and_override() -> None:
     """Without --epochs each model uses its own limit; --epochs overrides all."""
     pytest.importorskip("torch")
     assert main.epoch_limits(["gnb", "mlp", "cnn", "lstm"], None) == {
-        "mlp": 30, "lstm": 40, "cnn": 30}
+        "mlp": 40, "lstm": 40, "cnn": 30}
     assert main.epoch_limits(["mlp", "lstm"], 3) == {"mlp": 3, "lstm": 3}
     assert not main.epoch_limits(["gnb"], None)
+
+
+@pytest.mark.parametrize("value", ["0", "-3"])
+def test_epochs_below_one_rejected(value: str) -> None:
+    """--epochs < 1 is an argparse error (exit code 2)."""
+    with pytest.raises(SystemExit) as err:
+        main.parse_args(["--epochs", value])
+    assert err.value.code == 2

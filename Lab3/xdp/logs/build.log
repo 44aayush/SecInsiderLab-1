@@ -1,1 +1,34 @@
 clang -O2 -g -Wall -Werror -target bpf -I/usr/include/x86_64-linux-gnu -c xdp_filter.c -o xdp_filter.o
+
+xdp_filter.o:	file format elf64-bpf
+
+Sections:
+Idx Name                   Size     VMA              Type
+  0                        00000000 0000000000000000 
+  1 .strtab                00000127 0000000000000000 
+  2 .text                  00000000 0000000000000000 TEXT
+  3 xdp                    00000250 0000000000000000 TEXT
+  4 .relxdp                00000060 0000000000000000 
+  5 .maps                  00000040 0000000000000000 DATA
+  6 license                00000004 0000000000000000 DATA
+  7 .debug_loclists        000000e9 0000000000000000 DEBUG
+  8 .debug_abbrev          00000200 0000000000000000 DEBUG
+  9 .debug_info            00000410 0000000000000000 DEBUG
+ 10 .rel.debug_info        00000060 0000000000000000 
+ 11 .debug_rnglists        0000001e 0000000000000000 DEBUG
+ 12 .debug_str_offsets     00000118 0000000000000000 DEBUG
+ 13 .rel.debug_str_offsets 00000440 0000000000000000 
+ 14 .debug_str             0000029b 0000000000000000 DEBUG
+ 15 .debug_addr            00000050 0000000000000000 DEBUG
+ 16 .rel.debug_addr        00000090 0000000000000000 
+ 17 .BTF                   000005b6 0000000000000000 
+ 18 .rel.BTF               00000030 0000000000000000 
+ 19 .BTF.ext               00000250 0000000000000000 
+ 20 .rel.BTF.ext           00000220 0000000000000000 
+ 21 .debug_frame           00000028 0000000000000000 DEBUG
+ 22 .rel.debug_frame       00000020 0000000000000000 
+ 23 .debug_line            000001af 0000000000000000 DEBUG
+ 24 .rel.debug_line        000000c0 0000000000000000 
+ 25 .debug_line_str        000000c2 0000000000000000 DEBUG
+ 26 .llvm_addrsig          00000004 0000000000000000 
+ 27 .symtab                00000180 0000000000000000 
