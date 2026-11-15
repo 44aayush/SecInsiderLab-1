@@ -57,7 +57,7 @@ def _smoke_out(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 def test_smoke_run_metric_files(smoke_out: Path) -> None:
     """Log, json and table files of CLAUDE.md 6 exist and metrics.json is in run order."""
-    assert (smoke_out / "run.log").exists()
+    assert (smoke_out / "run_windows.log").exists()
     for name in METRIC_FILES:
         assert (smoke_out / "metrics" / name).exists(), name
     metrics = json.loads((smoke_out / "metrics" / "metrics.json").read_text())
@@ -79,7 +79,7 @@ def test_double_call_does_not_duplicate_log_lines(fixture_csv: Path, tmp_path: P
     _run(fixture_csv, tmp_path / "a", ["gnb"])
     _run(fixture_csv, tmp_path / "b", ["gnb"])
     assert len(logging.getLogger().handlers) == 2
-    lines = (tmp_path / "b" / "run.log").read_text().splitlines()
+    lines = (tmp_path / "b" / "run_windows.log").read_text().splitlines()
     f1_lines = [line for line in lines if "gnb test F1" in line]
     assert len(f1_lines) == 1
 
@@ -104,7 +104,7 @@ def test_ml_only_run_does_not_import_torch(fixture_csv: Path, tmp_path: Path) ->
 
 def test_device_cpu_and_log_txt(fixture_csv: Path, tmp_path: Path) -> None:
     """--device cpu runs a DL model; --log-txt writes one ordered report and frees the handler."""
-    report = tmp_path / "sub" / "run_report.txt"
+    report = tmp_path / "sub" / "run_report_windows.txt"
     rc = main.main(["--csv", str(fixture_csv), "--models", "gnb", "mlp", "--epochs", "1",
                     "--device", "cpu", "--out", str(tmp_path / "out"), "--log-txt", str(report)])
     assert rc == 0

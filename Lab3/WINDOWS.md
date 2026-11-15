@@ -77,14 +77,14 @@ Where each result lands (under `--out`, default `outputs\`):
 | Validation table | `metrics\comparison_val.csv/.md/.tex` |
 | Test table (the one for the report) | `metrics\comparison_test.csv/.md/.tex` |
 | All numbers, per model | `metrics\metrics.json`, keys `val` and `test` |
-| Every log line | `run.log` |
+| Every log line | `run_windows.log` |
 | Everything in one shareable file | the `--log-txt` report |
 
 ## 6. Running
 
 Full pipeline (all 8 models; DL on the GPU) with the shareable report:
 ```powershell
-python script\main.py --device cuda --log-txt outputs\run_report.txt
+python script\main.py --device cuda --log-txt outputs\run_report_windows.txt
 ```
 ML models only (no torch is loaded):
 ```powershell
@@ -103,12 +103,12 @@ Epoch limits: each DL model has its own maximum (`MAX_EPOCHS` in its module: MLP
 
 Keep CPU and GPU runs apart with separate output folders:
 ```powershell
-python script\main.py --device cpu  --out outputs_cpu --log-txt outputs_cpu\run_report.txt
-python script\main.py --device cuda --out outputs_gpu --log-txt outputs_gpu\run_report.txt
+python script\main.py --device cpu  --out outputs_cpu --log-txt outputs_cpu\run_report_windows.txt
+python script\main.py --device cuda --out outputs_gpu --log-txt outputs_gpu\run_report_windows.txt
 ```
 Quick smoke run on the small fixture (seconds, any machine):
 ```powershell
-python script\main.py --csv tests\fixtures\sample_ddos.csv --epochs 1 --out outputs_smoke --log-txt outputs_smoke\run_report.txt
+python script\main.py --csv tests\fixtures\sample_ddos.csv --epochs 1 --out outputs_smoke --log-txt outputs_smoke\run_report_windows.txt
 ```
 If `python` does not resolve to the venv, write `.venv\Scripts\python.exe script\main.py ...`.
 
@@ -116,7 +116,7 @@ If `python` does not resolve to the venv, write `.venv\Scripts\python.exe script
 
 - `metrics\`: `preprocess_summary.json`, `metrics.json`, `comparison_val.*`, `comparison_test.*`.
 - `figures\`: every figure as PNG and PDF; `figures\INDEX.md` lists what each one shows, to pick figures for the report and deck.
-- `run.log`: the console log.
+- `run_windows.log`: the console log.
 - The `--log-txt` file is a single self-contained report (header with versions and GPU, configuration with the CSV sha256, full log, preprocess summary, per-epoch DL losses, val and test tables, confusion matrices, list of files). **This is the file to share with an LLM to verify the results.**
 
 ## 8. Expected runtime and results

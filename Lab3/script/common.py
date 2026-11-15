@@ -34,7 +34,7 @@ MODEL_COLORS = {
 }
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
-LOG_FILE_NAME = "run.log"
+LOG_FILE_NAME = "run_windows.log"
 
 
 @dataclass(frozen=True)
@@ -86,10 +86,10 @@ class ModelResult:  # 8 fields: .pylintrc sets max-attributes=8 (CLAUDE.md 5)
 
 
 def setup_logging(out_dir: Path) -> None:
-    """Log to the console and to ``out_dir/run.log``; safe to call repeatedly.
+    """Log to the console and to ``out_dir/run_windows.log``; safe to call repeatedly.
 
     Args:
-        out_dir: Output root; created if missing. run.log is overwritten (mode "w").
+        out_dir: Output root; created if missing. run_windows.log is overwritten (mode "w").
     """
     root = logging.getLogger()
     # Remove and close old handlers first, otherwise a second call (tests call

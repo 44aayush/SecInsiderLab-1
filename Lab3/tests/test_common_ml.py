@@ -12,12 +12,12 @@ from clf.ml_common import run_sklearn
 
 
 def test_setup_logging_is_idempotent(tmp_path: Path) -> None:
-    """Calling it twice leaves exactly two handlers and writes run.log."""
+    """Calling it twice leaves exactly two handlers and writes run_windows.log."""
     common.setup_logging(tmp_path)
     common.setup_logging(tmp_path)
     assert len(logging.getLogger().handlers) == 2
     logging.getLogger("t").info("hello")
-    assert "hello" in (tmp_path / "run.log").read_text(encoding="utf-8")
+    assert "hello" in (tmp_path / "run_windows.log").read_text(encoding="utf-8")
 
 
 def test_save_figure_writes_png_and_pdf(tmp_path: Path) -> None:

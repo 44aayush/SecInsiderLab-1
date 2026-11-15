@@ -1,0 +1,581 @@
+
+==============================================================================
+== RUN HEADER
+==============================================================================
+UTC timestamp: 2026-11-15T13:00:34+00:00
+command: script\main.py --device cuda --log-txt outputs\run_report_windows.txt
+cwd: D:\Masters\WiSe 26-27\Sec Insider Lab 1\SecInsiderLab-1\Lab3
+Python: 3.12.16 (main, Oct 26 2026, 14:10:56) [MSC v.1944 64 bit (AMD64)]
+platform: Windows-11-10.0.26300-SP0 (AMD64)
+CPU threads (os.cpu_count): 16
+numpy: 2.5.4
+pandas: 3.1.0
+scikit-learn: 1.9.1
+xgboost: 3.4.1
+torch: 2.15.0+cu132
+matplotlib: 3.11.2
+torch device: cuda
+torch threads: 16
+GPU: NVIDIA GeForce RTX 3050 6GB Laptop GPU
+CUDA version (torch build): 13.2
+
+==============================================================================
+== CONFIGURATION
+==============================================================================
+SEED: 42
+split fractions (train/val/test): 0.7/0.15/0.15
+DROP_DUPLICATES: True
+IDENTICAL_ATOL: 1e-06
+DL batch size: 1024
+DL learning rate: 0.001
+DL max epochs per model (this run): {'mlp': 30, 'lstm': 15, 'cnn': 30}
+DL patience: 3
+selected models: gnb lr knn rf xgb mlp lstm cnn
+csv path: D:\Masters\WiSe 26-27\Sec Insider Lab 1\SecInsiderLab-1\Lab3\Friday-WorkingHours-Afternoon-DDos.csv
+csv size (bytes): 77349605
+csv sha256: 646fd1282cf584bd330caf4dab51c689799b223425cf643edde172a1a655793d
+
+==============================================================================
+== RUN LOG (all log lines of this run)
+==============================================================================
+2026-11-15 14:00:34,469 INFO __main__: DL device: cuda
+2026-11-15 14:00:35,199 INFO preprocess: inf/NaN rows dropped: {'n': 34, 'by_class': {'BENIGN': 32, 'DDoS': 2}} (inf {'Flow Bytes/s': 30, 'Flow Packets/s': 34}, NaN {'Flow Bytes/s': 4})
+2026-11-15 14:00:36,069 INFO preprocess: duplicate rows dropped: {'n': 2629, 'by_class': {'BENIGN': 2618, 'DDoS': 11}}
+2026-11-15 14:00:36,484 INFO preprocess: constant columns dropped (10): ['Bwd PSH Flags', 'Fwd URG Flags', 'Bwd URG Flags', 'CWE Flag Count', 'Fwd Avg Bytes/Bulk', 'Fwd Avg Packets/Bulk', 'Fwd Avg Bulk Rate', 'Bwd Avg Bytes/Bulk', 'Bwd Avg Packets/Bulk', 'Bwd Avg Bulk Rate']
+2026-11-15 14:00:42,211 INFO preprocess: identical columns dropped (9): {'SYN Flag Count': 'Fwd PSH Flags', 'ECE Flag Count': 'RST Flag Count', 'Avg Fwd Segment Size': 'Fwd Packet Length Mean', 'Avg Bwd Segment Size': 'Bwd Packet Length Mean', 'Fwd Header Length.1': 'Fwd Header Length', 'Subflow Fwd Packets': 'Total Fwd Packets', 'Subflow Fwd Bytes': 'Total Length of Fwd Packets', 'Subflow Bwd Packets': 'Total Backward Packets', 'Subflow Bwd Bytes': 'Total Length of Bwd Packets'}
+2026-11-15 14:00:42,897 INFO preprocess: split sizes: {'train': 156157, 'val': 33462, 'test': 33463}
+2026-11-15 14:00:42,948 INFO __main__: running Gaussian Naive Bayes
+2026-11-15 14:00:42,948 INFO clf.ml_common: Gaussian Naive Bayes hyper-parameters: GaussianNB()
+2026-11-15 14:00:43,065 INFO clf.ml_common: Gaussian Naive Bayes: fit 0.07 s, test predict 0.02 s
+2026-11-15 14:00:43,065 INFO __main__: Gaussian Naive Bayes: train 0.07 s, predict 0.017 s
+2026-11-15 14:00:43,309 INFO __main__: running Logistic Regression
+2026-11-15 14:00:43,309 INFO clf.ml_common: Logistic Regression hyper-parameters: LogisticRegression(max_iter=2000, random_state=42)
+2026-11-15 14:00:43,775 INFO clf.ml_common: Logistic Regression: fit 0.46 s, test predict 0.00 s
+2026-11-15 14:00:43,775 INFO __main__: Logistic Regression: train 0.46 s, predict 0.002 s
+2026-11-15 14:00:43,962 INFO __main__: running K-Nearest Neighbors
+2026-11-15 14:00:43,962 INFO clf.ml_common: K-Nearest Neighbors hyper-parameters: KNeighborsClassifier(n_jobs=-1)
+2026-11-15 14:00:50,969 INFO clf.ml_common: K-Nearest Neighbors: fit 0.01 s, test predict 3.50 s
+2026-11-15 14:00:50,971 INFO __main__: K-Nearest Neighbors: train 0.01 s, predict 3.501 s
+2026-11-15 14:00:51,229 INFO __main__: running Random Forest
+2026-11-15 14:00:51,229 INFO clf.ml_common: Random Forest hyper-parameters: RandomForestClassifier(n_jobs=-1, random_state=42)
+2026-11-15 14:00:53,826 INFO clf.ml_common: Random Forest: fit 2.42 s, test predict 0.04 s
+2026-11-15 14:00:53,826 INFO __main__: Random Forest: train 2.42 s, predict 0.042 s
+2026-11-15 14:00:53,959 INFO __main__: running XGBoost
+2026-11-15 14:00:53,959 INFO clf.ml_common: XGBoost hyper-parameters: XGBClassifier(base_score=None, booster=None, callbacks=None,
+              colsample_bylevel=None, colsample_bynode=None,
+              colsample_bytree=None, device=None, early_stopping_rounds=20,
+              enable_categorical=True, eval_metric='logloss',
+              feature_types=None, feature_weights=None, gamma=None,
+              grow_policy=None, importance_type=None,
+              interaction_constraints=None, learning_rate=0.1, max_bin=None,
+              max_cat_threshold=None, max_cat_to_onehot=None,
+              max_delta_step=None, max_depth=6, max_leaves=None,
+              min_child_weight=None, missing=nan, monotone_constraints=None,
+              multi_strategy=None, n_estimators=500, n_jobs=-1,
+              num_parallel_tree=None, ...)
+2026-11-15 14:00:57,033 INFO clf.ml_common: XGBoost: fit 3.04 s, test predict 0.01 s
+2026-11-15 14:00:57,033 INFO __main__: XGBoost: train 3.04 s, predict 0.015 s
+2026-11-15 14:00:57,033 INFO __main__: running MLP
+2026-11-15 14:00:57,040 INFO dl.dl_common: MLP: training on device cuda
+2026-11-15 14:00:57,041 INFO dl.dl_common: MLP architecture:
+MlpNet(
+  (net): Sequential(
+    (0): Linear(in_features=59, out_features=128, bias=True)
+    (1): ReLU()
+    (2): Dropout(p=0.2, inplace=False)
+    (3): Linear(in_features=128, out_features=64, bias=True)
+    (4): ReLU()
+    (5): Dropout(p=0.2, inplace=False)
+    (6): Linear(in_features=64, out_features=1, bias=True)
+  )
+)
+2026-11-15 14:00:57,041 INFO dl.dl_common: MLP settings: batch 1024, lr 0.001, max epochs 30, patience 3
+2026-11-15 14:01:06,713 INFO dl.dl_common: epoch 1/30: train_loss 0.12388, val_loss 0.01871 (2.3 s)
+2026-11-15 14:01:08,416 INFO dl.dl_common: epoch 2/30: train_loss 0.01458, val_loss 0.00857 (1.7 s)
+2026-11-15 14:01:10,255 INFO dl.dl_common: epoch 3/30: train_loss 0.00759, val_loss 0.00560 (1.8 s)
+2026-11-15 14:01:12,171 INFO dl.dl_common: epoch 4/30: train_loss 0.00561, val_loss 0.00502 (1.9 s)
+2026-11-15 14:01:14,069 INFO dl.dl_common: epoch 5/30: train_loss 0.00483, val_loss 0.00423 (1.9 s)
+2026-11-15 14:01:15,992 INFO dl.dl_common: epoch 6/30: train_loss 0.00423, val_loss 0.00397 (1.9 s)
+2026-11-15 14:01:19,612 INFO dl.dl_common: epoch 7/30: train_loss 0.00392, val_loss 0.00400 (3.6 s)
+2026-11-15 14:01:23,552 INFO dl.dl_common: epoch 8/30: train_loss 0.00350, val_loss 0.00352 (3.9 s)
+2026-11-15 14:01:28,271 INFO dl.dl_common: epoch 9/30: train_loss 0.00347, val_loss 0.00345 (4.7 s)
+2026-11-15 14:01:33,575 INFO dl.dl_common: epoch 10/30: train_loss 0.00311, val_loss 0.00365 (5.3 s)
+2026-11-15 14:01:37,939 INFO dl.dl_common: epoch 11/30: train_loss 0.00292, val_loss 0.00310 (4.4 s)
+2026-11-15 14:01:39,689 INFO dl.dl_common: epoch 12/30: train_loss 0.00287, val_loss 0.00297 (1.7 s)
+2026-11-15 14:01:41,283 INFO dl.dl_common: epoch 13/30: train_loss 0.00264, val_loss 0.00280 (1.6 s)
+2026-11-15 14:01:43,129 INFO dl.dl_common: epoch 14/30: train_loss 0.00269, val_loss 0.00279 (1.9 s)
+2026-11-15 14:01:44,821 INFO dl.dl_common: epoch 15/30: train_loss 0.00249, val_loss 0.00263 (1.7 s)
+2026-11-15 14:01:46,579 INFO dl.dl_common: epoch 16/30: train_loss 0.00220, val_loss 0.00241 (1.8 s)
+2026-11-15 14:01:48,229 INFO dl.dl_common: epoch 17/30: train_loss 0.00232, val_loss 0.00262 (1.6 s)
+2026-11-15 14:01:49,945 INFO dl.dl_common: epoch 18/30: train_loss 0.00237, val_loss 0.00257 (1.7 s)
+2026-11-15 14:01:51,799 INFO dl.dl_common: epoch 19/30: train_loss 0.00230, val_loss 0.00235 (1.9 s)
+2026-11-15 14:01:53,399 INFO dl.dl_common: epoch 20/30: train_loss 0.00220, val_loss 0.00223 (1.6 s)
+2026-11-15 14:01:55,219 INFO dl.dl_common: epoch 21/30: train_loss 0.00188, val_loss 0.00218 (1.8 s)
+2026-11-15 14:01:56,919 INFO dl.dl_common: epoch 22/30: train_loss 0.00186, val_loss 0.00218 (1.7 s)
+2026-11-15 14:01:58,639 INFO dl.dl_common: epoch 23/30: train_loss 0.00183, val_loss 0.00279 (1.7 s)
+2026-11-15 14:02:00,324 INFO dl.dl_common: epoch 24/30: train_loss 0.00177, val_loss 0.00215 (1.7 s)
+2026-11-15 14:02:02,174 INFO dl.dl_common: epoch 25/30: train_loss 0.00178, val_loss 0.00188 (1.8 s)
+2026-11-15 14:02:03,811 INFO dl.dl_common: epoch 26/30: train_loss 0.00177, val_loss 0.00190 (1.6 s)
+2026-11-15 14:02:05,513 INFO dl.dl_common: epoch 27/30: train_loss 0.00169, val_loss 0.00194 (1.7 s)
+2026-11-15 14:02:07,157 INFO dl.dl_common: epoch 28/30: train_loss 0.00165, val_loss 0.00169 (1.6 s)
+2026-11-15 14:02:08,969 INFO dl.dl_common: epoch 29/30: train_loss 0.00168, val_loss 0.00180 (1.8 s)
+2026-11-15 14:02:10,804 INFO dl.dl_common: epoch 30/30: train_loss 0.00155, val_loss 0.00170 (1.8 s)
+2026-11-15 14:02:10,839 INFO dl.dl_common: MLP: train 73.77 s, test predict 0.01 s
+2026-11-15 14:02:10,846 INFO __main__: MLP: train 73.77 s, predict 0.013 s
+2026-11-15 14:02:10,846 INFO __main__: running LSTM
+2026-11-15 14:02:10,849 INFO dl.dl_common: LSTM: training on device cuda
+2026-11-15 14:02:10,849 INFO dl.dl_common: LSTM architecture:
+LstmNet(
+  (lstm): LSTM(1, 32, batch_first=True)
+  (head): Linear(in_features=32, out_features=1, bias=True)
+)
+2026-11-15 14:02:10,849 INFO dl.dl_common: LSTM settings: batch 1024, lr 0.001, max epochs 15, patience 3
+2026-11-15 14:02:12,779 INFO dl.dl_common: epoch 1/15: train_loss 0.58013, val_loss 0.27506 (1.9 s)
+2026-11-15 14:02:14,961 INFO dl.dl_common: epoch 2/15: train_loss 0.13089, val_loss 0.06851 (2.2 s)
+2026-11-15 14:02:16,907 INFO dl.dl_common: epoch 3/15: train_loss 0.06651, val_loss 0.08148 (1.9 s)
+2026-11-15 14:02:18,819 INFO dl.dl_common: epoch 4/15: train_loss 0.05031, val_loss 0.05124 (1.9 s)
+2026-11-15 14:02:20,799 INFO dl.dl_common: epoch 5/15: train_loss 0.29680, val_loss 0.19634 (2.0 s)
+2026-11-15 14:02:22,889 INFO dl.dl_common: epoch 6/15: train_loss 0.11823, val_loss 0.08649 (2.1 s)
+2026-11-15 14:02:24,961 INFO dl.dl_common: epoch 7/15: train_loss 0.07614, val_loss 0.07106 (2.1 s)
+2026-11-15 14:02:24,961 INFO dl.dl_common: early stop at epoch 7 (best val_loss 0.05124)
+2026-11-15 14:02:25,062 INFO dl.dl_common: LSTM: train 14.11 s, test predict 0.05 s
+2026-11-15 14:02:25,062 INFO __main__: LSTM: train 14.11 s, predict 0.050 s
+2026-11-15 14:02:25,062 INFO __main__: running 1D-CNN
+2026-11-15 14:02:25,062 INFO dl.dl_common: 1D-CNN: training on device cuda
+2026-11-15 14:02:25,062 INFO dl.dl_common: 1D-CNN architecture:
+CnnNet(
+  (features): Sequential(
+    (0): Conv1d(1, 32, kernel_size=(3,), stride=(1,), padding=(1,))
+    (1): ReLU()
+    (2): MaxPool1d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (3): Conv1d(32, 64, kernel_size=(3,), stride=(1,), padding=(1,))
+    (4): ReLU()
+    (5): AdaptiveMaxPool1d(output_size=1)
+  )
+  (head): Linear(in_features=64, out_features=1, bias=True)
+)
+2026-11-15 14:02:25,062 INFO dl.dl_common: 1D-CNN settings: batch 1024, lr 0.001, max epochs 30, patience 3
+2026-11-15 14:02:27,509 INFO dl.dl_common: epoch 1/30: train_loss 0.24302, val_loss 0.08820 (2.4 s)
+2026-11-15 14:02:29,519 INFO dl.dl_common: epoch 2/30: train_loss 0.07444, val_loss 0.05563 (2.0 s)
+2026-11-15 14:02:31,599 INFO dl.dl_common: epoch 3/30: train_loss 0.04667, val_loss 0.03704 (2.1 s)
+2026-11-15 14:02:33,679 INFO dl.dl_common: epoch 4/30: train_loss 0.03243, val_loss 0.02653 (2.1 s)
+2026-11-15 14:02:35,629 INFO dl.dl_common: epoch 5/30: train_loss 0.02550, val_loss 0.02300 (2.0 s)
+2026-11-15 14:02:37,712 INFO dl.dl_common: epoch 6/30: train_loss 0.02236, val_loss 0.02077 (2.1 s)
+2026-11-15 14:02:39,689 INFO dl.dl_common: epoch 7/30: train_loss 0.01899, val_loss 0.01484 (2.0 s)
+2026-11-15 14:02:41,737 INFO dl.dl_common: epoch 8/30: train_loss 0.01530, val_loss 0.01296 (2.0 s)
+2026-11-15 14:02:43,719 INFO dl.dl_common: epoch 9/30: train_loss 0.01264, val_loss 0.01196 (2.0 s)
+2026-11-15 14:02:45,739 INFO dl.dl_common: epoch 10/30: train_loss 0.01197, val_loss 0.00936 (2.0 s)
+2026-11-15 14:02:47,709 INFO dl.dl_common: epoch 11/30: train_loss 0.01196, val_loss 0.01029 (2.0 s)
+2026-11-15 14:02:49,791 INFO dl.dl_common: epoch 12/30: train_loss 0.00969, val_loss 0.00879 (2.1 s)
+2026-11-15 14:02:51,729 INFO dl.dl_common: epoch 13/30: train_loss 0.00790, val_loss 0.00947 (1.9 s)
+2026-11-15 14:02:53,765 INFO dl.dl_common: epoch 14/30: train_loss 0.00785, val_loss 0.00908 (2.0 s)
+2026-11-15 14:02:55,752 INFO dl.dl_common: epoch 15/30: train_loss 0.00687, val_loss 0.00738 (2.0 s)
+2026-11-15 14:02:57,889 INFO dl.dl_common: epoch 16/30: train_loss 0.00663, val_loss 0.00526 (2.1 s)
+2026-11-15 14:02:59,974 INFO dl.dl_common: epoch 17/30: train_loss 0.00626, val_loss 0.00634 (2.1 s)
+2026-11-15 14:03:01,959 INFO dl.dl_common: epoch 18/30: train_loss 0.00616, val_loss 0.00486 (2.0 s)
+2026-11-15 14:03:04,071 INFO dl.dl_common: epoch 19/30: train_loss 0.00659, val_loss 0.00428 (2.1 s)
+2026-11-15 14:03:06,057 INFO dl.dl_common: epoch 20/30: train_loss 0.00491, val_loss 0.00552 (2.0 s)
+2026-11-15 14:03:08,139 INFO dl.dl_common: epoch 21/30: train_loss 0.00477, val_loss 0.00371 (2.1 s)
+2026-11-15 14:03:10,140 INFO dl.dl_common: epoch 22/30: train_loss 0.00442, val_loss 0.00376 (2.0 s)
+2026-11-15 14:03:12,219 INFO dl.dl_common: epoch 23/30: train_loss 0.00421, val_loss 0.00366 (2.1 s)
+2026-11-15 14:03:14,209 INFO dl.dl_common: epoch 24/30: train_loss 0.00514, val_loss 0.00789 (2.0 s)
+2026-11-15 14:03:16,321 INFO dl.dl_common: epoch 25/30: train_loss 0.00573, val_loss 0.00401 (2.1 s)
+2026-11-15 14:03:18,299 INFO dl.dl_common: epoch 26/30: train_loss 0.00505, val_loss 0.00376 (2.0 s)
+2026-11-15 14:03:18,299 INFO dl.dl_common: early stop at epoch 26 (best val_loss 0.00366)
+2026-11-15 14:03:18,443 INFO dl.dl_common: 1D-CNN: train 53.23 s, test predict 0.07 s
+2026-11-15 14:03:18,443 INFO __main__: 1D-CNN: train 53.23 s, predict 0.070 s
+2026-11-15 14:03:18,779 INFO __main__: gnb test F1 = 0.9909
+2026-11-15 14:03:18,779 INFO __main__: lr test F1 = 0.9983
+2026-11-15 14:03:18,779 INFO __main__: knn test F1 = 0.9998
+2026-11-15 14:03:18,779 INFO __main__: rf test F1 = 0.9999
+2026-11-15 14:03:18,779 INFO __main__: xgb test F1 = 1.0000
+2026-11-15 14:03:18,783 INFO __main__: mlp test F1 = 0.9996
+2026-11-15 14:03:18,783 INFO __main__: lstm test F1 = 0.9885
+2026-11-15 14:03:18,783 INFO __main__: cnn test F1 = 0.9993
+2026-11-15 14:03:25,612 INFO plots_metrics: wrote 7 metric charts to D:\Masters\WiSe 26-27\Sec Insider Lab 1\SecInsiderLab-1\Lab3\outputs\figures
+2026-11-15 14:03:30,606 INFO plots_confusion: wrote 10 confusion figures to D:\Masters\WiSe 26-27\Sec Insider Lab 1\SecInsiderLab-1\Lab3\outputs\figures
+2026-11-15 14:03:35,139 INFO comparison: figure index lists 26 figures
+2026-11-15 14:03:35,149 INFO __main__: test comparison:
+               Model Family  Accuracy  Precision  Recall     F1  Macro-F1  ROC-AUC    TP    TN  FP  FN  Train time (s)  Predict time (s)
+             XGBoost     ML    1.0000     1.0000  1.0000 1.0000    1.0000   1.0000 19202 14261   0   0           3.040             0.015
+       Random Forest     ML    0.9999     1.0000  0.9998 0.9999    0.9999   1.0000 19199 14261   0   3           2.416             0.042
+ K-Nearest Neighbors     ML    0.9998     0.9999  0.9997 0.9998    0.9998   0.9999 19197 14260   1   5           0.009             3.501
+                 MLP     DL    0.9995     0.9996  0.9995 0.9996    0.9995   1.0000 19193 14254   7   9          73.768             0.013
+              1D-CNN     DL    0.9993     0.9997  0.9990 0.9993    0.9992   1.0000 19183 14255   6  19          53.233             0.070
+ Logistic Regression     ML    0.9981     0.9979  0.9988 0.9983    0.9980   0.9999 19179 14220  41  23           0.461             0.002
+Gaussian Naive Bayes     ML    0.9895     0.9832  0.9986 0.9909    0.9892   0.9880 19176 13934 327  26           0.073             0.017
+                LSTM     DL    0.9866     0.9781  0.9991 0.9885    0.9863   0.9986 19185 13831 430  17          14.115             0.050
+
+==============================================================================
+== PREPROCESS SUMMARY
+==============================================================================
+{
+  "raw_shape": [
+    225745,
+    79
+  ],
+  "raw_class_counts": {
+    "DDoS": 128027,
+    "BENIGN": 97718
+  },
+  "inf_counts": {
+    "Flow Bytes/s": 30,
+    "Flow Packets/s": 34
+  },
+  "nan_counts": {
+    "Flow Bytes/s": 4
+  },
+  "inf_nan_rows": {
+    "n": 34,
+    "by_class": {
+      "BENIGN": 32,
+      "DDoS": 2
+    }
+  },
+  "duplicate_rows": {
+    "n": 2629,
+    "by_class": {
+      "BENIGN": 2618,
+      "DDoS": 11
+    }
+  },
+  "constant_columns": [
+    "Bwd PSH Flags",
+    "Fwd URG Flags",
+    "Bwd URG Flags",
+    "CWE Flag Count",
+    "Fwd Avg Bytes/Bulk",
+    "Fwd Avg Packets/Bulk",
+    "Fwd Avg Bulk Rate",
+    "Bwd Avg Bytes/Bulk",
+    "Bwd Avg Packets/Bulk",
+    "Bwd Avg Bulk Rate"
+  ],
+  "identical_columns": {
+    "SYN Flag Count": "Fwd PSH Flags",
+    "ECE Flag Count": "RST Flag Count",
+    "Avg Fwd Segment Size": "Fwd Packet Length Mean",
+    "Avg Bwd Segment Size": "Bwd Packet Length Mean",
+    "Fwd Header Length.1": "Fwd Header Length",
+    "Subflow Fwd Packets": "Total Fwd Packets",
+    "Subflow Fwd Bytes": "Total Length of Fwd Packets",
+    "Subflow Bwd Packets": "Total Backward Packets",
+    "Subflow Bwd Bytes": "Total Length of Bwd Packets"
+  },
+  "clean_shape": [
+    223082,
+    59
+  ],
+  "clean_class_counts": {
+    "DDoS": 128014,
+    "BENIGN": 95068
+  },
+  "split_sizes": {
+    "train": 156157,
+    "val": 33462,
+    "test": 33463
+  },
+  "split_class_counts": {
+    "train": {
+      "BENIGN": 66547,
+      "DDoS": 89610
+    },
+    "val": {
+      "BENIGN": 14260,
+      "DDoS": 19202
+    },
+    "test": {
+      "BENIGN": 14261,
+      "DDoS": 19202
+    }
+  },
+  "feature_names": [
+    "Destination Port",
+    "Flow Duration",
+    "Total Fwd Packets",
+    "Total Backward Packets",
+    "Total Length of Fwd Packets",
+    "Total Length of Bwd Packets",
+    "Fwd Packet Length Max",
+    "Fwd Packet Length Min",
+    "Fwd Packet Length Mean",
+    "Fwd Packet Length Std",
+    "Bwd Packet Length Max",
+    "Bwd Packet Length Min",
+    "Bwd Packet Length Mean",
+    "Bwd Packet Length Std",
+    "Flow Bytes/s",
+    "Flow Packets/s",
+    "Flow IAT Mean",
+    "Flow IAT Std",
+    "Flow IAT Max",
+    "Flow IAT Min",
+    "Fwd IAT Total",
+    "Fwd IAT Mean",
+    "Fwd IAT Std",
+    "Fwd IAT Max",
+    "Fwd IAT Min",
+    "Bwd IAT Total",
+    "Bwd IAT Mean",
+    "Bwd IAT Std",
+    "Bwd IAT Max",
+    "Bwd IAT Min",
+    "Fwd PSH Flags",
+    "Fwd Header Length",
+    "Bwd Header Length",
+    "Fwd Packets/s",
+    "Bwd Packets/s",
+    "Min Packet Length",
+    "Max Packet Length",
+    "Packet Length Mean",
+    "Packet Length Std",
+    "Packet Length Variance",
+    "FIN Flag Count",
+    "RST Flag Count",
+    "PSH Flag Count",
+    "ACK Flag Count",
+    "URG Flag Count",
+    "Down/Up Ratio",
+    "Average Packet Size",
+    "Init_Win_bytes_forward",
+    "Init_Win_bytes_backward",
+    "act_data_pkt_fwd",
+    "min_seg_size_forward",
+    "Active Mean",
+    "Active Std",
+    "Active Max",
+    "Active Min",
+    "Idle Mean",
+    "Idle Std",
+    "Idle Max",
+    "Idle Min"
+  ]
+}
+
+==============================================================================
+== PER-MODEL DETAILS
+==============================================================================
+### Gaussian Naive Bayes (gnb, ML)
+train time: 0.073 s
+predict time (test): 0.017 s
+(hyper-parameters / architecture: see the run log)
+
+### Logistic Regression (lr, ML)
+train time: 0.461 s
+predict time (test): 0.002 s
+(hyper-parameters / architecture: see the run log)
+
+### K-Nearest Neighbors (knn, ML)
+train time: 0.009 s
+predict time (test): 3.501 s
+(hyper-parameters / architecture: see the run log)
+
+### Random Forest (rf, ML)
+train time: 2.416 s
+predict time (test): 0.042 s
+(hyper-parameters / architecture: see the run log)
+
+### XGBoost (xgb, ML)
+train time: 3.040 s
+predict time (test): 0.015 s
+(hyper-parameters / architecture: see the run log)
+
+### MLP (mlp, DL)
+train time: 73.768 s
+predict time (test): 0.013 s
+(hyper-parameters / architecture: see the run log)
+epoch  train_loss  val_loss
+    1     0.12388   0.01871
+    2     0.01458   0.00857
+    3     0.00759   0.00560
+    4     0.00561   0.00502
+    5     0.00483   0.00423
+    6     0.00423   0.00397
+    7     0.00392   0.00400
+    8     0.00350   0.00352
+    9     0.00347   0.00345
+   10     0.00311   0.00365
+   11     0.00292   0.00310
+   12     0.00287   0.00297
+   13     0.00264   0.00280
+   14     0.00269   0.00279
+   15     0.00249   0.00263
+   16     0.00220   0.00241
+   17     0.00232   0.00262
+   18     0.00237   0.00257
+   19     0.00230   0.00235
+   20     0.00220   0.00223
+   21     0.00188   0.00218
+   22     0.00186   0.00218
+   23     0.00183   0.00279
+   24     0.00177   0.00215
+   25     0.00178   0.00188
+   26     0.00177   0.00190
+   27     0.00169   0.00194
+   28     0.00165   0.00169  <- best
+   29     0.00168   0.00180
+   30     0.00155   0.00170
+best epoch: 28 of 30
+
+### LSTM (lstm, DL)
+train time: 14.115 s
+predict time (test): 0.050 s
+(hyper-parameters / architecture: see the run log)
+epoch  train_loss  val_loss
+    1     0.58013   0.27506
+    2     0.13089   0.06851
+    3     0.06651   0.08148
+    4     0.05031   0.05124  <- best
+    5     0.29680   0.19634
+    6     0.11823   0.08649
+    7     0.07614   0.07106
+best epoch: 4 of 7
+
+### 1D-CNN (cnn, DL)
+train time: 53.233 s
+predict time (test): 0.070 s
+(hyper-parameters / architecture: see the run log)
+epoch  train_loss  val_loss
+    1     0.24302   0.08820
+    2     0.07444   0.05563
+    3     0.04667   0.03704
+    4     0.03243   0.02653
+    5     0.02550   0.02300
+    6     0.02236   0.02077
+    7     0.01899   0.01484
+    8     0.01530   0.01296
+    9     0.01264   0.01196
+   10     0.01197   0.00936
+   11     0.01196   0.01029
+   12     0.00969   0.00879
+   13     0.00790   0.00947
+   14     0.00785   0.00908
+   15     0.00687   0.00738
+   16     0.00663   0.00526
+   17     0.00626   0.00634
+   18     0.00616   0.00486
+   19     0.00659   0.00428
+   20     0.00491   0.00552
+   21     0.00477   0.00371
+   22     0.00442   0.00376
+   23     0.00421   0.00366  <- best
+   24     0.00514   0.00789
+   25     0.00573   0.00401
+   26     0.00505   0.00376
+best epoch: 23 of 26
+
+==============================================================================
+== COMPARISON TABLE (VAL)
+==============================================================================
+| Model                | Family   |   Accuracy |   Precision |   Recall |     F1 |   Macro-F1 |   ROC-AUC |    TP |    TN |   FP |   FN |   Train time (s) |   Predict time (s) |
+|:---------------------|:---------|-----------:|------------:|---------:|-------:|-----------:|----------:|------:|------:|-----:|-----:|-----------------:|-------------------:|
+| Random Forest        | ML       |     1      |      1      |   0.9999 | 1      |     1      |    1      | 19201 | 14260 |    0 |    1 |            2.416 |              0.042 |
+| XGBoost              | ML       |     1      |      1      |   0.9999 | 1      |     1      |    1      | 19201 | 14260 |    0 |    1 |            3.04  |              0.015 |
+| K-Nearest Neighbors  | ML       |     0.9997 |      0.9998 |   0.9996 | 0.9997 |     0.9997 |    0.9999 | 19195 | 14257 |    3 |    7 |            0.009 |              3.501 |
+| MLP                  | DL       |     0.9996 |      0.9996 |   0.9996 | 0.9996 |     0.9996 |    1      | 19195 | 14253 |    7 |    7 |           73.768 |              0.013 |
+| 1D-CNN               | DL       |     0.9992 |      0.9995 |   0.9991 | 0.9993 |     0.9992 |    0.9999 | 19185 | 14250 |   10 |   17 |           53.233 |              0.07  |
+| Logistic Regression  | ML       |     0.9982 |      0.9978 |   0.9991 | 0.9984 |     0.9981 |    0.9998 | 19184 | 14217 |   43 |   18 |            0.461 |              0.002 |
+| Gaussian Naive Bayes | ML       |     0.989  |      0.9821 |   0.9991 | 0.9905 |     0.9888 |    0.9875 | 19184 | 13911 |  349 |   18 |            0.073 |              0.017 |
+| LSTM                 | DL       |     0.9859 |      0.9769 |   0.999  | 0.9878 |     0.9855 |    0.9983 | 19183 | 13806 |  454 |   19 |           14.115 |              0.05  |
+
+==============================================================================
+== COMPARISON TABLE (TEST)
+==============================================================================
+| Model                | Family   |   Accuracy |   Precision |   Recall |     F1 |   Macro-F1 |   ROC-AUC |    TP |    TN |   FP |   FN |   Train time (s) |   Predict time (s) |
+|:---------------------|:---------|-----------:|------------:|---------:|-------:|-----------:|----------:|------:|------:|-----:|-----:|-----------------:|-------------------:|
+| XGBoost              | ML       |     1      |      1      |   1      | 1      |     1      |    1      | 19202 | 14261 |    0 |    0 |            3.04  |              0.015 |
+| Random Forest        | ML       |     0.9999 |      1      |   0.9998 | 0.9999 |     0.9999 |    1      | 19199 | 14261 |    0 |    3 |            2.416 |              0.042 |
+| K-Nearest Neighbors  | ML       |     0.9998 |      0.9999 |   0.9997 | 0.9998 |     0.9998 |    0.9999 | 19197 | 14260 |    1 |    5 |            0.009 |              3.501 |
+| MLP                  | DL       |     0.9995 |      0.9996 |   0.9995 | 0.9996 |     0.9995 |    1      | 19193 | 14254 |    7 |    9 |           73.768 |              0.013 |
+| 1D-CNN               | DL       |     0.9993 |      0.9997 |   0.999  | 0.9993 |     0.9992 |    1      | 19183 | 14255 |    6 |   19 |           53.233 |              0.07  |
+| Logistic Regression  | ML       |     0.9981 |      0.9979 |   0.9988 | 0.9983 |     0.998  |    0.9999 | 19179 | 14220 |   41 |   23 |            0.461 |              0.002 |
+| Gaussian Naive Bayes | ML       |     0.9895 |      0.9832 |   0.9986 | 0.9909 |     0.9892 |    0.988  | 19176 | 13934 |  327 |   26 |            0.073 |              0.017 |
+| LSTM                 | DL       |     0.9866 |      0.9781 |   0.9991 | 0.9885 |     0.9863 |    0.9986 | 19185 | 13831 |  430 |   17 |           14.115 |              0.05  |
+
+==============================================================================
+== CONFUSION MATRICES
+==============================================================================
+gnb val: [[TN, FP], [FN, TP]] = [[13911, 349], [18, 19184]]
+gnb test: [[TN, FP], [FN, TP]] = [[13934, 327], [26, 19176]]
+lr val: [[TN, FP], [FN, TP]] = [[14217, 43], [18, 19184]]
+lr test: [[TN, FP], [FN, TP]] = [[14220, 41], [23, 19179]]
+knn val: [[TN, FP], [FN, TP]] = [[14257, 3], [7, 19195]]
+knn test: [[TN, FP], [FN, TP]] = [[14260, 1], [5, 19197]]
+rf val: [[TN, FP], [FN, TP]] = [[14260, 0], [1, 19201]]
+rf test: [[TN, FP], [FN, TP]] = [[14261, 0], [3, 19199]]
+xgb val: [[TN, FP], [FN, TP]] = [[14260, 0], [1, 19201]]
+xgb test: [[TN, FP], [FN, TP]] = [[14261, 0], [0, 19202]]
+mlp val: [[TN, FP], [FN, TP]] = [[14253, 7], [7, 19195]]
+mlp test: [[TN, FP], [FN, TP]] = [[14254, 7], [9, 19193]]
+lstm val: [[TN, FP], [FN, TP]] = [[13806, 454], [19, 19183]]
+lstm test: [[TN, FP], [FN, TP]] = [[13831, 430], [17, 19185]]
+cnn val: [[TN, FP], [FN, TP]] = [[14250, 10], [17, 19185]]
+cnn test: [[TN, FP], [FN, TP]] = [[14255, 6], [19, 19183]]
+
+==============================================================================
+== FILES WRITTEN UNDER --out
+==============================================================================
+figures/comparison_table.pdf  21542 bytes
+figures/comparison_table.png  190526 bytes
+figures/confusion_cnn.pdf  17094 bytes
+figures/confusion_cnn.png  67089 bytes
+figures/confusion_gnb.pdf  17287 bytes
+figures/confusion_gnb.png  78297 bytes
+figures/confusion_grid_counts.pdf  24416 bytes
+figures/confusion_grid_counts.png  205289 bytes
+figures/confusion_grid_normalized.pdf  23996 bytes
+figures/confusion_grid_normalized.png  220551 bytes
+figures/confusion_knn.pdf  17495 bytes
+figures/confusion_knn.png  73589 bytes
+figures/confusion_lr.pdf  17027 bytes
+figures/confusion_lr.png  77559 bytes
+figures/confusion_lstm.pdf  17695 bytes
+figures/confusion_lstm.png  68976 bytes
+figures/confusion_mlp.pdf  16185 bytes
+figures/confusion_mlp.png  63298 bytes
+figures/confusion_rf.pdf  16793 bytes
+figures/confusion_rf.png  70381 bytes
+figures/confusion_xgb.pdf  15456 bytes
+figures/confusion_xgb.png  65938 bytes
+figures/dl_history_grid.pdf  22806 bytes
+figures/dl_history_grid.png  165171 bytes
+figures/dl_history_overlay.pdf  18184 bytes
+figures/dl_history_overlay.png  87967 bytes
+figures/errors_bar.pdf  18973 bytes
+figures/errors_bar.png  98068 bytes
+figures/INDEX.md  3275 bytes
+figures/metrics_bar_grouped.pdf  19962 bytes
+figures/metrics_bar_grouped.png  180062 bytes
+figures/metrics_dot.pdf  20764 bytes
+figures/metrics_dot.png  99068 bytes
+figures/metrics_heatmap.pdf  24692 bytes
+figures/metrics_heatmap.png  172674 bytes
+figures/metrics_radar.pdf  27663 bytes
+figures/metrics_radar.png  375858 bytes
+figures/metrics_small_multiples.pdf  20878 bytes
+figures/metrics_small_multiples.png  244329 bytes
+figures/roc_grid.pdf  22662 bytes
+figures/roc_grid.png  315885 bytes
+figures/roc_test.pdf  20708 bytes
+figures/roc_test.png  129129 bytes
+figures/roc_test_dl.pdf  17601 bytes
+figures/roc_test_dl.png  93888 bytes
+figures/roc_test_logx.pdf  24322 bytes
+figures/roc_test_logx.png  136559 bytes
+figures/roc_test_ml.pdf  18626 bytes
+figures/roc_test_ml.png  109371 bytes
+figures/roc_test_zoom.pdf  24275 bytes
+figures/roc_test_zoom.png  131919 bytes
+figures/time_bar.pdf  21374 bytes
+figures/time_bar.png  104080 bytes
+metrics/comparison_test.csv  771 bytes
+metrics/comparison_test.md  1790 bytes
+metrics/comparison_test.tex  1149 bytes
+metrics/comparison_val.csv  770 bytes
+metrics/comparison_val.md  1790 bytes
+metrics/comparison_val.tex  1150 bytes
+metrics/metrics.json  6191 bytes
+metrics/preprocess_summary.json  3141 bytes
+run.log  15384 bytes
+run_report.txt  31504 bytes
+run_windows.log  14770 bytes
