@@ -5,14 +5,21 @@ import torch
 from torch import nn
 
 import common
-from dl.dl_common import DEFAULT_DEVICE, run_dl, set_seed
+from dl.dl_common import DEFAULT_DEVICE, TrainSettings, run_dl, set_seed
 
 KEY = "lstm"
 NAME = "LSTM"
-# Stays at 15 (the default): the 2026-11-13 experiment showed 30 epochs worsened the
-# LSTM's precision and FP.
-MAX_EPOCHS = common.DL_DEFAULT_MAX_EPOCHS
+# The LSTM's val loss oscillates with the shared lr 1e-3 / patience 3 (CLAUDE.md 9), so it has
+# its own settings, chosen by lowest val loss among three grid configs (2026-11-15, clip 1.0):
+# lr 5e-4/patience 5/cap 30 -> 0.00567 (best epoch 29, hit the cap); lr 3e-4/p5/cap 40 -> 0.00720;
+# lr 5e-4/patience 7/cap 40 -> 0.00529 (best epoch 31, early stop at 38) = chosen.
+MAX_EPOCHS = 40  # cap 30 was hit at best epoch 29, so 40 gives headroom
+LEARNING_RATE = 5e-4  # smaller steps damp the oscillation
+PATIENCE = 7  # rides out the oscillation before declaring the minimum found
 HIDDEN_SIZE = 32
+# Max total gradient L2 norm per step. The LSTM loss spikes on CPU and GPU (exploding
+# gradients, CLAUDE.md 9); 1.0 is the common default for RNNs. Only the LSTM clips.
+GRAD_CLIP_NORM = 1.0
 
 
 class LstmNet(nn.Module):
@@ -59,4 +66,6 @@ def run(splits: common.DataSplits, max_epochs: int | None = None,
     set_seed(common.SEED)  # before the model is built, so the initial weights are reproducible
     model = LstmNet(splits.x_train.shape[1])
     limit = MAX_EPOCHS if max_epochs is None else max_epochs
-    return run_dl(model, KEY, NAME, splits, limit, device)
+    # Constants are read here, at call time, so experiments can monkeypatch them.
+    settings = TrainSettings(lr=LEARNING_RATE, patience=PATIENCE, grad_clip_norm=GRAD_CLIP_NORM)
+    return run_dl(model, KEY, NAME, splits, limit, device, settings)

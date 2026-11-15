@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime
 import hashlib
+import importlib
 import importlib.metadata
 import json
 import os
@@ -110,6 +111,28 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _train_settings(models: list[str]) -> dict[str, dict[str, object]]:
+    """Return the effective lr, patience and clipping of every selected DL model.
+
+    Args:
+        models: Selected model keys.
+
+    Returns:
+        {key: {"lr", "patience", "grad_clip_norm"}}; empty if no DL model is selected.
+        Torch is imported only for the selected DL models.
+    """
+    result: dict[str, dict[str, object]] = {}
+    for key, module_name in (("mlp", "dl.mlp_dl"), ("lstm", "dl.lstm_dl"), ("cnn", "dl.cnn_dl")):
+        if key not in models:
+            continue
+        module = importlib.import_module(module_name)
+        # Models without overrides fall back to the shared defaults in common.
+        result[key] = {"lr": getattr(module, "LEARNING_RATE", common.DL_LR),
+                       "patience": getattr(module, "PATIENCE", common.DL_PATIENCE),
+                       "grad_clip_norm": getattr(module, "GRAD_CLIP_NORM", None)}
+    return result
+
+
 def config_text(csv: Path, models: list[str], limits: dict[str, int]) -> str:
     """Build the configuration section.
 
@@ -129,6 +152,7 @@ def config_text(csv: Path, models: list[str], limits: dict[str, int]) -> str:
              f"DL batch size: {common.DL_BATCH_SIZE}", f"DL learning rate: {common.DL_LR}",
              f"DL max epochs per model (this run): {limits or 'n/a'}",
              f"DL patience: {common.DL_PATIENCE}",
+             f"DL train settings per model: {_train_settings(models) or 'n/a'}",
              f"selected models: {' '.join(models)}", f"csv path: {csv}"]
     if csv.is_file():
         lines += [f"csv size (bytes): {csv.stat().st_size}", f"csv sha256: {_sha256(csv)}"]

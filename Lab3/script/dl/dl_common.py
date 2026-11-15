@@ -13,6 +13,8 @@ import copy
 import logging
 import random
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -25,6 +27,24 @@ log = logging.getLogger(__name__)
 
 FAMILY = "DL"
 DEFAULT_DEVICE = "cpu"
+
+
+@dataclass(frozen=True)
+class TrainSettings:
+    """Per-model optimisation settings.
+
+    A model whose validation loss behaves differently (the LSTM) can override the shared
+    defaults without touching the other models, which keep ``common`` values unchanged.
+
+    Attributes:
+        lr: Adam learning rate.
+        patience: Non-improving epochs tolerated before early stopping.
+        grad_clip_norm: Max gradient L2 norm per step, or None for no clipping.
+    """
+
+    lr: float = common.DL_LR
+    patience: int = common.DL_PATIENCE
+    grad_clip_norm: float | None = None
 
 
 def resolve_device(requested: str) -> str:
@@ -139,15 +159,36 @@ class EarlyStopper:
             model.load_state_dict(self.best_state)
 
 
+def make_step(model: nn.Module, optimizer: torch.optim.Optimizer,
+              grad_clip_norm: float | None) -> Callable[[], None]:
+    """Build the parameter-update function, optionally clipping the gradient norm first.
+
+    Args:
+        model: Network whose gradients were just computed by ``backward()``.
+        optimizer: Optimiser holding the model's parameters.
+        grad_clip_norm: Maximum total gradient L2 norm, or None for no clipping.
+
+    Returns:
+        A zero-argument callable that clips (if requested) and then steps the optimiser.
+    """
+    def step() -> None:
+        if grad_clip_norm is not None:
+            # Rescales all gradients together when their joint norm exceeds the limit, which
+            # tames the exploding gradients that make the LSTM loss spike.
+            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip_norm)
+        optimizer.step()
+    return step
+
+
 def _train_epoch(model: nn.Module, loader: DataLoader, loss_fn: nn.Module,
-                 optimizer: torch.optim.Optimizer, device: str) -> float:
+                 step: Callable[[], None], device: str) -> float:
     """Run one optimisation pass over the training data.
 
     Args:
         model: Network returning logits of shape (batch, 1).
         loader: Shuffled training loader.
         loss_fn: BCEWithLogitsLoss.
-        optimizer: Adam optimiser.
+        step: Update function from ``make_step`` (optional clipping, then optimiser step).
         device: Device the model lives on; each batch is moved there.
 
     Returns:
@@ -157,10 +198,10 @@ def _train_epoch(model: nn.Module, loader: DataLoader, loss_fn: nn.Module,
     total, count = 0.0, 0
     for xb, yb in loader:
         xb, yb = xb.to(device), yb.to(device)  # batches stay on the CPU until used
-        optimizer.zero_grad()
+        model.zero_grad()  # same parameters as the optimiser, which this helper no longer gets
         loss = loss_fn(model(xb).squeeze(1), yb)
         loss.backward()
-        optimizer.step()
+        step()
         total += loss.item() * len(yb)  # weight by batch size: the last batch is smaller
         count += len(yb)
     return total / count
@@ -189,7 +230,7 @@ def _eval_loss(model: nn.Module, loader: DataLoader, loss_fn: nn.Module, device:
 
 
 def train_model(model: nn.Module, splits: common.DataSplits, max_epochs: int,
-                device: str = DEFAULT_DEVICE) -> dict:
+                device: str = DEFAULT_DEVICE, settings: TrainSettings | None = None) -> dict:
     """Train with Adam and BCE, early stopping on the validation loss.
 
     Args:
@@ -197,21 +238,24 @@ def train_model(model: nn.Module, splits: common.DataSplits, max_epochs: int,
         splits: Scaled data splits; only train and validation are used.
         max_epochs: Upper bound on epochs.
         device: "cpu" or "cuda"; the model is moved there before the optimiser is built.
+        settings: Learning rate, patience and clipping; None uses ``TrainSettings()``.
 
     Returns:
         History {"train_loss": [...], "val_loss": [...]}, one entry per epoch run.
         The best-epoch weights are restored into ``model``.
     """
+    settings = settings or TrainSettings()
     model.to(device)  # before Adam is created, so the optimiser state lives on the same device
     train_loader = make_loader(splits.x_train, splits.y_train, shuffle=True)
     val_loader = make_loader(splits.x_val, splits.y_val, shuffle=False)
     loss_fn = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=common.DL_LR)
-    stopper = EarlyStopper(common.DL_PATIENCE)
+    optimizer = torch.optim.Adam(model.parameters(), lr=settings.lr)
+    stopper = EarlyStopper(settings.patience)
     history: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
     for epoch in range(1, max_epochs + 1):
         start = time.perf_counter()
-        train_loss = _train_epoch(model, train_loader, loss_fn, optimizer, device)
+        train_loss = _train_epoch(model, train_loader, loss_fn,
+                                  make_step(model, optimizer, settings.grad_clip_norm), device)
         val_loss = _eval_loss(model, val_loader, loss_fn, device)
         history["train_loss"].append(train_loss)
         history["val_loss"].append(val_loss)
@@ -245,11 +289,11 @@ def predict_scores(model: nn.Module, x: np.ndarray, device: str = DEFAULT_DEVICE
     return np.concatenate(scores)
 
 
-# Six parameters: the contract signature (CLAUDE.md 5) plus the device; a wrapper object
-# would only hide them.
+# Seven parameters: the contract signature (CLAUDE.md 5) plus device and the settings object.
 def run_dl(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         model: nn.Module, key: str, name: str, splits: common.DataSplits,
-        max_epochs: int, device: str = DEFAULT_DEVICE) -> common.ModelResult:
+        max_epochs: int, device: str = DEFAULT_DEVICE,
+        settings: TrainSettings | None = None) -> common.ModelResult:
     """Train a network, then score the validation and test sets.
 
     Does not seed: callers seed before building the model (CLAUDE.md 4.9).
@@ -261,17 +305,21 @@ def run_dl(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         splits: Scaled data splits.
         max_epochs: Upper bound on epochs.
         device: "cpu" (default) or "cuda".
+        settings: Learning rate, patience and clipping; None uses ``TrainSettings()``.
 
     Returns:
         ModelResult (family "DL") with P(DDoS) scores, timings and history.
     """
+    settings = settings or TrainSettings()
     configure_device(device)
     log.info("%s: training on device %s", name, device)
     log.info("%s architecture:\n%s", name, model)
-    log.info("%s settings: batch %d, lr %g, max epochs %d, patience %d", name,
-             common.DL_BATCH_SIZE, common.DL_LR, max_epochs, common.DL_PATIENCE)
+    log.info("%s settings: batch %d, lr %g, max epochs %d, patience %d, "
+             "grad clip %s", name, common.DL_BATCH_SIZE, settings.lr, max_epochs,
+             settings.patience,
+             "none" if settings.grad_clip_norm is None else settings.grad_clip_norm)
     start = time.perf_counter()
-    history = train_model(model, splits, max_epochs, device)
+    history = train_model(model, splits, max_epochs, device, settings)
     train_time = time.perf_counter() - start
     # Validation scoring is not timed: only the test prediction is reported (CLAUDE.md 4.11).
     val_score = predict_scores(model, splits.x_val, device)

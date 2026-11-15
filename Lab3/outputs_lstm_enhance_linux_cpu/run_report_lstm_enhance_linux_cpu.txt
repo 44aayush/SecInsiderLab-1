@@ -1,0 +1,366 @@
+
+==============================================================================
+== RUN HEADER
+==============================================================================
+UTC timestamp: 2026-11-15T16:48:08+00:00
+command: script/main.py --models lstm --device cpu --out outputs_lstm_enhance_linux_cpu --log-txt outputs_lstm_enhance_linux_cpu/run_report_lstm_enhance_linux_cpu.txt
+cwd: /home/aayush/Desktop/SecInsiderLab1/SecInsiderLab-1/Lab3
+Python: 3.12.15 (main, Oct 21 2026, 17:47:06) [Clang 23.1.3 ]
+platform: Linux-7.0.0-43-generic-x86_64-with-glibc2.43 (x86_64)
+CPU threads (os.cpu_count): 6
+numpy: 2.5.4
+pandas: 3.1.0
+scikit-learn: 1.9.1
+xgboost: 3.4.1
+torch: 2.15.0+cpu
+matplotlib: 3.11.2
+torch device: cpu
+torch threads: 6
+
+==============================================================================
+== CONFIGURATION
+==============================================================================
+SEED: 42
+split fractions (train/val/test): 0.7/0.15/0.15
+DROP_DUPLICATES: True
+IDENTICAL_ATOL: 1e-06
+DL batch size: 1024
+DL learning rate: 0.001
+DL max epochs per model (this run): {'lstm': 40}
+DL patience: 3
+DL train settings per model: {'lstm': {'lr': 0.0005, 'patience': 7, 'grad_clip_norm': 1.0}}
+selected models: lstm
+csv path: /home/aayush/Desktop/SecInsiderLab1/SecInsiderLab-1/Lab3/Friday-WorkingHours-Afternoon-DDos.csv
+csv size (bytes): 77349605
+csv sha256: 646fd1282cf584bd330caf4dab51c689799b223425cf643edde172a1a655793d
+
+==============================================================================
+== RUN LOG (all log lines of this run)
+==============================================================================
+2026-11-15 17:48:08,193 INFO __main__: DL device: cpu
+2026-11-15 17:48:08,884 INFO preprocess: inf/NaN rows dropped: {'n': 34, 'by_class': {'BENIGN': 32, 'DDoS': 2}} (inf {'Flow Bytes/s': 30, 'Flow Packets/s': 34}, NaN {'Flow Bytes/s': 4})
+2026-11-15 17:48:09,323 INFO preprocess: duplicate rows dropped: {'n': 2629, 'by_class': {'BENIGN': 2618, 'DDoS': 11}}
+2026-11-15 17:48:09,522 INFO preprocess: constant columns dropped (10): ['Bwd PSH Flags', 'Fwd URG Flags', 'Bwd URG Flags', 'CWE Flag Count', 'Fwd Avg Bytes/Bulk', 'Fwd Avg Packets/Bulk', 'Fwd Avg Bulk Rate', 'Bwd Avg Bytes/Bulk', 'Bwd Avg Packets/Bulk', 'Bwd Avg Bulk Rate']
+2026-11-15 17:48:11,458 INFO preprocess: identical columns dropped (9): {'SYN Flag Count': 'Fwd PSH Flags', 'ECE Flag Count': 'RST Flag Count', 'Avg Fwd Segment Size': 'Fwd Packet Length Mean', 'Avg Bwd Segment Size': 'Bwd Packet Length Mean', 'Fwd Header Length.1': 'Fwd Header Length', 'Subflow Fwd Packets': 'Total Fwd Packets', 'Subflow Fwd Bytes': 'Total Length of Fwd Packets', 'Subflow Bwd Packets': 'Total Backward Packets', 'Subflow Bwd Bytes': 'Total Length of Bwd Packets'}
+2026-11-15 17:48:12,127 INFO preprocess: split sizes: {'train': 156157, 'val': 33462, 'test': 33463}
+2026-11-15 17:48:12,129 INFO __main__: running LSTM
+2026-11-15 17:48:12,132 INFO dl.dl_common: LSTM: training on device cpu
+2026-11-15 17:48:12,132 INFO dl.dl_common: LSTM architecture:
+LstmNet(
+  (lstm): LSTM(1, 32, batch_first=True)
+  (head): Linear(in_features=32, out_features=1, bias=True)
+)
+2026-11-15 17:48:12,132 INFO dl.dl_common: LSTM settings: batch 1024, lr 0.0005, max epochs 40, patience 7, grad clip 1.0
+2026-11-15 17:48:17,126 INFO dl.dl_common: epoch 1/40: train_loss 0.67538, val_loss 0.59486 (4.1 s)
+2026-11-15 17:48:20,603 INFO dl.dl_common: epoch 2/40: train_loss 0.37437, val_loss 0.17925 (3.5 s)
+2026-11-15 17:48:24,145 INFO dl.dl_common: epoch 3/40: train_loss 0.11026, val_loss 0.07766 (3.5 s)
+2026-11-15 17:48:27,560 INFO dl.dl_common: epoch 4/40: train_loss 0.06576, val_loss 0.05881 (3.4 s)
+2026-11-15 17:48:31,129 INFO dl.dl_common: epoch 5/40: train_loss 0.05467, val_loss 0.05624 (3.6 s)
+2026-11-15 17:48:34,703 INFO dl.dl_common: epoch 6/40: train_loss 0.04878, val_loss 0.04497 (3.6 s)
+2026-11-15 17:48:38,194 INFO dl.dl_common: epoch 7/40: train_loss 0.04917, val_loss 0.06400 (3.5 s)
+2026-11-15 17:48:41,902 INFO dl.dl_common: epoch 8/40: train_loss 0.04479, val_loss 0.04167 (3.7 s)
+2026-11-15 17:48:45,345 INFO dl.dl_common: epoch 9/40: train_loss 0.04112, val_loss 0.04708 (3.4 s)
+2026-11-15 17:48:48,941 INFO dl.dl_common: epoch 10/40: train_loss 0.03974, val_loss 0.04687 (3.6 s)
+2026-11-15 17:48:52,374 INFO dl.dl_common: epoch 11/40: train_loss 0.03956, val_loss 0.03271 (3.4 s)
+2026-11-15 17:48:55,980 INFO dl.dl_common: epoch 12/40: train_loss 0.03309, val_loss 0.04817 (3.6 s)
+2026-11-15 17:48:59,582 INFO dl.dl_common: epoch 13/40: train_loss 0.03374, val_loss 0.03669 (3.6 s)
+2026-11-15 17:49:03,216 INFO dl.dl_common: epoch 14/40: train_loss 0.02952, val_loss 0.02557 (3.6 s)
+2026-11-15 17:49:06,905 INFO dl.dl_common: epoch 15/40: train_loss 0.02743, val_loss 0.02615 (3.7 s)
+2026-11-15 17:49:10,383 INFO dl.dl_common: epoch 16/40: train_loss 0.02573, val_loss 0.03100 (3.5 s)
+2026-11-15 17:49:13,992 INFO dl.dl_common: epoch 17/40: train_loss 0.02712, val_loss 0.02080 (3.6 s)
+2026-11-15 17:49:17,495 INFO dl.dl_common: epoch 18/40: train_loss 0.02171, val_loss 0.01721 (3.5 s)
+2026-11-15 17:49:21,084 INFO dl.dl_common: epoch 19/40: train_loss 0.01798, val_loss 0.01098 (3.6 s)
+2026-11-15 17:49:24,560 INFO dl.dl_common: epoch 20/40: train_loss 0.01465, val_loss 0.01083 (3.5 s)
+2026-11-15 17:49:28,286 INFO dl.dl_common: epoch 21/40: train_loss 0.01473, val_loss 0.00937 (3.7 s)
+2026-11-15 17:49:31,955 INFO dl.dl_common: epoch 22/40: train_loss 0.01561, val_loss 0.00756 (3.7 s)
+2026-11-15 17:49:35,449 INFO dl.dl_common: epoch 23/40: train_loss 0.01224, val_loss 0.00782 (3.5 s)
+2026-11-15 17:49:38,984 INFO dl.dl_common: epoch 24/40: train_loss 0.01220, val_loss 0.00658 (3.5 s)
+2026-11-15 17:49:42,449 INFO dl.dl_common: epoch 25/40: train_loss 0.01400, val_loss 0.03913 (3.5 s)
+2026-11-15 17:49:46,049 INFO dl.dl_common: epoch 26/40: train_loss 0.01481, val_loss 0.00888 (3.6 s)
+2026-11-15 17:49:49,507 INFO dl.dl_common: epoch 27/40: train_loss 0.00909, val_loss 0.00616 (3.5 s)
+2026-11-15 17:49:53,117 INFO dl.dl_common: epoch 28/40: train_loss 0.00976, val_loss 0.00707 (3.6 s)
+2026-11-15 17:49:56,771 INFO dl.dl_common: epoch 29/40: train_loss 0.00794, val_loss 0.00567 (3.7 s)
+2026-11-15 17:50:00,280 INFO dl.dl_common: epoch 30/40: train_loss 0.00977, val_loss 0.01112 (3.5 s)
+2026-11-15 17:50:03,915 INFO dl.dl_common: epoch 31/40: train_loss 0.01083, val_loss 0.00529 (3.6 s)
+2026-11-15 17:50:07,379 INFO dl.dl_common: epoch 32/40: train_loss 0.00730, val_loss 0.00898 (3.5 s)
+2026-11-15 17:50:10,993 INFO dl.dl_common: epoch 33/40: train_loss 0.01503, val_loss 0.01337 (3.6 s)
+2026-11-15 17:50:14,423 INFO dl.dl_common: epoch 34/40: train_loss 0.01236, val_loss 0.01442 (3.4 s)
+2026-11-15 17:50:18,057 INFO dl.dl_common: epoch 35/40: train_loss 0.00946, val_loss 0.01306 (3.6 s)
+2026-11-15 17:50:21,664 INFO dl.dl_common: epoch 36/40: train_loss 0.00808, val_loss 0.01271 (3.6 s)
+2026-11-15 17:50:25,080 INFO dl.dl_common: epoch 37/40: train_loss 0.01994, val_loss 0.00939 (3.4 s)
+2026-11-15 17:50:28,628 INFO dl.dl_common: epoch 38/40: train_loss 0.01369, val_loss 0.00940 (3.5 s)
+2026-11-15 17:50:28,629 INFO dl.dl_common: early stop at epoch 38 (best val_loss 0.00529)
+2026-11-15 17:50:28,989 INFO dl.dl_common: LSTM: train 136.50 s, test predict 0.18 s
+2026-11-15 17:50:28,989 INFO __main__: LSTM: train 136.50 s, predict 0.180 s
+2026-11-15 17:50:29,068 INFO __main__: lstm test F1 = 0.9992
+2026-11-15 17:50:32,092 INFO plots_metrics: wrote 7 metric charts to outputs_lstm_enhance_linux_cpu/figures
+2026-11-15 17:50:32,732 INFO plots_confusion: wrote 3 confusion figures to outputs_lstm_enhance_linux_cpu/figures
+2026-11-15 17:50:34,593 INFO roc_curves: no models for roc_test_ml, skipping
+2026-11-15 17:50:34,857 INFO comparison: figure index lists 18 figures
+2026-11-15 17:50:34,859 INFO __main__: test comparison:
+Model Family  Accuracy  Precision  Recall     F1  Macro-F1  ROC-AUC    TP    TN  FP  FN  Train time (s)  Predict time (s)
+ LSTM     DL     0.999     0.9992  0.9992 0.9992     0.999      1.0 19186 14245  16  16         136.497              0.18
+
+==============================================================================
+== PREPROCESS SUMMARY
+==============================================================================
+{
+  "raw_shape": [
+    225745,
+    79
+  ],
+  "raw_class_counts": {
+    "DDoS": 128027,
+    "BENIGN": 97718
+  },
+  "inf_counts": {
+    "Flow Bytes/s": 30,
+    "Flow Packets/s": 34
+  },
+  "nan_counts": {
+    "Flow Bytes/s": 4
+  },
+  "inf_nan_rows": {
+    "n": 34,
+    "by_class": {
+      "BENIGN": 32,
+      "DDoS": 2
+    }
+  },
+  "duplicate_rows": {
+    "n": 2629,
+    "by_class": {
+      "BENIGN": 2618,
+      "DDoS": 11
+    }
+  },
+  "constant_columns": [
+    "Bwd PSH Flags",
+    "Fwd URG Flags",
+    "Bwd URG Flags",
+    "CWE Flag Count",
+    "Fwd Avg Bytes/Bulk",
+    "Fwd Avg Packets/Bulk",
+    "Fwd Avg Bulk Rate",
+    "Bwd Avg Bytes/Bulk",
+    "Bwd Avg Packets/Bulk",
+    "Bwd Avg Bulk Rate"
+  ],
+  "identical_columns": {
+    "SYN Flag Count": "Fwd PSH Flags",
+    "ECE Flag Count": "RST Flag Count",
+    "Avg Fwd Segment Size": "Fwd Packet Length Mean",
+    "Avg Bwd Segment Size": "Bwd Packet Length Mean",
+    "Fwd Header Length.1": "Fwd Header Length",
+    "Subflow Fwd Packets": "Total Fwd Packets",
+    "Subflow Fwd Bytes": "Total Length of Fwd Packets",
+    "Subflow Bwd Packets": "Total Backward Packets",
+    "Subflow Bwd Bytes": "Total Length of Bwd Packets"
+  },
+  "clean_shape": [
+    223082,
+    59
+  ],
+  "clean_class_counts": {
+    "DDoS": 128014,
+    "BENIGN": 95068
+  },
+  "split_sizes": {
+    "train": 156157,
+    "val": 33462,
+    "test": 33463
+  },
+  "split_class_counts": {
+    "train": {
+      "BENIGN": 66547,
+      "DDoS": 89610
+    },
+    "val": {
+      "BENIGN": 14260,
+      "DDoS": 19202
+    },
+    "test": {
+      "BENIGN": 14261,
+      "DDoS": 19202
+    }
+  },
+  "feature_names": [
+    "Destination Port",
+    "Flow Duration",
+    "Total Fwd Packets",
+    "Total Backward Packets",
+    "Total Length of Fwd Packets",
+    "Total Length of Bwd Packets",
+    "Fwd Packet Length Max",
+    "Fwd Packet Length Min",
+    "Fwd Packet Length Mean",
+    "Fwd Packet Length Std",
+    "Bwd Packet Length Max",
+    "Bwd Packet Length Min",
+    "Bwd Packet Length Mean",
+    "Bwd Packet Length Std",
+    "Flow Bytes/s",
+    "Flow Packets/s",
+    "Flow IAT Mean",
+    "Flow IAT Std",
+    "Flow IAT Max",
+    "Flow IAT Min",
+    "Fwd IAT Total",
+    "Fwd IAT Mean",
+    "Fwd IAT Std",
+    "Fwd IAT Max",
+    "Fwd IAT Min",
+    "Bwd IAT Total",
+    "Bwd IAT Mean",
+    "Bwd IAT Std",
+    "Bwd IAT Max",
+    "Bwd IAT Min",
+    "Fwd PSH Flags",
+    "Fwd Header Length",
+    "Bwd Header Length",
+    "Fwd Packets/s",
+    "Bwd Packets/s",
+    "Min Packet Length",
+    "Max Packet Length",
+    "Packet Length Mean",
+    "Packet Length Std",
+    "Packet Length Variance",
+    "FIN Flag Count",
+    "RST Flag Count",
+    "PSH Flag Count",
+    "ACK Flag Count",
+    "URG Flag Count",
+    "Down/Up Ratio",
+    "Average Packet Size",
+    "Init_Win_bytes_forward",
+    "Init_Win_bytes_backward",
+    "act_data_pkt_fwd",
+    "min_seg_size_forward",
+    "Active Mean",
+    "Active Std",
+    "Active Max",
+    "Active Min",
+    "Idle Mean",
+    "Idle Std",
+    "Idle Max",
+    "Idle Min"
+  ]
+}
+
+==============================================================================
+== PER-MODEL DETAILS
+==============================================================================
+### LSTM (lstm, DL)
+train time: 136.497 s
+predict time (test): 0.180 s
+(hyper-parameters / architecture: see the run log)
+epoch  train_loss  val_loss
+    1     0.67538   0.59486
+    2     0.37437   0.17925
+    3     0.11026   0.07766
+    4     0.06576   0.05881
+    5     0.05467   0.05624
+    6     0.04878   0.04497
+    7     0.04917   0.06400
+    8     0.04479   0.04167
+    9     0.04112   0.04708
+   10     0.03974   0.04687
+   11     0.03956   0.03271
+   12     0.03309   0.04817
+   13     0.03374   0.03669
+   14     0.02952   0.02557
+   15     0.02743   0.02615
+   16     0.02573   0.03100
+   17     0.02712   0.02080
+   18     0.02171   0.01721
+   19     0.01798   0.01098
+   20     0.01465   0.01083
+   21     0.01473   0.00937
+   22     0.01561   0.00756
+   23     0.01224   0.00782
+   24     0.01220   0.00658
+   25     0.01400   0.03913
+   26     0.01481   0.00888
+   27     0.00909   0.00616
+   28     0.00976   0.00707
+   29     0.00794   0.00567
+   30     0.00977   0.01112
+   31     0.01083   0.00529  <- best
+   32     0.00730   0.00898
+   33     0.01503   0.01337
+   34     0.01236   0.01442
+   35     0.00946   0.01306
+   36     0.00808   0.01271
+   37     0.01994   0.00939
+   38     0.01369   0.00940
+best epoch: 31 of 38
+
+==============================================================================
+== COMPARISON TABLE (VAL)
+==============================================================================
+| Model   | Family   |   Accuracy |   Precision |   Recall |    F1 |   Macro-F1 |   ROC-AUC |    TP |    TN |   FP |   FN |   Train time (s) |   Predict time (s) |
+|:--------|:---------|-----------:|------------:|---------:|------:|-----------:|----------:|------:|------:|-----:|-----:|-----------------:|-------------------:|
+| LSTM    | DL       |     0.9989 |       0.999 |   0.9991 | 0.999 |     0.9988 |    0.9998 | 19184 | 14240 |   20 |   18 |          136.497 |               0.18 |
+
+==============================================================================
+== COMPARISON TABLE (TEST)
+==============================================================================
+| Model   | Family   |   Accuracy |   Precision |   Recall |     F1 |   Macro-F1 |   ROC-AUC |    TP |    TN |   FP |   FN |   Train time (s) |   Predict time (s) |
+|:--------|:---------|-----------:|------------:|---------:|-------:|-----------:|----------:|------:|------:|-----:|-----:|-----------------:|-------------------:|
+| LSTM    | DL       |      0.999 |      0.9992 |   0.9992 | 0.9992 |      0.999 |         1 | 19186 | 14245 |   16 |   16 |          136.497 |               0.18 |
+
+==============================================================================
+== CONFUSION MATRICES
+==============================================================================
+lstm val: [[TN, FP], [FN, TP]] = [[14240, 20], [18, 19184]]
+lstm test: [[TN, FP], [FN, TP]] = [[14245, 16], [16, 19186]]
+
+==============================================================================
+== FILES WRITTEN UNDER --out
+==============================================================================
+figures/INDEX.md  2357 bytes
+figures/comparison_table.pdf  17354 bytes
+figures/comparison_table.png  64300 bytes
+figures/confusion_grid_counts.pdf  15361 bytes
+figures/confusion_grid_counts.png  38358 bytes
+figures/confusion_grid_normalized.pdf  15024 bytes
+figures/confusion_grid_normalized.png  46314 bytes
+figures/confusion_lstm.pdf  16228 bytes
+figures/confusion_lstm.png  73257 bytes
+figures/dl_history_grid.pdf  16987 bytes
+figures/dl_history_grid.png  65886 bytes
+figures/dl_history_overlay.pdf  15560 bytes
+figures/dl_history_overlay.png  78210 bytes
+figures/errors_bar.pdf  12317 bytes
+figures/errors_bar.png  46913 bytes
+figures/metrics_bar_grouped.pdf  13483 bytes
+figures/metrics_bar_grouped.png  67261 bytes
+figures/metrics_dot.pdf  15941 bytes
+figures/metrics_dot.png  59405 bytes
+figures/metrics_heatmap.pdf  16278 bytes
+figures/metrics_heatmap.png  54531 bytes
+figures/metrics_radar.pdf  18735 bytes
+figures/metrics_radar.png  226305 bytes
+figures/metrics_small_multiples.pdf  12027 bytes
+figures/metrics_small_multiples.png  91106 bytes
+figures/roc_grid.pdf  14008 bytes
+figures/roc_grid.png  57514 bytes
+figures/roc_test.pdf  14174 bytes
+figures/roc_test.png  87618 bytes
+figures/roc_test_dl.pdf  15341 bytes
+figures/roc_test_dl.png  88747 bytes
+figures/roc_test_logx.pdf  17840 bytes
+figures/roc_test_logx.png  88744 bytes
+figures/roc_test_zoom.pdf  17417 bytes
+figures/roc_test_zoom.png  72376 bytes
+figures/time_bar.pdf  15755 bytes
+figures/time_bar.png  48167 bytes
+metrics/comparison_test.csv  179 bytes
+metrics/comparison_test.md  495 bytes
+metrics/comparison_test.tex  319 bytes
+metrics/comparison_val.csv  182 bytes
+metrics/comparison_val.md  495 bytes
+metrics/comparison_val.tex  319 bytes
+metrics/metrics.json  757 bytes
+metrics/preprocess_summary.json  2999 bytes
+run.log  6452 bytes

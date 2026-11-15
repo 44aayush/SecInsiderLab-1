@@ -1,6 +1,8 @@
 """Unit tests for the PyTorch models and their shared helpers (Task 2)."""
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pytest
 import torch
@@ -101,3 +103,59 @@ def test_default_epoch_limit_is_module_constant(splits: common.DataSplits,
     result = mlp_dl.run(splits)
     assert result.history is not None
     assert len(result.history["val_loss"]) <= TINY_EPOCHS
+
+
+def test_make_step_clips_gradient_norm() -> None:
+    """With grad_clip_norm=0.5 the total gradient norm after the step is at most 0.5."""
+    limit = 0.5
+    model = nn.Linear(3, 1)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.0)  # lr 0: only the gradients matter
+    (model(torch.full((8, 3), 100.0)).sum() * 100.0).backward()  # deliberately huge gradients
+    raw = torch.nn.utils.clip_grad_norm_(model.parameters(), float("inf"))  # norm, no change
+    assert raw > limit
+    dl_common.make_step(model, optimizer, limit)()
+    clipped = torch.nn.utils.clip_grad_norm_(model.parameters(), float("inf"))
+    assert clipped <= limit + 1e-6
+
+
+def test_only_lstm_clips_gradients(splits: common.DataSplits,
+                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    """The LSTM calls clip_grad_norm_ during training; MLP and CNN never do."""
+    assert lstm_dl.GRAD_CLIP_NORM == 1.0
+    calls = []
+    real = torch.nn.utils.clip_grad_norm_
+
+    def counting(*args, **kwargs):
+        calls.append(1)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(torch.nn.utils, "clip_grad_norm_", counting)
+    for module in (mlp_dl, cnn_dl):
+        module.run(splits, max_epochs=1)
+    assert not calls
+    lstm_dl.run(splits, max_epochs=1)
+    assert calls
+
+
+def test_lstm_uses_own_settings(splits: common.DataSplits, monkeypatch: pytest.MonkeyPatch,
+                                caplog: pytest.LogCaptureFixture) -> None:
+    """The LSTM log line shows its own lr, patience and clip; patched constants take effect."""
+    monkeypatch.setattr(lstm_dl, "LEARNING_RATE", 2e-4)
+    monkeypatch.setattr(lstm_dl, "PATIENCE", 7)
+    with caplog.at_level(logging.INFO, logger="dl.dl_common"):
+        lstm_dl.run(splits, max_epochs=1)
+    line = next(r.getMessage() for r in caplog.records if "settings:" in r.getMessage())
+    assert "lr 0.0002" in line and "patience 7" in line and "grad clip 1" in line
+
+
+@pytest.mark.parametrize("module", [mlp_dl, cnn_dl])
+def test_mlp_cnn_use_common_defaults(module, splits: common.DataSplits,
+                                     caplog: pytest.LogCaptureFixture) -> None:
+    """MLP and CNN keep the shared lr and patience and do not clip."""
+    with caplog.at_level(logging.INFO, logger="dl.dl_common"):
+        module.run(splits, max_epochs=1)
+    line = next(r.getMessage() for r in caplog.records if "settings:" in r.getMessage())
+    assert f"lr {common.DL_LR:g}" in line
+    assert f"patience {common.DL_PATIENCE}" in line and "grad clip none" in line
+    assert dl_common.TrainSettings() == dl_common.TrainSettings(common.DL_LR, common.DL_PATIENCE,
+                                                                None)

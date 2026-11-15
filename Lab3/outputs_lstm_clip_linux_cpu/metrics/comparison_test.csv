@@ -1,0 +1,2 @@
+Model,Family,Accuracy,Precision,Recall,F1,Macro-F1,ROC-AUC,TP,TN,FP,FN,Train time (s),Predict time (s)
+LSTM,DL,0.9958,0.994,0.9988,0.9964,0.9957,0.9998,19179,14145,116,23,55.428,0.179

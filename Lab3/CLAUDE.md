@@ -55,7 +55,8 @@ Binding user instructions (2026-11-13):
 - **D3:** the report and the presentation are deferred; keep the §10 structure.
 - **D4:** keep all the extra comparison outputs (§4.11 metrics, the val table, md/tex exports), and generate **several chart and grid variants** (§5.1). The user picks figures from `outputs/figures/INDEX.md`, and the report and the deck reuse that selection.
 
-- **D6 (2026-11-13):** `WINDOWS.md` for running on Windows with an RTX 3050 6 GB (`--device cuda`); a `--log-txt` report; TP and TN columns. **Per-model DL epoch limits** (MLP 30, CNN 30, LSTM 15) were chosen by experiment, under the user's rule that a longer limit is adopted only if no test metric gets worse. At 30 epochs MLP and CNN improved on every metric; the LSTM's precision and FP got worse, so it stays at 15.
+- **D6 (2026-11-13):** `WINDOWS.md` for running on Windows with an RTX 3050 6 GB (`--device cuda`); a `--log-txt` report; TP and TN columns. **Per-model DL epoch limits** (MLP 30, CNN 30, LSTM 15) were chosen by experiment, under the user's rule that a longer limit is adopted only if no test metric gets worse. At 30 epochs MLP and CNN improved on every metric; the LSTM's precision and FP got worse, so it stayed at 15. **Superseded for the LSTM on 2026-11-15 (D7).**
+- **D7 (2026-11-15, user):** the LSTM gets gradient clipping 1.0, its own learning rate and patience. Values chosen by Opus by lowest **validation** loss over a 3-config grid (Linux CPU): lr 5e-4 / patience 7 / cap 40 (val loss 0.00529) beat lr 5e-4 / p5 / cap 30 (0.00567, hit the cap) and lr 3e-4 / p5 / cap 40 (0.00720). Settings live in `dl/lstm_dl.py` (`LEARNING_RATE`, `PATIENCE`, `MAX_EPOCHS`, `GRAD_CLIP_NORM`) and reach `run_dl` as `dl_common.TrainSettings`; MLP and CNN keep the shared lr 1e-3, patience 3, no clipping.
 
 The Task 1 slide names Gradient Boosting, AdaBoost and SVM but allows an own selection. LR, RF and XGBoost are the user's choice; the report states this.
 
@@ -89,7 +90,7 @@ Both copies have sha256 `646fd1282cf584bd330caf4dab51c689799b223425cf643edde172a
 - **Lab 2 baselines** (70/30, MinMax + chi2 top-20, so not directly comparable): Decision Tree DDoS-F1 0.9996, Logistic Regression ≈ 0.974. Expect near-perfect scores for RF, XGB and the DL models. The differences will show in the FP/FN counts.
 - **Fixture** `../Lab2/Friday_Dataset/tests/fixtures/sample_ddos.csv`: 3,187 rows (1,665 BENIGN / 1,522 DDoS), with 34 inf rows.
 
-### Final results (test split, 2026-11-13, CPU, `outputs/metrics/comparison_test.md`)
+### Final results (test split, 2026-11-13, Linux CPU; `outputs/run_report.txt`, metrics files as of commit afa8747)
 
 | Model | Acc | Prec | Rec | F1 | ROC-AUC | TP | TN | FP | FN |
 |---|---|---|---|---|---|---|---|---|---|
@@ -101,6 +102,30 @@ Both copies have sha256 `646fd1282cf584bd330caf4dab51c689799b223425cf643edde172a
 | Logistic Regression | 0.9980 | 0.9977 | 0.9988 | 0.9983 | 0.9999 | 19179 | 14217 | 44 | 23 |
 | LSTM | 0.9935 | 0.9947 | 0.9939 | 0.9943 | 0.9998 | 19084 | 14160 | 101 | 118 |
 | Gaussian NB | 0.9895 | 0.9832 | 0.9986 | 0.9909 | 0.9880 | 19176 | 13934 | 327 | 26 |
+
+### Windows GPU run (test split, 2026-11-15; RTX 3050 6 GB Laptop, torch 2.15.0+cu132, 16 threads; `outputs/run_report_windows.txt`, current `outputs/metrics/*`)
+
+Same CSV sha256, same preprocessing and split counts. Only the rows that differ from the CPU table:
+
+| Model | Acc | Prec | Rec | F1 | ROC-AUC | TP | TN | FP | FN | vs CPU |
+|---|---|---|---|---|---|---|---|---|---|---|
+| MLP | 0.9995 | 0.9996 | 0.9995 | 0.9996 | 1.0000 | 19193 | 14254 | 7 | 9 | F1 +0.0001; FP +1, FN −3 |
+| 1D-CNN | 0.9993 | 0.9997 | 0.9990 | 0.9993 | 1.0000 | 19183 | 14255 | 6 | 19 | better on every metric (FP 13→6) |
+| Logistic Regression | 0.9981 | 0.9979 | 0.9988 | 0.9983 | 0.9999 | 19179 | 14220 | 41 | 23 | FP 44→41 (BLAS numerics) |
+| LSTM | 0.9866 | 0.9781 | 0.9991 | 0.9885 | 0.9986 | 19185 | 13831 | 430 | 17 | **worse**: early-stopped at epoch 7 (best 4) after a loss spike |
+
+GNB, KNN, RF and XGBoost are identical. Opus analysis: §9 "Cross-platform".
+
+### LSTM runs (test split; LSTM-only runs, own output folders)
+
+| Run | Settings | Acc | Prec | Rec | F1 | ROC-AUC | FP | FN | Best / stop epoch |
+|---|---|---|---|---|---|---|---|---|---|
+| Linux CPU, `outputs/run.log` (2026-11-13) | lr 1e-3, p3, cap 15, no clip | 0.9935 | 0.9947 | 0.9939 | 0.9943 | 0.9998 | 101 | 118 | 14 / 15 |
+| Windows GPU, `outputs/` (2026-11-15) | same | 0.9866 | 0.9781 | 0.9991 | 0.9885 | 0.9986 | 430 | 17 | 4 / 7 |
+| Linux CPU, `outputs_lstm_clip_linux_cpu/` | + clip 1.0 | 0.9958 | 0.9940 | 0.9988 | 0.9964 | 0.9998 | 116 | 23 | 12 / 15 |
+| **Linux CPU, `outputs_lstm_enhance_linux_cpu/` (final, D7)** | lr 5e-4, p7, cap 40, clip 1.0 | **0.9990** | **0.9992** | **0.9992** | **0.9992** | **1.0000** | **16** | **16** | 31 / 38 |
+
+The D7 LSTM is better than every earlier LSTM on every test metric, and it now ranks between MLP (F1 0.9995) and 1D-CNN (0.9991). Training takes 137 s on CPU. `outputs/` still holds the old LSTM; re-run the full pipeline before the report to get consistent 8-model tables and figures.
 
 ---
 
@@ -154,7 +179,7 @@ Both copies have sha256 `646fd1282cf584bd330caf4dab51c689799b223425cf643edde172a
    | `rf` | `RandomForestClassifier(n_estimators=100, n_jobs=-1, random_state=42)` |
    | `xgb` | `XGBClassifier(n_estimators=500, max_depth=6, learning_rate=0.1, tree_method="hist", eval_metric="logloss", early_stopping_rounds=20, n_jobs=-1, random_state=42)`. `run` passes `fit_kwargs={"eval_set": [(x_val, y_val)], "verbose": False}`; `fit` defaults to `verbose=True`, which prints one line per round. |
    | `mlp` | n_features → 128 → 64 → 1; ReLU, Dropout 0.2 |
-   | `lstm` | input reshaped to (batch, n_features, 1); `nn.LSTM(input_size=1, hidden_size=32, batch_first=True)`; `h_n[-1]` → Linear(32 → 1). `batch_first=True` is required: without it the batch is read as time steps. |
+   | `lstm` | input reshaped to (batch, n_features, 1); `nn.LSTM(input_size=1, hidden_size=32, batch_first=True)`; `h_n[-1]` → Linear(32 → 1). `batch_first=True` is required: without it the batch is read as time steps. Own settings (D7): lr 5e-4, patience 7, max 40 epochs, gradient-norm clipping 1.0. |
    | `cnn` | input reshaped to (batch, 1, n_features); Conv1d(1→32, k=3, pad=1) + ReLU + MaxPool1d(2) → Conv1d(32→64, k=3, pad=1) + ReLU → AdaptiveMaxPool1d(1) → Linear(64 → 1). Needs n_features ≥ 2. |
 
    - **DL models:** each `nn.Module` takes `n_features: int` in its constructor, and `run` passes `splits.x_train.shape[1]`. Each model reshapes its input inside `forward()`, so all DL models take the same 2-D float32 arrays.
@@ -173,7 +198,7 @@ Both copies have sha256 `646fd1282cf584bd330caf4dab51c689799b223425cf643edde172a
     - Use one fixed colour per model, from `common.MODEL_COLORS`: the Okabe–Ito colour-blind-safe palette, with yellow replaced by grey for contrast. ML models are drawn with solid lines and DL models with dashed ones.
     - Every plot function works for **any number of models ≥ 1**, because smoke runs use 3. Grids use 4 columns and `ceil(n / 4)` rows. A figure whose model set is empty (for example `roc_test_dl` without DL models) is skipped with a log line.
     - The catalog is in §5.1. `comparison.write_figure_index` writes `outputs/figures/INDEX.md`, which lists every generated figure with its chart type and purpose and links the PNG, so the user can choose.
-13. **Logging:** `logging` to the console and to `outputs/run_windows.log`, opened with mode `"w"`. `setup_logging` removes and closes any existing root handlers first, so it is safe to call twice (the tests call `main()` in-process). Modules never call `print`.
+13. **Logging:** `logging` to the console and to `outputs/run.log`, opened with mode `"w"`. `setup_logging` removes and closes any existing root handlers first, so it is safe to call twice (the tests call `main()` in-process). Modules never call `print`.
 14. **Lazy model imports:** `main.py` maps each key to a module name (`clf.gnb_clf`, …, `dl.cnn_dl`) and imports it with `importlib`, so `--models gnb lr` never imports torch.
 
 ---
@@ -216,7 +241,7 @@ class ModelResult:             # 8 fields: .pylintrc sets max-attributes=8 (§8)
     predict_time_s: float      # test set only
     history: dict[str, list[float]] | None = None   # DL: {"train_loss": [...], "val_loss": [...]}
 
-def setup_logging(out_dir: Path) -> None: ...          # idempotent; console + out_dir/run_windows.log (mode "w")
+def setup_logging(out_dir: Path) -> None: ...          # idempotent; console + out_dir/run.log (mode "w")
 def save_figure(fig: Figure, stem: Path) -> None: ...  # stem.png (FIG_DPI) + stem.pdf; creates the parent dir
 ```
 
@@ -227,7 +252,7 @@ The best epoch is `argmin(history["val_loss"])`, which is the epoch whose weight
 | `preprocess.py` | `load_raw(csv_path) -> pd.DataFrame` (step 1), `clean(df) -> tuple[pd.DataFrame, dict]` (steps 2–6, plus their part of the summary), `encode_labels`, `split_data`, `scale_splits`, and `preprocess(csv_path: Path) -> tuple[DataSplits, dict]` (runs them all and returns the full summary below) |
 | `clf/ml_common.py` | `run_sklearn(model, key: str, name: str, splits: DataSplits, fit_kwargs: dict \| None = None) -> ModelResult`: times the fit and the test predict, and returns `predict_proba[:, 1]` for val and test |
 | `clf/*_clf.py` | `KEY`, `NAME`, `build_model()`, `run(splits) -> ModelResult` (family `"ML"`) |
-| `dl/dl_common.py` | `set_seed(seed)`; `make_loader(x, y, shuffle) -> DataLoader`; `class EarlyStopper(patience)` with `update(val_loss: float, model) -> bool` (True means stop; deep-copies the best `state_dict`) and `restore(model)`; `train_model(model, splits, max_epochs) -> dict` (the history; uses `EarlyStopper`; restores the best weights); `predict_scores(model, x) -> np.ndarray` (sigmoid; batched; eval mode; `no_grad`); `run_dl(model, key, name, splits, max_epochs) -> ModelResult` |
+| `dl/dl_common.py` | `set_seed(seed)`; `make_loader(x, y, shuffle) -> DataLoader`; `class EarlyStopper(patience)` with `update(val_loss: float, model) -> bool` (True means stop; deep-copies the best `state_dict`) and `restore(model)`; `train_model(model, splits, max_epochs) -> dict` (the history; uses `EarlyStopper`; restores the best weights); `predict_scores(model, x) -> np.ndarray` (sigmoid; batched; eval mode; `no_grad`); `make_step(model, optimizer, grad_clip_norm)` (optional `clip_grad_norm_`, then `optimizer.step()`); `TrainSettings(lr, patience, grad_clip_norm)` (frozen; defaults = the shared `common` values, no clipping); `run_dl(model, key, name, splits, max_epochs, device="cpu", settings=None) -> ModelResult` |
 | `dl/*_dl.py` | `KEY`, `NAME`, one `nn.Module` subclass `__init__(self, n_features: int)`, `run(splits, max_epochs: int = DL_MAX_EPOCHS) -> ModelResult` (family `"DL"`; seeds before building the model) |
 | `evaluate.py` | `compute_metrics(y_true, y_score) -> dict`; `evaluate_all(results: list[ModelResult], splits) -> dict` (schemas below) |
 | `comparison.py` | `FIGURE_CATALOG` (stem → (chart type, purpose), §5.1); `build_table(metrics, split) -> pd.DataFrame`; `save_table(df, metrics_dir, stem)` (csv/md/tex); `plot_table_image(df, fig_dir)`; `run_comparison(results, metrics, out_dir)` (tables, then `plots_metrics`, `plots_confusion` and `plots_training`); `write_figure_index(out_dir)` |
@@ -337,7 +362,7 @@ Generated by `python script/main.py`:
 
 ```
 outputs/
-├── run_windows.log
+├── run.log
 ├── metrics/   preprocess_summary.json  metrics.json  comparison_test.{csv,md,tex}  comparison_val.{csv,md,tex}
 └── figures/   INDEX.md  plus every §5.1 stem as .png and .pdf
 ```
@@ -353,7 +378,7 @@ cd /home/aayush/Desktop/SecInsiderLab1/SecInsiderLab-1/Lab3
 uv venv --python 3.12 .venv                                                   # once
 uv pip install --python .venv/bin/python -r requirements.txt --torch-backend=cpu
 source .venv/bin/activate                                                     # or prefix commands with .venv/bin/
-python script/main.py                                                         # all 8 models on the full CSV (about 5 min on CPU; add --device cuda --log-txt outputs/run_report_windows.txt as needed)
+python script/main.py                                                         # all 8 models on the full CSV (about 5 min on CPU; add --device cuda --log-txt outputs/run_report.txt as needed)
 python script/main.py --models gnb lr rf                                      # subset; does not import torch
 python script/main.py --csv tests/fixtures/sample_ddos.csv --epochs 1 --out "$(mktemp -d)"   # smoke run, < 1 min
 pylint script tests                                                           # must be 10.00/10 (recursive and source-roots are set in .pylintrc)
@@ -396,6 +421,12 @@ pytest -m e2e -q                                                              # 
 - **KNN** `predict_proba` with k=5 takes only the values {0, 0.2, …, 1}, so its ROC curve has few points. This is expected; say so in the report. KNN prediction (66k rows against 156k training rows, brute force) is the slowest classical step.
 - **Near-perfect scores are expected.** The `errors_bar` figure, the FP/FN columns and the zoomed and log-x ROC figures exist for that reason.
 - **GNB** is the weakest model, but not by much. In the P3 preview it reached F1 0.9909 on test: 327 FP against 0–44 for the others. Its errors are mostly false alarms. Report it as it is.
+- **Cross-platform (Windows GPU vs Linux CPU, 2026-11-15).**
+  - Epoch 1 of every DL model is identical on both (same seed, init and shuffle order); the runs drift from epoch 2 because CUDA/cuDNN kernels round differently. So DL numbers match only to about 3 decimals.
+  - The **LSTM training is unstable on both platforms**: the train loss spikes (CPU epoch 3: 0.13→0.28; GPU epoch 5: 0.05→0.30). With patience 3 the GPU run stopped at epoch 7. Likely cause: exploding gradients over the 59-step sequence on heavy-tailed standardised inputs, with no gradient clipping. **User decision 2026-11-15: LSTM uses gradient clipping** (`GRAD_CLIP_NORM = 1.0` in `dl/lstm_dl.py`, `run_dl(..., grad_clip_norm=...)`; MLP/CNN do not clip, verified bit-identical MLP rerun). Linux CPU result (`outputs_lstm_clip_linux_cpu/`): F1 0.9943→0.9964, acc 0.9935→0.9958, recall 0.9939→0.9988, FN 118→23, ROC-AUC 0.9998 equal, but precision 0.9947→0.9940 and FP 101→116. The train-loss spikes are smaller, but the val loss still oscillates (0.016–0.086), so clipping reduces the instability without removing it. `outputs/` (full Windows run) still holds the unclipped LSTM.
+  - LR differs by 3 FP: lbfgs stops at its tolerance, and different BLAS builds/thread counts reach it at a slightly different point. ML models are therefore "identical up to solver tolerance", not bit-identical.
+  - **Times are not comparable across machines.** The Linux LR fit of 110 s was contention: re-measured on 2026-11-15 it takes 12.3 s (80 lbfgs iterations, OpenBLAS, 6 threads). The GPU gives no speed-up for the small MLP (≈1.7 s/epoch plus ≈7 s CUDA start-up) but a ≈1.8× per-epoch speed-up for the LSTM.
+  - Artefacts: Linux CPU = `outputs/run.log` + `outputs/run_report.txt`; Windows GPU = `outputs/run_windows.log` + `outputs/run_report_windows.txt` (the user renamed the log on Windows for that run; `LOG_FILE_NAME` is back to `run.log`). `outputs/metrics/*` and `outputs/figures/*` hold the Windows run. A single-model re-run must use its own `--out` (WINDOWS.md §10).
 - **Log-x ROC:** FPR = 0 cannot be drawn on a log axis, so clip it at 1e-5 (one false positive on the test set is about 7e-5).
 - LR may warn with `ConvergenceWarning` on the heavy-tailed standardized data. Log the warning; do not silence it.
 - The deck is open in LibreOffice (`.~lock.Security_Insider_lab_3.pptx#`). Never touch the lock file or the deck.

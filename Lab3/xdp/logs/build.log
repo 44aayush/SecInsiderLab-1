@@ -1,0 +1,1 @@
+clang -O2 -g -Wall -Werror -target bpf -I/usr/include/x86_64-linux-gnu -c xdp_filter.c -o xdp_filter.o

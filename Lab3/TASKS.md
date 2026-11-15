@@ -202,7 +202,7 @@ Dates: the report was due 2026-11-11 (past); the presentation is on 2026-11-25. 
 - [x] **T6.3 [H] Tests.** Run `pytest -m "not e2e" -q` and `pytest -m e2e -q`, and paste the output verbatim.
 
   *AC:* all tests pass.
-- [x] **T6.4 [H] Full run.** Run `time python script/main.py` in the **background**. Paste verbatim: the wall time, `outputs/run_windows.log`, `outputs/metrics/comparison_test.md`, `outputs/figures/INDEX.md` and `ls -R outputs/`.
+- [x] **T6.4 [H] Full run.** Run `time python script/main.py` in the **background**. Paste verbatim: the wall time, `outputs/run.log`, `outputs/metrics/comparison_test.md`, `outputs/figures/INDEX.md` and `ls -R outputs/`.
 
   *AC:* exit code 0, every §6 file exists, and all 26 §5.1 stems exist as png and pdf.
 - [x] **T6.5 [O] Audit.**
@@ -232,7 +232,7 @@ Toolchain on 2026-11-13 (T1.1 step D):
 - **missing:** clang, llc, libbpf headers (`bpf/bpf_helpers.h`), libxdp, xdp-tools
 - interfaces: `lo`, `enp0s3` (UP), `docker0` (DOWN)
 
-- [ ] **T7.0 [U] Install the toolchain** (the user runs these personally):
+- [x] **T7.0 [U] Install the toolchain** (the user runs these personally):
   ```bash
   sudo apt update
   # Task 4: compile a small XDP program (clang/LLVM BPF backend, libbpf headers; gcc-multilib provides asm/types.h)
@@ -243,16 +243,16 @@ Toolchain on 2026-11-13 (T1.1 step D):
   Do **not** apt-install `xdp-tools` or `libxdp-dev`: Task 5 builds xdp-tools from GitHub, and a second copy on PATH would conflict. bpftool 7.7.0 and kernel BTF are already present.
 
   *AC:* [H] re-runs the check, and `clang --version`, `llc --version | grep -i bpf` and `ls /usr/include/bpf/bpf_helpers.h` all succeed.
-- [ ] **T7.1 [S] Theory notes, `xdp/THEORY.md`:**
+- [x] **T7.1 [S] Theory notes, `xdp/THEORY.md`:**
   - what eBPF and XDP are: hook points, the verifier, maps, the XDP actions PASS/DROP/TX/REDIRECT/ABORTED, and the generic/native/offload modes
   - use cases: DDoS filtering, load balancing, monitoring
   - a short discussion of the available tools: xdp-tools (xdp-loader, xdp-filter, xdpdump), libbpf/libxdp, bcc, bpftrace, Cilium, Katran
   - sources cited
-- [ ] **T7.2 [S] Small XDP filter: `xdp/xdp_filter.c` and `xdp/Makefile`.**
+- [x] **T7.2 [S] Small XDP filter: `xdp/xdp_filter.c` and `xdp/Makefile`.**
   - The program parses Ethernet/IPv4/TCP-UDP, drops packets whose source IPv4 is in a BPF hash-map blocklist, and counts PASS/DROP in a per-CPU array map.
   - Build it with `clang -O2 -g -target bpf`.
   - Include a README section on attaching it in generic mode on `lo`.
-- [ ] **T7.3 [U + H] Demo.**
+- [x] **T7.3 [U + H] Demo.**
   1. Attach to `lo` (sudo).
   2. Add a blocklist entry with `bpftool map update`.
   3. Generate traffic (`ping`, `nc`).
@@ -260,7 +260,7 @@ Toolchain on 2026-11-13 (T1.1 step D):
   5. Detach.
 
   The user takes screenshots for the report.
-- [ ] **T7.4 [H + U] Task 5: xdp-tools from GitHub.** Clone it **outside** the course repo, to avoid a nested git repo:
+- [x] **T7.4 [H + U] Task 5: xdp-tools from GitHub.** Clone it **outside** the course repo, to avoid a nested git repo:
   ```bash
   git clone --recurse-submodules https://github.com/xdp-project/xdp-tools.git ~/src/xdp-tools
   ```
@@ -309,5 +309,14 @@ Toolchain on 2026-11-13 (T1.1 step D):
 | 2026-11-13 | Opus T6.5 audit (open) | T6.1–T6.4 pass: fresh env OK; pylint 10.00; radon avg A; 62 + 3 tests pass; full run exit 0 in 13:38, 26 png + 26 pdf. Test F1: XGB 1.0000, RF 0.9999, KNN 0.9998, MLP 0.9994, CNN 0.9986, LR 0.9983, LSTM 0.9943, GNB 0.9909. Val and test agree. **Findings:** (a) no DL model early-stopped: best epochs 15/14/15 of 15, so the DL models may be under-trained (user decision: raise `DL_MAX_EPOCHS`?); (b) the radar radial labels overlap the "Accuracy" label and the legend; (c) the normalised confusion grid shows %, but the user chose 0.9999 decimals; (d) LSTM 407 s and CNN 222 s for 15 epochs, much slower than the P4 estimate | (a) waits for the user; (b), (c) fixes to [S], then re-run [H] |
 | 2026-11-13 | Opus D6 | 30-epoch experiment vs 15, on test. MLP: F1 .9994→.9995, FP 8→6, FN 16→12, all metrics ≥. CNN: F1 .9986→.9991, FP 21→13, FN 32→20, all ≥. LSTM: F1 .9943→.9960, FN 118→27, but precision .9947→.9935 and FP 101→126 got worse | MLP and CNN set to 30; LSTM kept at 15 |
 | 2026-11-13 | Opus D6 review | `--log-txt` (`run_report.py`), TP/TN columns, `--device`, the radar and normalised-confusion fixes (T6.5 b, c), WINDOWS.md. 68 + 3 tests pass; pylint 10.00; radon OK. The CUDA path is untested here (no GPU). `dl_common.py` 283, `run_report.py` 238 and `plots_metrics.py` 270 lines (accepted). One WINDOWS.md wording fix (e2e timing) sent to [S] | Accepted; the final full re-run goes to [H] |
-| 2026-11-13 | Opus T6.5 sign-off | Final re-run: pylint 10.00; radon OK; 68 + 3 tests pass; full run exit 0 in 308 s; 26 png + 26 pdf; `run_report_windows.txt` 590 lines with all 9 sections. Results equal the experiment exactly (ML unchanged; MLP/CNN equal the 30-epoch run; LSTM equals the 15-epoch run), so the run is reproducible. Val and test agree. Leakage checks passed (P2 review). Findings (b) and (c) fixed | **T6.5 signed off.** Results are in CLAUDE.md §3. T6.6 (figure picks) waits for the user |
+| 2026-11-13 | Opus T6.5 sign-off | Final re-run: pylint 10.00; radon OK; 68 + 3 tests pass; full run exit 0 in 308 s; 26 png + 26 pdf; `run_report.txt` 590 lines with all 9 sections. Results equal the experiment exactly (ML unchanged; MLP/CNN equal the 30-epoch run; LSTM equals the 15-epoch run), so the run is reproducible. Val and test agree. Leakage checks passed (P2 review). Findings (b) and (c) fixed | **T6.5 signed off.** Results are in CLAUDE.md §3. T6.6 (figure picks) waits for the user |
 | 2026-11-13 | Opus | `history["best_epoch"]` was redundant | Removed: the best epoch is derived as argmin of val loss (§5) |
+| 2026-11-15 | Opus Windows-run analysis | Windows 11, RTX 3050 Laptop, torch 2.15.0+cu132, `--device cuda`, same CSV sha256 and split. GNB/KNN/RF/XGB identical to CPU; LR FP 44→41 (solver tolerance); MLP F1 .9996 (FP 7, FN 9); CNN better on all metrics (FP 6, FN 19, early stop 26); **LSTM F1 .9885, FP 430**: loss spike at epoch 5, early stop at 7. Loss spikes also on CPU (epoch 3), so LSTM training is unstable on both. Linux LR 110 s re-measured at 12.3 s (contention). Details in CLAUDE.md §3 and §9 | Accepted as a valid run. LSTM gradient clipping proposed, needs user approval. `LOG_FILE_NAME` rename was a Windows-only edit; reverted to `run.log` on 2026-11-15 |
+| 2026-11-15 | Opus T7.0 | [H] check: clang 21.1.8, llc has bpf targets, `bpf/bpf_helpers.h` and `asm/types.h` present, libbpf 1.6.3, bpftool 7.7.0, kernel BTF present | **T7.0 done** |
+| 2026-11-15 | Opus T7.1/T7.2 review | `xdp/THEORY.md` (106 lines, 7 sources), `xdp/xdp_filter.c` (136), `Makefile` (59), `README.md` (89), `.gitignore` (`*.o`). Builds with `-Wall -Werror`, no warnings (`xdp/logs/build.log`); sections `xdp`, `.maps`, `license`, `.BTF` present; maps blocklist (hash 1024, u32→u8) and stats (percpu array 2, u64). Bounds checks reviewed: eth, iph, ihl ≥ 5, options, TCP/UDP. Verifier load and attach not run (root) | **T7.1, T7.2 done.** T7.3 waits for the user |
+| 2026-11-15 | Opus T7.4 (build part) | [H] cloned xdp-tools 92a9828 (2026-11-08, libbpf submodule v1.7.0) to `~/src/xdp-tools`; `./configure` exit 0 (system libbpf 1.6.3, cap-ng no), `make` exit 0; `xdp/logs/xdp-tools-build.log` (125 lines); xdp-loader, xdp-filter, xdpdump, xdp-bench built | Build AC met; the `xdp-loader status` screenshot waits for the user |
+| 2026-11-15 | Opus T7.3/T7.4 screenshot review (`xdp/SS_T7/SS_T7_1..7.png`) | T7.3 passes: attached as xdpgeneric prog id 118 on lo (verifier accepted it, jited 892 B, maps 27/28); baseline ping from 127.0.0.2 0% loss; after `make block` ping from 127.0.0.1 0% loss and from 127.0.0.2 100% loss; stats PASS 14 (1+7+6), DROP 3 (cpu 4) = exactly the 3 echo requests; unblock and detach clean. T7.4: `xdp-loader status` OK, but `xdp-filter load` failed (`Couldn't find a BPF file with name xdpfilt_alw_all.o`): uninstalled build, libxdp looks in `/usr/local/lib/bpf`; the later `ip`/`status`/ping steps therefore show no filter | **T7.3 done.** T7.4: re-run with `LIBXDP_OBJECT_PATH` pointing to the build dir (screenshots SS_T7_8+) |
+| 2026-11-15 | Opus LSTM clipping review | [S] `make_step` + `grad_clip_norm` (LSTM only, 1.0), report config line, 2 new tests (70 pass), pylint 10.00, radon OK. [H] Linux CPU LSTM → `outputs_lstm_clip_linux_cpu/` (68.7 s): test F1 0.9964, FP 116, FN 23 (was 0.9943 / 101 / 118). MLP rerun without clipping is identical to §3 (FP 6, FN 12), so MLP/CNN are unaffected | Accepted (user decision). Precision/FP slightly worse than unclipped CPU: reported to the user. Windows GPU clipped run waits for the user (WINDOWS.md §10) |
+| 2026-11-15 | Opus T7.4 screenshot review (SS_T7_8, SS_T7_9) | With `LIBXDP_OBJECT_PATH` set, `xdp-filter load lo -m skb -f ipv4` succeeds; `xdp-loader status` shows `xdp_dispatcher` (skb, id 136) chaining `xdpfilt_alw_ip` (prio 10, id 145, chain action XDP_PASS). After `xdp-filter ip 127.0.0.2 -m src`, ping from 127.0.0.1 0% loss, from 127.0.0.2 100% loss | **T7.4 done** (AC met). Optional: `xdp-filter status` (counters) and unload screenshots |
+| 2026-11-15 | Opus SS_T7_10/11 review | `xdp-filter status`: XDP_DROP 3, XDP_PASS 8, ABORTED 0; xdpfilt_alw_ip on lo (skb), features ipv6,ipv4,allow (the `alw_ip` object covers both IP versions); 127.0.0.2 mode src, hit counter 3 = the 3 blocked echo requests. Unload leaves all interfaces with no XDP program | P7 complete; screenshot set SS_T7_1..11 |
+| 2026-11-15 | Opus D7 LSTM tuning | [S] `TrainSettings` (per-model lr/patience/clip), LSTM constants, run_report line, tests (73 pass), pylint 10.00, radon OK. [H] grid (selection by val loss): lr 5e-4/p5/cap30 0.00567 (hit cap), lr 3e-4/p5/cap40 0.00720, **lr 5e-4/p7/cap40 0.00529**. Official run → `outputs_lstm_enhance_linux_cpu/`: test F1 0.9992, prec 0.9992, rec 0.9992, FP 16, FN 16, best epoch 31, stop 38, 137 s; identical to the grid run (reproducible) | Accepted: better than every earlier LSTM on every metric. Windows enhanced run waits for the user (WINDOWS.md §10). Open: full 8-model re-run so `outputs/` carries the D7 LSTM |
