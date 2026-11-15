@@ -1,0 +1,226 @@
+22:27:46  
+22:27:46  ==================================================================
+22:27:46    PHASE 0 - build lab topology (4 network namespaces, veth pairs, bridge)
+22:27:46  ==================================================================
+22:27:46  $ ip netns list
+22:27:46  rl-lan
+22:27:46  rl-victim
+22:27:46  rl-benign
+22:27:46  rl-attacker
+22:27:46  $ ip -n rl-victim -br addr show dev vic0
+22:27:46  vic0@if3         UP             10.10.0.1/24 fe80::b061:2dff:fe28:19b3/64 
+22:27:48  connectivity OK (attacker->victim, benign->victim)
+22:27:48  
+22:27:48  ==================================================================
+22:27:48    PHASE 1 - BASELINE without XDP: attacker flood reaches the victim stack
+22:27:48  ==================================================================
+22:27:48  --- attacker 10.10.0.2: hping3 -S -p 80 --flood for 5s; benign 10.10.0.3: ping -i 0.2 in parallel ---
+22:27:54  [attacker] 331744 packets transmitted, 0 packets received, 100% packet loss
+22:27:54  [victim  ] TCP segments that reached the victim stack (passed XDP): 331745
+22:27:54  [benign  ] 25 packets transmitted, 25 received, 0% packet loss, time 4990ms
+22:27:54  
+22:27:54  ==================================================================
+22:27:54    PHASE 2 - attach xdp_ratelimit in GENERIC (skb) mode, limit = 100 pkt/s per source IP
+22:27:54  ==================================================================
+22:27:54  attached xdp_ratelimit to vic0 (ifindex 2, skb mode): limit 100 pkts / 1000 ms per source IP
+22:27:54  $ ip -n rl-victim link show dev vic0
+22:27:54  2: vic0@if3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc noqueue state UP mode DEFAULT group default qlen 1000
+22:27:54      link/ether b2:61:2d:28:19:b3 brd ff:ff:ff:ff:ff:ff link-netns rl-lan
+22:27:54      prog/xdp id 302 name xdp_ratelimit tag b6445d5f85524efc jited 
+22:27:54  $ bpftool prog show name xdp_ratelimit
+22:27:54  302: xdp  name xdp_ratelimit  tag b6445d5f85524efc  gpl
+22:27:54  	loaded_at 2026-11-13T22:27:54+0100  uid 0
+22:27:54  	xlated 2208B  jited 1257B  memlock 4096B  map_ids 50,46,47,48,49
+22:27:54  	btf_id 285
+22:27:54  $ bpftool net show
+22:27:54  xdp:
+22:27:54  
+22:27:54  tc:
+22:27:54  
+22:27:54  flow_dissector:
+22:27:54  
+22:27:54  netfilter:
+22:27:54  
+22:27:54  xdp:
+22:27:54  vic0(2) generic id 302
+22:27:54  
+22:27:54  tc:
+22:27:54  
+22:27:54  flow_dissector:
+22:27:54  
+22:27:54  netfilter:
+22:27:54  
+22:27:54  
+22:27:54  ==================================================================
+22:27:54    PHASE 3 - benign client alone (5 pkt/s < 100) -> nothing dropped
+22:27:54  ==================================================================
+22:27:57  --- 10.10.0.1 ping statistics ---
+22:27:57  15 packets transmitted, 15 received, 0% packet loss, time 2890ms
+22:27:57  rtt min/avg/max/mdev = 0.060/0.097/0.248/0.048 ms
+22:27:57  
+22:27:57  ==================================================================
+22:27:57    PHASE 4 - ATTACK with XDP rate limiter (generic mode): flood dropped, benign survives
+22:27:57  ==================================================================
+22:27:57  --- attacker 10.10.0.2: hping3 -S -p 80 --flood for 5s; benign 10.10.0.3: ping -i 0.2 in parallel ---
+22:28:03  [attacker] 679608 packets transmitted, 0 packets received, 100% packet loss
+22:28:03  [victim  ] TCP segments that reached the victim stack (passed XDP): 500
+22:28:03  [benign  ] 25 packets transmitted, 25 received, 0% packet loss, time 4987ms
+22:28:03  --- loader output (last seconds) ---
+22:28:03      10.10.0.2              112235       112135      99.9%
+22:28:03      10.10.0.3                  20            0       0.0%
+22:28:03  [t=  5s] pass      224 (+   104/s) | drop-rate   236543 (+124408/s) | drop-block      0 | non-IPv4      1
+22:28:03      source                   seen      dropped      drop%
+22:28:03      10.10.0.2              236761       236561      99.9%
+22:28:03      10.10.0.3                  24            0       0.0%
+22:28:03  [t=  6s] pass      329 (+   105/s) | drop-rate   375425 (+138882/s) | drop-block      0 | non-IPv4      2
+22:28:03      source                   seen      dropped      drop%
+22:28:03      10.10.0.2              375744       375444      99.9%
+22:28:03      10.10.0.3                  29            0       0.0%
+22:28:03  [t=  7s] pass      434 (+   105/s) | drop-rate   515521 (+140096/s) | drop-block      0 | non-IPv4      4
+22:28:03      source                   seen      dropped      drop%
+22:28:03      10.10.0.2              515940       515540      99.9%
+22:28:03      10.10.0.3                  34            0       0.0%
+22:28:03  [t=  8s] pass      539 (+   105/s) | drop-rate   654998 (+139477/s) | drop-block      0 | non-IPv4      4
+22:28:03      source                   seen      dropped      drop%
+22:28:03      10.10.0.2              655515       655015      99.9%
+22:28:03      10.10.0.3                  39            0       0.0%
+22:28:03  
+22:28:03  ==================================================================
+22:28:03    PHASE 5 - inspect BPF maps with bpftool
+22:28:03  ==================================================================
+22:28:03  $ bpftool map show name rl_state
+22:28:03  49: lru_hash  name rl_state  flags 0x0
+22:28:03  	key 4B  value 32B  max_entries 65536  memlock 6816640B
+22:28:03  	btf_id 285
+22:28:03  $ bpftool map dump name rl_stats   (per-CPU array; only non-zero CPU slots shown)
+22:28:03    stat 0 (pass)  cpu 5   15
+22:28:03    stat 0 (pass)  cpu 7   225
+22:28:03    stat 0 (pass)  cpu 9   300
+22:28:03    stat 1 (drop-rate)  cpu 7   212032
+22:28:03    stat 1 (drop-rate)  cpu 8   4134
+22:28:03    stat 1 (drop-rate)  cpu 9   462942
+22:28:03    stat 3 (non-IPv4)  cpu 3   1
+22:28:03    stat 3 (non-IPv4)  cpu 11  3
+22:28:03  $ bpftool map dump name rl_state
+22:28:03  [{
+22:28:03          "key": 50334218,
+22:28:03          "value": {
+22:28:03              "win_start": 180749751048746,
+22:28:03              "count": 4,
+22:28:03              "total": 40,
+22:28:03              "dropped": 0
+22:28:03          }
+22:28:03      },{
+22:28:03          "key": 33557002,
+22:28:03          "value": {
+22:28:03              "win_start": 180749405326493,
+22:28:03              "count": 138810,
+22:28:03              "total": 679608,
+22:28:03              "dropped": 679108
+22:28:03          }
+22:28:03      }
+22:28:03  ]
+22:28:03  $ bpftool map dump name rl_config
+22:28:03  [{
+22:28:03          "key": 0,
+22:28:03          "value": {
+22:28:03              "limit": 100,
+22:28:03              "window_ns": 1000000000
+22:28:03          }
+22:28:03      }
+22:28:03  ]
+22:28:03  
+22:28:03  ==================================================================
+22:28:03    PHASE 6 - runtime control from user space (no recompile, no reload)
+22:28:03  ==================================================================
+22:28:03  6a) raise limit to 1000 pkt/s via 'bpftool map update' (rl_config id 48)
+22:28:03  $ bpftool map update id 48 key 0 0 0 0 value hex e8 03 00 00 00 00 00 00 00 ca 9a 3b 00 00 00 00
+22:28:03  $ bpftool map dump id 48
+22:28:03  [{
+22:28:03          "key": 0,
+22:28:03          "value": {
+22:28:03              "limit": 1000,
+22:28:03              "window_ns": 1000000000
+22:28:03          }
+22:28:03      }
+22:28:03  ]
+22:28:05      10.10.0.2              679608       679108      99.9%
+22:28:05      10.10.0.3                  40            0       0.0%
+22:28:05  [t= 10s] pass      540 (+     0/s) | drop-rate   679108 (+     0/s) | drop-block      0 | non-IPv4      4
+22:28:05      source                   seen      dropped      drop%
+22:28:05      10.10.0.2              679608       679108      99.9%
+22:28:05      10.10.0.3                  40            0       0.0%
+22:28:05  6b) restore limit 100, then put attacker 10.10.0.2 on the BLOCK-list (rl_block id 46)
+22:28:05      (this is the hook an IDS / the Lab 3 ML model would use)
+22:28:05  $ bpftool map update id 48 key 0 0 0 0 value hex 64 00 00 00 00 00 00 00 00 ca 9a 3b 00 00 00 00
+22:28:05  $ bpftool map update id 46 key 10 10 0 2 value 1
+22:28:05  attacker pings victim (expect 100% loss):
+22:28:07  5 packets transmitted, 0 received, 100% packet loss, time 824ms
+22:28:07  benign pings victim (expect 0% loss):
+22:28:07  5 packets transmitted, 5 received, 0% packet loss, time 829ms
+22:28:09      10.10.0.2              679608       679108      99.9%
+22:28:09      10.10.0.3                  42            0       0.0%
+22:28:09  [t= 14s] pass      545 (+     3/s) | drop-rate   679108 (+     0/s) | drop-block      5 | non-IPv4      4
+22:28:09      source                   seen      dropped      drop%
+22:28:09      10.10.0.2              679608       679108      99.9%
+22:28:09      10.10.0.3                  45            0       0.0%
+22:28:09  loader stopped -> program detached:
+22:28:09  $ ip -n rl-victim link show dev vic0
+22:28:09  2: vic0@if3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+22:28:09      link/ether b2:61:2d:28:19:b3 brd ff:ff:ff:ff:ff:ff link-netns rl-lan
+22:28:09  
+22:28:09  ==================================================================
+22:28:09    PHASE 7 - same program in NATIVE (driver) mode - veth supports native XDP
+22:28:09  ==================================================================
+22:28:09  attached xdp_ratelimit to vic0 (ifindex 2, native mode): limit 100 pkts / 1000 ms per source IP
+22:28:09  $ ip -n rl-victim link show dev vic0
+22:28:09  2: vic0@if3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdp qdisc noqueue state UP mode DEFAULT group default qlen 1000
+22:28:09      link/ether b2:61:2d:28:19:b3 brd ff:ff:ff:ff:ff:ff link-netns rl-lan
+22:28:09      prog/xdp id 308 name xdp_ratelimit tag b6445d5f85524efc jited 
+22:28:09  --- attacker 10.10.0.2: hping3 -S -p 80 --flood for 5s; benign 10.10.0.3: ping -i 0.2 in parallel ---
+22:28:14  [attacker] 613271 packets transmitted, 0 packets received, 100% packet loss
+22:28:14  [victim  ] TCP segments that reached the victim stack (passed XDP): 500
+22:28:14  [benign  ] 25 packets transmitted, 25 received, 0% packet loss, time 4991ms
+22:28:14  --- loader output (last seconds) ---
+22:28:14  [t=  3s] pass      314 (+   105/s) | drop-rate   323939 (+123321/s) | drop-block      0 | non-IPv4      0
+22:28:14      source                   seen      dropped      drop%
+22:28:14      10.10.0.2              324239       323939      99.9%
+22:28:14      10.10.0.3                  14            0       0.0%
+22:28:14  [t=  4s] pass      419 (+   105/s) | drop-rate   454033 (+130094/s) | drop-block      0 | non-IPv4      0
+22:28:14      source                   seen      dropped      drop%
+22:28:14      10.10.0.2              454437       454037      99.9%
+22:28:14      10.10.0.3                  19            0       0.0%
+22:28:14  [t=  5s] pass      523 (+   104/s) | drop-rate   584332 (+130299/s) | drop-block      0 | non-IPv4      2
+22:28:14      source                   seen      dropped      drop%
+22:28:14      10.10.0.2              584848       584348      99.9%
+22:28:14      10.10.0.3                  23            0       0.0%
+22:28:14  
+22:28:14  ==================================================================
+22:28:14    PHASE 8 - alternative loading path: iproute2 + bpftool only (no custom loader)
+22:28:14  ==================================================================
+22:28:14  $ ip -n rl-victim link set dev vic0 xdpgeneric obj xdp_ratelimit.bpf.o sec xdp
+22:28:15  $ ip -n rl-victim link show dev vic0
+22:28:15  2: vic0@if3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc noqueue state UP mode DEFAULT group default qlen 1000
+22:28:15      link/ether b2:61:2d:28:19:b3 brd ff:ff:ff:ff:ff:ff link-netns rl-lan
+22:28:15      prog/xdp id 314 name xdp_ratelimit tag b6445d5f85524efc jited 
+22:28:15  config map is all-zero after 'ip' load => limiter disabled; enable it with bpftool:
+22:28:15  $ bpftool map update id 58 key 0 0 0 0 value hex 64 00 00 00 00 00 00 00 00 ca 9a 3b 00 00 00 00
+22:28:15  --- attacker 10.10.0.2: hping3 -S -p 80 --flood for 3s; benign 10.10.0.3: ping -i 0.2 in parallel ---
+22:28:18  [attacker] 383335 packets transmitted, 0 packets received, 100% packet loss
+22:28:18  [victim  ] TCP segments that reached the victim stack (passed XDP): 300
+22:28:18  [benign  ] 15 packets transmitted, 15 received, 0% packet loss, time 2912ms
+22:28:18  $ bpftool map dump name rl_stats   (per-CPU array; only non-zero CPU slots shown)
+22:28:18    stat 0 (pass)  cpu 8   100
+22:28:18    stat 0 (pass)  cpu 9   215
+22:28:18    stat 1 (drop-rate)  cpu 6   37895
+22:28:18    stat 1 (drop-rate)  cpu 8   2674
+22:28:18    stat 1 (drop-rate)  cpu 9   342467
+22:28:18    stat 3 (non-IPv4)  cpu 11  2
+22:28:18  $ ip -n rl-victim link set dev vic0 xdpgeneric off
+22:28:18  
+22:28:18  ==================================================================
+22:28:18    PHASE DONE - see logs/ for raw hping3 / tcpdump / ping / loader output
+22:28:18  ==================================================================
+22:28:18  
+22:28:18  --- cleanup: stopping loader, detaching XDP, deleting namespaces ---
+22:28:18  --- cleanup done; log: /home/jkj/Documents/Studies/Semester 2/Sec_Insider_1/Lab3/xdp/ratelimit/logs/demo.log ---

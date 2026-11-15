@@ -1,0 +1,47 @@
+% !TeX encoding = UTF-8
+\chapter{Data Preparation}\label{chap:data}
+
+\section{Cleaning}
+We port the cleaning logic of Lab~2. Column names are stripped of stray spaces, because 65 of them have leading blanks. The steps and their effect are listed in Table~\ref{tab:cleaning}; all counts come from \texttt{preprocess\_summary.json}.
+
+\begin{table}[htb]
+\centering
+\caption{Cleaning steps and their effect on the 225,745 raw flows with 78 features.}\label{tab:cleaning}
+\begin{tabular}{llrr}
+\toprule
+Step & Dropped & Rows after & Features after \\
+\midrule
+Raw file & -- & 225,745 & 78 \\
+Infinite or NaN values & 34 rows (32 BENIGN, 2 DDoS) & 225,711 & 78 \\
+Duplicate rows & 2,629 rows (2,618 BENIGN, 11 DDoS) & 223,082 & 78 \\
+Constant columns & 10 columns & 223,082 & 68 \\
+Identical columns & 9 columns & 223,082 & 59 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The 34 rows with invalid values come from \texttt{Flow Bytes/s} (30 infinite, 4 NaN) and \texttt{Flow Packets/s} (34 infinite). Duplicate rows are compared on the full row including the label. We remove them on purpose: otherwise identical flows would end up in both the training and the test set and inflate the scores. The 10 constant columns are \texttt{Bwd PSH Flags}, \texttt{Fwd URG Flags}, \texttt{Bwd URG Flags}, \texttt{CWE Flag Count}, and the six bulk-transfer columns (\texttt{Fwd/Bwd Avg Bytes/Bulk}, \texttt{Avg Packets/Bulk}, \texttt{Avg Bulk Rate}). Nine columns are copies of another column, for example \texttt{Subflow Fwd Packets} of \texttt{Total Fwd Packets} and \texttt{Avg Fwd Segment Size} of \texttt{Fwd Packet Length Mean}; we keep the first column of each pair. The clean set has 223,082 flows with 59 features: 128,014 DDoS and 95,068 BENIGN. Some features legitimately contain negative values (e.g.\ \texttt{Init\_Win\_bytes\_forward} $=-1$), which we keep. We apply no feature selection.
+
+\section{Split and scaling}
+The label is encoded as BENIGN $=0$ and DDoS $=1$ (DDoS is the positive class). A two-stage stratified split with seed 42 gives 70\,\% train, 15\,\% validation and 15\,\% test (Table~\ref{tab:split}). The validation set is used only for early stopping and for the choices in Chapter~\ref{chap:task2}; all final figures and tables use the test set.
+
+\begin{table}[htb]
+\centering
+\caption{Stratified 70/15/15 split of the clean data.}\label{tab:split}
+\begin{tabular}{lrrr}
+\toprule
+Split & Rows & DDoS & BENIGN \\
+\midrule
+Train (70\,\%) & 156,157 & 89,610 & 66,547 \\
+Validation (15\,\%) & 33,462 & 19,202 & 14,260 \\
+Test (15\,\%) & 33,463 & 19,202 & 14,261 \\
+\midrule
+\textbf{Total} & \textbf{223,082} & \textbf{128,014} & \textbf{95,068} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A \texttt{StandardScaler} is fitted on the training set only and then applied to validation and test data, so no information of the held-out sets leaks into training. All eight models receive the same scaled \texttt{float32} arrays; trees and Naive Bayes do not need scaling but are not hurt by it, and one data path keeps the pipeline simple.
+
+\section{A caveat: the destination port}
+Almost all DDoS flows target port 80 (128,011 of 128,014). The feature \texttt{Destination Port} is therefore a strong shortcut, and in Lab~2 it was the second most important feature of the decision tree (importance 0.35). We keep it and report the results as they are; we do not run an ablation, so the near-perfect scores in Chapter~\ref{chap:task3} must be read with this in mind.

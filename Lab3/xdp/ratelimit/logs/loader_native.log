@@ -1,0 +1,26 @@
+attached xdp_ratelimit to vic0 (ifindex 2, native mode): limit 100 pkts / 1000 ms per source IP
+[t=  1s] pass      104 (+   104/s) | drop-rate    75962 (+ 75962/s) | drop-block      0 | non-IPv4      0
+    source                   seen      dropped      drop%
+    10.10.0.2               76080        75980      99.9%
+    10.10.0.3                   4            0       0.0%
+[t=  2s] pass      209 (+   105/s) | drop-rate   200618 (+124656/s) | drop-block      0 | non-IPv4      0
+    source                   seen      dropped      drop%
+    10.10.0.2              200837       200637      99.9%
+    10.10.0.3                   9            0       0.0%
+[t=  3s] pass      314 (+   105/s) | drop-rate   323939 (+123321/s) | drop-block      0 | non-IPv4      0
+    source                   seen      dropped      drop%
+    10.10.0.2              324239       323939      99.9%
+    10.10.0.3                  14            0       0.0%
+[t=  4s] pass      419 (+   105/s) | drop-rate   454033 (+130094/s) | drop-block      0 | non-IPv4      0
+    source                   seen      dropped      drop%
+    10.10.0.2              454437       454037      99.9%
+    10.10.0.3                  19            0       0.0%
+[t=  5s] pass      523 (+   104/s) | drop-rate   584332 (+130299/s) | drop-block      0 | non-IPv4      2
+    source                   seen      dropped      drop%
+    10.10.0.2              584848       584348      99.9%
+    10.10.0.3                  23            0       0.0%
+[t=  6s] pass      525 (+     2/s) | drop-rate   612772 (+ 28440/s) | drop-block      0 | non-IPv4      2
+    source                   seen      dropped      drop%
+    10.10.0.2              613272       612772      99.9%
+    10.10.0.3                  25            0       0.0%
+detached xdp_ratelimit from vic0

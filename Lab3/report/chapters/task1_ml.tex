@@ -1,0 +1,24 @@
+% !TeX encoding = UTF-8
+\chapter{Task 1: Classical Classifiers}\label{chap:task1}
+
+The task slide asks for five different classifiers and suggests Gaussian Naive Bayes, Gradient Boosting, AdaBoost, K-Nearest Neighbors and SVM, but allows an own selection. We keep Gaussian Naive Bayes (GNB) and K-Nearest Neighbors (KNN) and replace the other three by Logistic Regression (LR), Random Forest (RF) \cite{breiman} and XGBoost \cite{xgboost}. This is the group's own selection. It covers a probabilistic model (GNB), a linear model (LR), an instance-based model (KNN) and two tree ensembles (bagging: RF, boosting: XGBoost). Gradient Boosting, AdaBoost and SVM were not trained (XGBoost is itself a gradient-boosting implementation).
+
+\begin{table}[htb]
+\centering
+\caption{Classifiers of Task 1 with fixed hyper-parameters (no search). Unlisted parameters are scikit-learn or XGBoost defaults.}\label{tab:hyper-ml}
+\begin{tabular}{lp{11cm}}
+\toprule
+Model & Hyper-parameters \\
+\midrule
+Gaussian NB & defaults \\
+Logistic Regression & \texttt{max\_iter=2000}, \texttt{random\_state=42} \\
+KNN & \texttt{n\_neighbors=5} \\
+Random Forest & \texttt{n\_estimators=100}, \texttt{random\_state=42} \\
+XGBoost & \texttt{n\_estimators=500}, \texttt{max\_depth=6}, \texttt{learning\_rate=0.1}, \texttt{tree\_method="hist"}, \texttt{eval\_metric="logloss"}, \texttt{early\_stopping\_rounds=20}, \texttt{random\_state=42} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Every model outputs the probability of DDoS as its score, and the predicted class is DDoS if the score exceeds 0.5 (the same rule as scikit-learn's \texttt{predict}). Only XGBoost uses the validation set: it stops adding trees when the validation log-loss has not improved for 20 rounds. The other four models are trained on the training set alone. The results of all classifiers are given in Chapter~\ref{chap:task3}.
+
+KNN with $k=5$ can only output the scores $0, 0.2, \dots, 1$, so its ROC curve consists of few points. LR can also warn about convergence on the heavy-tailed standardized data; we log such warnings and do not silence them.

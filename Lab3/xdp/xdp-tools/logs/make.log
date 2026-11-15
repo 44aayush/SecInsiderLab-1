@@ -1,0 +1,103 @@
+
+lib
+
+  libxdp
+    M4       xdp-dispatcher.c
+    CLANG    xsk_def_xdp_prog.o
+    CLANG    xsk_def_xdp_prog_5.3.o
+    CC       staticobjs/libxdp.o
+    CC       staticobjs/xsk.o
+    CLANG    xdp-dispatcher.o
+    CC       sharedobjs/libxdp.o
+    CC       sharedobjs/xsk.o
+    CC       xsk_def_xdp_prog_5.3.embed.o
+    CC       xsk_def_xdp_prog.embed.o
+    CC       xdp-dispatcher.embed.o
+    LINK     libxdp.a
+    LINK     libxdp.so.1.7.0
+    CC       test_xsk_refcnt
+    CC       test_xdp_frags
+    CC       test_link_detach
+    CC       test_xsk_umem_flags
+    CC       test_xdp_devbound
+    CC       test_xsk_map_leak
+    CC       check_kern_compat
+    CC       test_dispatcher_versions
+    CLANG    xdp_dispatcher_v1.o
+    CLANG    xdp_dispatcher_v2.o
+    CLANG    xdp_pass.o
+
+  util
+    CLANG    xdp_sample.bpf.o
+    CLANG    xdp_load_bytes.bpf.o
+    CLANG    xdpsock.bpf.o
+    GEN      xdpsock.skel.h
+    GEN      xdp_load_bytes.skel.h
+    GEN      xdp_sample.skel.h
+    CC       params.o
+    CC       logging.o
+    CC       util.o
+    CC       stats.o
+    CC       xpcapng.o
+    CC       xdp_sample.o
+    CC       xdpsock.o
+
+  testing
+    CLANG    test_long_func_name.o
+    CLANG    xdp_drop.o
+    CLANG    xdp_pass.o
+    CLANG    xdp_adjust_tail.o
+    CC       test-tool
+
+xdp-filter
+
+xdp-loader
+
+xdp-dump
+
+xdp-bench
+
+xdp-forward
+
+xdp-monitor
+
+xdp-trafficgen
+    CC       xdp-loader
+    CLANG    xdpfilt_dny_udp.o
+    CLANG    xdpfilt_dny_tcp.o
+    CLANG    xdp_forward.bpf.o
+    CLANG    xdp_monitor.bpf.o
+    CLANG    xdp_trafficgen.bpf.o
+    CC       xdpdump
+    CLANG    xdp_redirect_basic.bpf.o
+    CLANG    xdpfilt_dny_ip.o
+    CLANG    xdpfilt_dny_eth.o
+    CLANG    xdp_flowtable.bpf.o
+    GEN      xdp_monitor.skel.h
+    CLANG    xdp_redirect_cpumap.bpf.o
+    CC       xdp-monitor
+    CLANG    xdpfilt_dny_all.o
+    CLANG    xdpdump_xdp.o
+    CLANG    xdpdump_bpf.o
+    GEN      xdp_trafficgen.skel.h
+    CLANG    xdp_flowtable_sample.bpf.o
+    CC       xdp-trafficgen
+    GEN      xdp_forward.skel.h
+    CLANG    xdp_redirect_devmap.bpf.o
+    CLANG    xdpfilt_alw_udp.o
+    GEN      xdp_flowtable_sample.skel.h
+    CLANG    xdp_redirect_devmap_multi.bpf.o
+    CLANG    xdpfilt_alw_tcp.o
+    CLANG    xdp_basic.bpf.o
+    GEN      xdp_redirect_basic.skel.h
+    CLANG    xdpfilt_alw_ip.o
+    GEN      xdp_redirect_cpumap.skel.h
+    CLANG    xdpfilt_alw_eth.o
+    CLANG    xdpfilt_alw_all.o
+    GEN      xdp_redirect_devmap.skel.h
+    GEN      xdp_flowtable.skel.h
+    CC       xdp-forward
+    GEN      xdp_redirect_devmap_multi.skel.h
+    GEN      xdp_basic.skel.h
+    CC       xdp-bench
+    CC       xdp-filter

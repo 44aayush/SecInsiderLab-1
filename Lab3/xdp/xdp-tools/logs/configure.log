@@ -1,0 +1,20 @@
+Found clang binary 'clang' with version 21 (from 'Ubuntu clang version 21.1.8 (6ubuntu1)')
+using bpftool v7.7.0
+libbpf support: system v1.6.3
+  perf_buffer__consume support: yes
+  btf__load_from_kernel_by_id support: yes
+  btf__type_cnt support: yes
+  bpf_object__next_map support: yes
+  bpf_object__next_program support: yes
+  bpf_program__insn_cnt support: yes
+  bpf_program__type support: yes
+  bpf_program__flags support: yes
+  bpf_program__expected_attach_type support: yes
+  bpf_map_create support: yes
+  perf_buffer__new_raw support: yes
+  bpf_xdp_attach support: yes
+  bpf_map__set_autocreate support: yes
+  bpf_prog_test_run_opts support: yes
+  bpf_xdp_query support: yes
+secure_getenv support: yes
+cap-ng support: no

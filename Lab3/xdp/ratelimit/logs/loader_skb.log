@@ -1,0 +1,59 @@
+attached xdp_ratelimit to vic0 (ifindex 2, skb mode): limit 100 pkts / 1000 ms per source IP
+[t=  1s] pass        4 (+     4/s) | drop-rate        0 (+     0/s) | drop-block      0 | non-IPv4      0
+    source                   seen      dropped      drop%
+    10.10.0.3                   4            0       0.0%
+[t=  2s] pass        9 (+     5/s) | drop-rate        0 (+     0/s) | drop-block      0 | non-IPv4      0
+    source                   seen      dropped      drop%
+    10.10.0.3                   9            0       0.0%
+[t=  3s] pass       14 (+     5/s) | drop-rate        0 (+     0/s) | drop-block      0 | non-IPv4      0
+    source                   seen      dropped      drop%
+    10.10.0.3                  14            0       0.0%
+[t=  4s] pass      120 (+   106/s) | drop-rate   112135 (+112135/s) | drop-block      0 | non-IPv4      0
+    source                   seen      dropped      drop%
+    10.10.0.2              112235       112135      99.9%
+    10.10.0.3                  20            0       0.0%
+[t=  5s] pass      224 (+   104/s) | drop-rate   236543 (+124408/s) | drop-block      0 | non-IPv4      1
+    source                   seen      dropped      drop%
+    10.10.0.2              236761       236561      99.9%
+    10.10.0.3                  24            0       0.0%
+[t=  6s] pass      329 (+   105/s) | drop-rate   375425 (+138882/s) | drop-block      0 | non-IPv4      2
+    source                   seen      dropped      drop%
+    10.10.0.2              375744       375444      99.9%
+    10.10.0.3                  29            0       0.0%
+[t=  7s] pass      434 (+   105/s) | drop-rate   515521 (+140096/s) | drop-block      0 | non-IPv4      4
+    source                   seen      dropped      drop%
+    10.10.0.2              515940       515540      99.9%
+    10.10.0.3                  34            0       0.0%
+[t=  8s] pass      539 (+   105/s) | drop-rate   654998 (+139477/s) | drop-block      0 | non-IPv4      4
+    source                   seen      dropped      drop%
+    10.10.0.2              655515       655015      99.9%
+    10.10.0.3                  39            0       0.0%
+[t=  9s] pass      540 (+     1/s) | drop-rate   679108 (+ 24110/s) | drop-block      0 | non-IPv4      4
+    source                   seen      dropped      drop%
+    10.10.0.2              679608       679108      99.9%
+    10.10.0.3                  40            0       0.0%
+[t= 10s] pass      540 (+     0/s) | drop-rate   679108 (+     0/s) | drop-block      0 | non-IPv4      4
+    source                   seen      dropped      drop%
+    10.10.0.2              679608       679108      99.9%
+    10.10.0.3                  40            0       0.0%
+[t= 11s] pass      540 (+     0/s) | drop-rate   679108 (+     0/s) | drop-block      1 | non-IPv4      4
+    source                   seen      dropped      drop%
+    10.10.0.2              679608       679108      99.9%
+    10.10.0.3                  40            0       0.0%
+[t= 12s] pass      540 (+     0/s) | drop-rate   679108 (+     0/s) | drop-block      5 | non-IPv4      4
+    source                   seen      dropped      drop%
+    10.10.0.2              679608       679108      99.9%
+    10.10.0.3                  40            0       0.0%
+[t= 13s] pass      542 (+     2/s) | drop-rate   679108 (+     0/s) | drop-block      5 | non-IPv4      4
+    source                   seen      dropped      drop%
+    10.10.0.2              679608       679108      99.9%
+    10.10.0.3                  42            0       0.0%
+[t= 14s] pass      545 (+     3/s) | drop-rate   679108 (+     0/s) | drop-block      5 | non-IPv4      4
+    source                   seen      dropped      drop%
+    10.10.0.2              679608       679108      99.9%
+    10.10.0.3                  45            0       0.0%
+[t= 15s] pass      545 (+     0/s) | drop-rate   679108 (+     0/s) | drop-block      5 | non-IPv4      4
+    source                   seen      dropped      drop%
+    10.10.0.2              679608       679108      99.9%
+    10.10.0.3                  45            0       0.0%
+detached xdp_ratelimit from vic0

@@ -1,0 +1,19 @@
+% !TeX encoding = UTF-8
+\chapter{Introduction}\label{chap:introduction}
+
+In the third lab of the Security Insider Lab, we move from the two simple classifiers of Lab~2 to a systematic comparison of ML and DL models for DDoS detection. We use the labeled flow data of Lab~2 and treat detection as binary classification, BENIGN vs.\ DDoS. The lab has five tasks that are covered by this report:
+
+\begin{enumerate}\setlength\itemsep{0pt}
+	\item \textbf{Task 1:} apply five different classical classifiers.
+	\item \textbf{Task 2:} apply a Multi-Layer Perceptron (MLP), an LSTM and a CNN.
+	\item \textbf{Task 3:} compare all models with a table of Accuracy, F-score, Precision and Recall, and compare their ROC curves.
+	\item \textbf{Task 4:} explain eBPF/XDP, its use cases and tools, and write a small XDP filter program.
+	\item \textbf{Task 5:} download, configure and test the xdp-tools collection.
+\end{enumerate}
+Tasks~1--3 detect an attack from flow features; Tasks~4 and~5 show how traffic from a detected source can be dropped in the kernel, early in the receive path.
+
+\paragraph{Dataset.} We use the Friday-afternoon DDoS file of CIC-IDS2017 \cite{sharafaldin2018cicids}, \texttt{Friday-WorkingHours-Afternoon-DDos.csv}: 225,745 flows with 78 numeric features and a label, 128,027 of them DDoS (56.7\,\%) and 97,718 benign.
+
+\paragraph{Pipeline.} A single command, \texttt{python script/main.py}, runs the whole pipeline: pre-processing (Chapter~\ref{chap:data}), the five classifiers (Chapter~\ref{chap:task1}), the three neural networks (Chapter~\ref{chap:task2}) and the comparison with tables and figures (Chapter~\ref{chap:task3}). Chapters~\ref{ch:task4} and~\ref{ch:task5} cover the XDP tasks. Chapter~\ref{chap:discussion} discusses the results and their limits. All final results come from \texttt{outputs/metrics/}; training histories and earlier runs come from the run reports in \texttt{outputs/} (\texttt{run\_report.txt} and \texttt{outputs/runs/}). Every figure is a file of \texttt{outputs/figures/}.
+
+\paragraph{Tools and reproducibility.} We use Python 3.12 in a \texttt{uv}-managed virtual environment, scikit-learn \cite{pedregosa2011sklearn} for the classical models, XGBoost \cite{xgboost} and PyTorch \cite{pytorch} for the neural networks. All random seeds are fixed to 42. The reported run (2026-11-15) takes 303\,s for all eight models. Times in this report are only comparable with each other.

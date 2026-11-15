@@ -1,0 +1,44 @@
+% !TeX spellcheck = en_US
+% !TeX encoding = UTF-8
+\chapter{Task 5: xdp-tools}\label{ch:task5}
+
+xdp-tools is the XDP project's collection of utilities and the \texttt{libxdp} library \autocite{xdptools_github}. We downloaded it from GitHub, configured, built and installed it from source and verified it with a functional test in a network namespace.
+
+\section{Tools and Setup}\label{sec:t5-setup}
+
+The central piece is \texttt{libxdp}, a library on top of libbpf whose \emph{dispatcher} program lets several XDP programs share one interface (natively, an interface holds only one); it also contains AF\_XDP socket helpers. \texttt{xdp-loader} loads, unloads and lists XDP programs (\texttt{load}, \texttt{unload}, \texttt{status}, \texttt{clean}, \texttt{features}) in native, skb or hardware mode; \texttt{xdp-filter} filters by IPv4/IPv6 address, TCP/UDP port or MAC address with allow or deny policy; \texttt{xdpdump} captures packets at the XDP layer into pcap files; \texttt{xdp-bench}, \texttt{xdp-monitor}, \texttt{xdp-trafficgen} and \texttt{xdp-forward} benchmark the XDP actions, watch the XDP tracepoints, generate UDP traffic and implement a forwarding fast path.
+
+\paragraph{Source and environment.} We cloned the repository with its libbpf submodule at commit \texttt{92a98287fd59} (\texttt{v1.6.3-32-g92a9828}, \texttt{TOOLS\_VERSION} 1.6.3, libxdp shared library version 1.7.0). The libbpf submodule was at \texttt{f5dcbae736e5} (v1.7.0) but was not needed, because \texttt{configure} found a sufficiently recent system libbpf (v1.6.3). The host ran Ubuntu with kernel 7.0.0-43-generic, clang 21.1.8 and bpftool v7.7.0.
+
+\paragraph{Dependencies.} The build needs clang (version 11 or newer) and LLVM to compile the BPF programs, libbpf, libelf, zlib, libpcap (for \texttt{xdpdump}), m4, pkg-config, gcc/make, the 32-bit multilib headers, and bpftool for skeleton generation. libcap-ng and emacs (only for regenerating the man pages) are optional.
+
+\begin{lstlisting}[style=bashsh,float=htbp,caption={Download, configure, build and install xdp-tools.},label=lst:t5-build]
+sudo apt install clang llvm libbpf-dev libelf-dev libpcap-dev m4 pkg-config \
+                 build-essential gcc-multilib bpftool
+git clone --recurse-submodules https://github.com/xdp-project/xdp-tools.git
+cd xdp-tools
+git rev-parse HEAD; git submodule status
+./configure 2>&1 | tee ../logs/configure.log
+make -j8     2>&1 | tee ../logs/make.log
+sudo ../install_and_verify.sh          # make install + verification, logs/install_verify.log
+\end{lstlisting}
+
+\paragraph{Configure.} \texttt{configure} found clang 21 and bpftool v7.7.0 and chose the system libbpf v1.6.3. All 15 libbpf feature probes (e.g.\ \texttt{bpf\_xdp\_attach}, \texttt{bpf\_xdp\_query}, \texttt{bpf\_prog\_test\_run\_opts}, \texttt{perf\_buffer\_\_consume}) and \texttt{secure\_getenv} were reported as supported. Only \texttt{cap-ng} support was \enquote{no}, because the optional libcap-ng headers were not installed; this has no effect on the build.
+
+\paragraph{Build.} \texttt{make -j8} finished without errors or warnings. It produced \texttt{libxdp.so.1.7.0} and \texttt{libxdp.a}, the binaries \texttt{xdp-loader}, \texttt{xdp-filter}, \texttt{xdpdump}, \texttt{xdp-bench}, \texttt{xdp-monitor}, \texttt{xdp-trafficgen} and \texttt{xdp-forward}, and the BPF objects (among them the ten \texttt{xdpfilt\_\{alw,dny\}\_\{all,eth,ip,tcp,udp\}.o} variants of xdp-filter, the xdpdump programs and the libxdp dispatcher). \texttt{make install} placed the tools in \texttt{/usr/local/sbin}, the BPF objects in \texttt{/usr/local/lib/bpf} and the man pages in \texttt{/usr/local/share/man/man8}.
+
+\screenshot[0.9\linewidth]{xdptools_build.png}{Building xdp-tools: end of the \texttt{configure} output and of \texttt{make -j8}, with the produced binaries.}
+
+\section{Verification}\label{sec:t5-verify}
+The script \texttt{install\_and\_verify.sh} installs the tools and checks them in three stages; every check prints \texttt{[PASS]} or \texttt{[FAIL]}:
+\begin{enumerate}
+	\item \textbf{Smoke tests.} \texttt{xdp-loader help}, \texttt{xdp-filter help}, \texttt{xdpdump --help} and \texttt{xdp-bench help} must print their usage text.
+	\item \textbf{Loopback.} \texttt{xdp-loader features lo} and \texttt{xdp-loader status} must run. The feature query reports \enquote{no} for all XDP features of the loopback device (no native XDP support), so only generic mode is possible there; the status lists all interfaces without an XDP program.
+	\item \textbf{Functional test of xdp-filter.} A veth pair connects the host (10.77.0.1, \texttt{xdpt-h}) with a namespace (10.77.0.2, \texttt{xdpt-n}). After a successful baseline ping, \texttt{xdp-filter load -m skb xdpt-h} loads the filter in generic mode (program \texttt{xdpfilt\_alw\_all}: default policy \emph{allow}, listed addresses are dropped), and \texttt{xdp-filter ip -m src 10.77.0.2} adds a drop rule for the namespace's address. A ping from the namespace then fails with 100\,\% loss. After removing the rule (\texttt{xdp-filter ip -r -m src 10.77.0.2}), the ping succeeds again (3/3), and \texttt{xdp-filter status} reports 6 packets for \texttt{XDP\_DROP} and 48 for \texttt{XDP\_PASS}. Finally, the filter is unloaded, and a trap removes the namespace and the veth pair.
+\end{enumerate}
+The final run ended with \texttt{ALL CHECKS PASSED} (\cref{fig:ss-xdptools_verify.png}). Functionally, \texttt{xdp-filter} does with a ready-made tool what the block list of our own program does (\cref{sec:t4-design}), but it has no rate limiting.
+
+\screenshot[0.9\linewidth]{xdptools_verify.png}{Verification of xdp-tools: the drop rule of \texttt{xdp-filter} blocks the ping, removing it restores connectivity, and the run ends with \enquote{ALL CHECKS PASSED}.}
+
+\section{Problems and Fixes}\label{sec:t5-problems}
+(1)~\textbf{Missing compiler.} At first, clang and llc were not installed on the system. We installed the toolchain via apt (\texttt{clang llvm libbpf-dev libelf-dev libpcap-dev m4 \dots}, \cref{lst:t5-build}); once clang was available, \texttt{configure} and the build succeeded without any source change. (2)~\textbf{bpffs hidden inside the namespace.} Loading xdp-filter on the namespace side via \texttt{ip netns exec} failed with \enquote{Could not find BPF working dir}: \texttt{ip netns exec} remounts \texttt{/sys}, which hides the BPF file system at \texttt{/sys/fs/bpf} where xdp-filter and libxdp pin their maps and programs. We therefore attach xdp-filter to the \emph{host-side} veth \texttt{xdpt-h} in the root namespace and drop the namespace's source address there, which is equivalent because its traffic arrives on that interface. (3)~\textbf{Help commands exit non-zero.} The binaries return a non-zero exit code after printing their usage, so the script checks that the output contains \enquote{Usage} instead. (4)~\textbf{No \texttt{--version} option} in \texttt{xdp-loader}; we read the version from \texttt{version.mk}. (5)~\textbf{Root privileges.} Without root, \texttt{xdp-loader features lo} only prints \enquote{This program must be run as root}, so the verification runs through \texttt{sudo}.

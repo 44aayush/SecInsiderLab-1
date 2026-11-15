@@ -437,9 +437,9 @@ pytest -m e2e -q                                                              # 
 
 ---
 
-## 10. Report and presentation (deferred by the user, decision D3; `TASKS.md` P8)
+## 10. Report and presentation (`TASKS.md` P8)
 
-Not started. The user will ask for it later. This section keeps the agreed structure.
+Report started 2026-11-15 (user request); presentation still deferred (D3).
 
 - **Deliverable:** `G8.Report3.pdf` (format `GX.ReportY.pdf`), 10–15 pages, short and clear, with screenshots. "Document everything." It is written in LaTeX by Sonnet in `Lab3/report/`. Reuse the Lab 2 Friday report template and its build rule (`../Lab2/Friday_Dataset/report/`, `latexmkrc_2`).
 - **Submission (deck slides 3 and 12; the user sends it):**
@@ -448,6 +448,18 @@ Not started. The user will ask for it later. This section keeps the agreed struc
   - subject: `Lab-2026: matriculation ID-1, matriculation ID-2`
   - the deadline was 2026-11-11
 - **Presentation:** 2026-11-25. 10 min plus 2 min discussion; each member presents their own task; standard slide design.
-- **Figure selection (D4):** the user picks figures from `outputs/figures/INDEX.md` (TASKS.md T6.6). Opus records the picks here, and the report and the deck use the same picks.
+- **Figure selection (D4, user 2026-11-15, T6.6 done): 9 figures**, Tier 1 + Tier 2 with swaps: 1. `comparison_table` 2. `metrics_small_multiples` (replaces `metrics_bar_grouped`) 3. `metrics_heatmap` 4. `errors_bar` 5. `time_bar` 6. `roc_test_zoom` 7. `roc_test_logx` (replaces `roc_test`) 8. `confusion_grid_normalized` (replaces `confusion_grid_counts`) 9. `dl_history_grid` (replaces `dl_history_overlay`).
+- **Report scope:** Tasks 1–3 (2026-11-15), then Tasks 4–5 added on the user's request (same day).
+- **Tasks 4–5 in the report (Opus review 2026-11-15 of `Tasks4-5_Justlyn/`, the partner's work):** the partner's work is stronger and is used.
+  - **Task 4 = the partner's per-source-IP XDP rate limiter** (`xdp/ratelimit/`: `xdp_ratelimit.bpf.c` with block/allow lists and an LRU fixed-window counter, libbpf loader, `run_demo.sh` namespace test bed, `logs/demo.log`). Opus checked the code (bounds checks before every access, LRU_HASH state, per-CPU stats, atomic counters) and every number in its LaTeX against `logs/demo.log`: baseline 331,744 sent / 331,745 at the victim; generic 679,608 / 500; native 613,271 / 500; iproute2 383,335 / 300 (3 s); benign ping 25/25, 15/15; block list 0/5 attacker, 5/5 benign; verifier 2208 B xlated / 1257 B jited; xdp-tools verify 6 drop / 48 pass, ALL CHECKS PASSED.
+  - Figures for Task 4: `xdp_pipeline.png` (architecture), the TikZ test-bed figure, `demo_phase4_skb.png`, `demo_phase5_maps.png`, `demo_phase6_blocklist.png` (in `report/images/xdp/`).
+  - **Task 5 = the partner's text** (download, configure, build, install, `install_and_verify.sh`). Its two screenshots were never made ("to be added"), so: the build figure becomes a short listing excerpt from `xdp/xdp-tools/logs/configure.log` + `make.log`, the verification figure becomes a listing excerpt from `logs/install_verify.log`, and our own screenshots **SS_T7_8, SS_T7_9, SS_T7_10** (xdp-loader status with the dispatcher, ping blocked by `xdp-filter ip -m src`, `xdp-filter status` with hit counter 3) are added as a short manual check on `lo`.
+  - Our own simple blocklist filter (`xdp/xdp_filter.c`, SS_T7_1–6) is **not** in the report: the partner's block list covers it. It stays in `xdp/` as supporting work.
+  - The no-hardware rule applies: no CPU/GPU statements about where the runs ran; XDP mechanics (per-CPU maps, RSS) are technical content and stay.
+  - Layout: `xdp/ratelimit/` (Task 4 code, logs, figures, original screenshots), `xdp/xdp-tools/` (Task 5 notes, script, logs), `xdp/docs/` (partner's walkthrough PDF, report extract and README).
+
+- **No hardware in the report (user 2026-11-15):** no CPU vs GPU table, and no mention that runs were on CPU or GPU (or Windows/Linux). The report covers only the tasks, models, settings and metrics. The cross-platform evidence stays in `outputs/runs/` and §3/§9 for internal use.
+- **Required by the professor (user 2026-11-15):** keep the lists of figures/tables/listings and the declaration page (Eidesstattliche Erklärung).
+- **Title page:** reuse Lab 2 (`../Lab2/Friday_Dataset/report/thesis.tex`): same two authors, group 8, same matriculation numbers.
 - **Numbers rule:** every number comes from `outputs/metrics/*`, and every figure from `outputs/figures/`.
 - Do not commit to git unless the user asks.

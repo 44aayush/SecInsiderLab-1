@@ -1,0 +1,6 @@
+hping in flood mode, no replies will be shown
+
+--- 10.10.0.1 hping statistic ---
+679608 packets transmitted, 0 packets received, 100% packet loss
+round-trip min/avg/max = 0.0/0.0/0.0 ms
+HPING 10.10.0.1 (att0 10.10.0.1): S set, 40 headers + 0 data bytes

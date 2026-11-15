@@ -1,0 +1,16 @@
+% booktabs table (4-decimal scores, 3-decimal times). Wide: wrap it in
+% \resizebox{\textwidth}{!}{ ... } and \usepackage{booktabs}.
+\begin{tabular}{lrrrrrrrrrrr}
+\toprule
+Model & Accuracy & Precision & Recall & F1 & ROC-AUC & TP & TN & FP & FN & Train (s) & Predict (s) \\
+\midrule
+XGBoost & 1.0000 & 1.0000 & 1.0000 & 1.0000 & 1.0000 & 19202 & 14261 & 0 & 0 & 2.021 & 0.017 \\
+Random Forest & 0.9999 & 1.0000 & 0.9998 & 0.9999 & 1.0000 & 19199 & 14261 & 0 & 3 & 3.847 & 0.092 \\
+K-Nearest Neighbors & 0.9998 & 0.9999 & 0.9997 & 0.9998 & 0.9999 & 19197 & 14260 & 1 & 5 & 0.008 & 4.204 \\
+MLP & 0.9995 & 0.9997 & 0.9994 & 0.9995 & 1.0000 & 19190 & 14255 & 6 & 12 & 42.244 & 0.008 \\
+LSTM & 0.9990 & 0.9992 & 0.9992 & 0.9992 & 1.0000 & 19186 & 14245 & 16 & 16 & 136.034 & 0.173 \\
+1D-CNN & 0.9990 & 0.9993 & 0.9990 & 0.9991 & 1.0000 & 19182 & 14248 & 13 & 20 & 65.544 & 0.086 \\
+Logistic Regression & 0.9980 & 0.9977 & 0.9988 & 0.9983 & 0.9999 & 19179 & 14217 & 44 & 23 & 17.348 & 0.001 \\
+Gaussian Naive Bayes & 0.9895 & 0.9832 & 0.9986 & 0.9909 & 0.9880 & 19176 & 13934 & 327 & 26 & 0.063 & 0.010 \\
+\bottomrule
+\end{tabular}
