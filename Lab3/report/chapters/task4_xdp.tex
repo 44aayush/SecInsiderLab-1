@@ -5,7 +5,7 @@
 Detection alone does not stop an attack: once a flood is recognised, its packets must be discarded before they consume the victim's resources, and more cheaply than they are produced. We first summarise eBPF, XDP, their use cases and tools, and then present our per-source-IP rate limiter, the test bed and the measured results.
 
 \section{eBPF and XDP}\label{sec:t4-ebpf}\label{sec:t4-xdp}
-The \emph{extended Berkeley Packet Filter} (eBPF) runs small, sandboxed programs inside the Linux kernel, without kernel changes or modules \autocite{kdoc_bpf,ebpf_what}. Restricted C is compiled by clang to bytecode and JIT-compiled by the kernel. The \textbf{verifier} checks every path before loading: bounded loops, checked memory accesses (packet pointers against \texttt{data\_end}), no pointer leaks, allowed helpers only \autocite{kdoc_verifier}. State lives in \textbf{maps}, key/value stores shared with user space (hash, array, LRU, per-CPU, ring buffer, \dots) \autocite{kdoc_maps,kdoc_maphash}. The program type fixes the hook: XDP and tc for networking, kprobes and tracepoints for tracing, cgroup and LSM for security. With BTF \autocite{kdoc_btf}, libbpf relocates struct offsets at load time (CO-RE) \autocite{nakryiko_core}; our program uses a generated \texttt{vmlinux.h} and a libbpf skeleton.
+The \emph{extended Berkeley Packet Filter} (eBPF) runs small, sandboxed programs inside the Linux kernel, without kernel changes or modules \autocite{kdoc_bpf,ebpf_what}. Restricted C is compiled by clang to bytecode and JIT-compiled by the kernel. The \textbf{verifier} checks every path before loading: bounded loops, checked memory accesses (packet pointers against \texttt{data\_end}), no pointer leaks, allowed helpers only \autocite{kdoc_verifier}. State lives in \textbf{maps}, key/value stores shared with user space (hash, array, LRU, per-CPU, ring buffer, \dots) \autocite{kdoc_maps,kdoc_maphash}. The program type fixes the hook: XDP and tc for networking, kprobes and tracepoints for tracing, cgroup and LSM for security. With BTF \autocite{kdoc_btf}, libbpf relocates struct offsets at load time (CO-RE) \autocite{nakryiko_core}. Our program is small enough to need neither: it is compiled against the kernel\textquotesingle s UAPI headers and attached with iproute2.
 
 \textbf{XDP} (eXpress Data Path) is an eBPF hook in the NIC driver, right after DMA and \emph{before} the kernel allocates an \texttt{sk\_buff} \autocite{hoiland2018xdp,ebpfdocs_xdp}. The program gets a minimal context (\texttt{struct xdp\_md}) and returns one of five actions:
 \begin{itemize}
@@ -30,7 +30,7 @@ Main use cases of XDP:
 	\item \textbf{IDS/IPS}: Suricata bypasses flows it has already inspected \autocite{suricata_ebpf}.
 	\item \textbf{AF\_XDP}: zero-copy delivery of selected packets to user space \autocite{kdoc_afxdp}.
 \end{itemize}
-\Cref{tab:t4-tools} lists the tools relevant here. We used libbpf, bpftool and iproute2 for our program; Task~5 covers xdp-tools.
+\Cref{tab:t4-tools} lists the tools relevant here. We used iproute2 to attach our program and bpftool to inspect it; Task~5 covers xdp-tools.
 
 \begin{table}[htbp]
 	\centering\footnotesize
@@ -41,8 +41,8 @@ Main use cases of XDP:
 		\midrule
 		xdp-tools \autocite{xdptools_github} & XDP utilities & libxdp, \texttt{xdp-loader}, \texttt{xdp-filter}, \texttt{xdpdump} (\cref{ch:task5}). \\
 		xdp-tutorial \autocite{xdp_tutorial} & Teaching & Lessons; basis of our program structure. \\
-		libbpf \autocite{libbpf_github}, bpftool \autocite{kdoc_bpf} & Library, CLI & Loader with CO-RE; maps, \texttt{vmlinux.h}. \\
-		iproute2 & CLI & Attaches XDP objects without a loader. \\
+		libbpf \autocite{libbpf_github}, bpftool \autocite{kdoc_bpf} & Library, CLI & libbpf: BPF loading library used by \texttt{ip} and bpftool; bpftool: inspects programs and maps. \\
+		iproute2 & CLI & Attaches our XDP object (\texttt{ip link set \dots\ xdpgeneric obj}). \\
 		BCC \autocite{bcc_github}, bpftrace \autocite{bpftrace_github} & Tracing & Python tools; one-liner tracing. \\
 		Cilium \autocite{cilium_kpr}, Katran \autocite{katran_github} & Networking & Kubernetes networking; XDP load balancer. \\
 		\bottomrule
@@ -50,95 +50,45 @@ Main use cases of XDP:
 \end{table}
 
 \section{Our Filter: a Per-Source-IP Rate Limiter}\label{sec:t4-design}
-A volumetric flood such as a SYN flood sends far more packets per second from a source than any legitimate client. Our XDP program therefore counts packets per IPv4 source address in a fixed time window and drops everything above a configurable limit. Limit, window, allow list and block list live in BPF maps and can be changed at runtime without recompiling or reloading. \Cref{fig:t4-arch} shows the architecture.
+A volumetric flood such as a SYN flood sends far more packets per second from one source than any legitimate client. Our XDP program therefore counts packets per IPv4 source address in a fixed window of one second and drops every packet above a limit of 100 packets per second. We kept the program deliberately small (78 lines): the limit is a compile-time constant, and all state lives in a single BPF map.
 
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=\linewidth]{xdp_pipeline.png}
-	\caption{Architecture of the XDP rate limiter: per-packet decision path in the kernel (centre), BPF maps shared with user space (right), and the user-space components (top), including the planned interface for an ML classifier.}\label{fig:t4-arch}
-\end{figure}
+\paragraph{Decision path.} For every frame, the program (\cref{lst:t4-prog}) first checks that the Ethernet and IPv4 headers lie within \texttt{data\_end}; without this bounds check the verifier rejects the program. Frames that are not IPv4 (ARP, IPv6) are passed. For IPv4, the program looks up the source address in \texttt{rl\_state} and creates an entry on the first packet. If the entry's window has expired, it is reset. The packet count is then incremented atomically, and a packet whose count exceeds the limit gets \texttt{XDP\_DROP}; all others get \texttt{XDP\_PASS}. Each entry also counts passed and dropped packets, so the map shows the effect per source.
 
-\paragraph{Decision path.} For every frame, the program (\cref{lst:t4-prog}) parses Ethernet and an optional 802.1Q/802.1ad VLAN tag, then the IPv4 header. Every header access is preceded by a bounds check against \texttt{data\_end}, without which the verifier rejects the program. Non-IPv4 frames (ARP, IPv6) are passed and counted. For IPv4, the source address is first looked up in the block list (drop) and the allow list (pass). Then the fixed-window counter runs: the \texttt{rl\_state} entry of the source stores the window start (from \texttt{bpf\_ktime\_get\_ns()}) and the packet count. When the window has expired, it is reset; then the count is incremented atomically, and a packet whose count exceeds the limit gets \texttt{XDP\_DROP}. Limit and window length are read from \texttt{rl\_config} on every packet, so a change by the operator takes effect on the next packet. A limit of 0 disables the limiter.
+\lstinputlisting[style=bpfc,float=tbp,firstnumber=35,firstline=35,lastline=76,caption={The XDP program in \texttt{xdp\_ratelimit.bpf.c} (includes and map definition above it omitted).},label=lst:t4-prog]{../xdp/ratelimit/xdp_ratelimit.bpf.c}
 
-\lstinputlisting[style=bpfc,float=tbp,firstnumber=125,firstline=125,lastline=160,caption={Block/allow lists and fixed-window counter in \texttt{xdp\_ratelimit.bpf.c} (Ethernet/VLAN/IPv4 parsing above it omitted).},label=lst:t4-prog]{../xdp/ratelimit/xdp_ratelimit.bpf.c}
+\paragraph{Map choice.} \texttt{rl\_state} is an \texttt{LRU\_HASH} with 65,536 entries (key: the four bytes of the source address; value: window start, count, passed, dropped). At capacity the least recently used source is evicted, whereas a plain hash map would refuse new entries, which an attacker could exploit. It is \emph{shared}, not per-CPU, on purpose: with receive-side scaling, one source's packets can be spread over several CPUs, and per-CPU counters would raise the effective limit to $\mathrm{limit} \times \#\mathrm{CPUs}$. The price is an atomic \texttt{fetch\_add} (which requires the BPF v3 instruction set, \texttt{-mcpu=v3}) and a benign race on the window reset, in which at worst a few extra packets pass.
 
-\paragraph{Map choices.} \Cref{tab:t4-maps} lists the five maps. The central choice is \texttt{rl\_state}, an \texttt{LRU\_HASH} that can never become \enquote{full}. At capacity the least recently used source is evicted, whereas a plain hash map would refuse new entries, which an attacker could exploit. It is \emph{shared}, not per-CPU, on purpose: with receive-side scaling, one source's packets can be spread over several CPUs, and per-CPU counters would raise the effective limit to $\mathrm{limit} \times \#\mathrm{CPUs}$. The price is an atomic \texttt{fetch\_add} on a shared cache line (which requires the BPF v3 instruction set, \texttt{-mcpu=v3}) and a benign race on the window reset, in which at worst a few extra packets pass. The global statistics, which every packet writes, use a per-CPU array instead, so that the hot path needs no atomics there; user space sums the per-CPU slots.
+\paragraph{Build and loading.} \texttt{make} compiles the object with \texttt{clang -O2 -g -target bpf -mcpu=v3} against the kernel's UAPI headers and libbpf's \texttt{bpf\_helpers.h}. No user-space loader is needed: iproute2 attaches the object (\texttt{ip link set dev veth0 xdpgeneric obj xdp\_ratelimit.bpf.o sec xdp}), and bpftool dumps the map; thanks to the BTF debug information (\texttt{-g}), it prints the map entries with field names. The verifier accepted the program: \texttt{ip} attached it without error.
 
-\begin{table}[htbp]
-	\centering\small
-	\caption{BPF maps of the rate limiter.}\label{tab:t4-maps}
-	\begin{tabularx}{\linewidth}{llrX}
-		\toprule
-		Map & Type & Entries & Key $\to$ value and purpose \\
-		\midrule
-		\texttt{rl\_config} & \texttt{ARRAY} & 1 & $0 \to \{$limit, window\_ns$\}$; runtime configuration, cheapest possible lookup \\
-		\texttt{rl\_state} & \texttt{LRU\_HASH} & 65,536 & source IPv4 $\to \{$win\_start, count, total, dropped$\}$; per-source window state \\
-		\texttt{rl\_stats} & \texttt{PERCPU\_ARRAY} & 4 & pass / drop-rate / drop-block / non-IPv4 counters \\
-		\texttt{rl\_allow} & \texttt{HASH} & 1,024 & source IPv4 $\to 1$; never rate-limited \\
-		\texttt{rl\_block} & \texttt{HASH} & 65,536 & source IPv4 $\to 1$; always dropped (interface for an IDS/ML model) \\
-		\bottomrule
-	\end{tabularx}
-\end{table}
-
-\paragraph{Loader and build.} The user-space loader \texttt{xdp\_ratelimit\_user} (about 210 lines of C) uses the libbpf skeleton: it loads the object (the verifier runs inside \texttt{open\_and\_load}), writes configuration and allow/block lists \emph{before} attaching, so that the first packet is already governed, attaches in generic or native mode with \texttt{bpf\_xdp\_attach()}, prints per-second counters and the top sources by drops, and detaches on SIGINT/SIGTERM or after a given duration. The object can alternatively be attached with iproute2 and configured with \texttt{bpftool map update}. The \texttt{Makefile} generates \texttt{vmlinux.h} from the kernel's BTF (\texttt{bpftool btf dump file /sys/kernel/btf/vmlinux format c}), compiles the BPF object (\texttt{clang -O2 -g -target bpf -mcpu=v3}), generates the skeleton (\texttt{bpftool gen skeleton}) and links the loader with \texttt{-lbpf -lelf -lz}. We built it with clang 21.1.8 and bpftool v7.7.0 on kernel 7.0.0-43-generic. The verifier accepted the program: \texttt{bpftool prog show} reports it as loaded and JIT-compiled (2,208 bytes of translated bytecode, 1,257 bytes of native code).
-
-
-
-\section{Test Bed and Demo}\label{sec:t4-demo}
-To test the filter without touching the host's interfaces, the script \texttt{run\_demo.sh} builds four network namespaces (\cref{fig:t4-topo}): an attacker (10.10.0.2), a benign client (10.10.0.3) and a victim (10.10.0.1), connected through veth pairs to a Linux bridge in a fourth namespace. The rate limiter is attached to the victim's interface \texttt{vic0}. The attacker runs a SYN flood to port~80 (\texttt{hping3 -S -p 80 --flood}) for 5\,s, while the benign client pings the victim five times per second. We count the TCP segments that reach the victim's IP stack, i.e.\ that passed XDP, with the kernel's own \texttt{TcpInSegs} counter of the victim namespace, read before and after each round. The default limit is 100 packets per second and source.
-
-\begin{figure}[htbp]
-	\centering
-	\begin{tikzpicture}[
-		ns/.style={draw, rounded corners, fill=gray!8, minimum width=3.6cm, minimum height=1.25cm, align=center, font=\small},
-		br/.style={draw, rounded corners, fill=blue!6, minimum width=2.6cm, minimum height=2.9cm, align=center, font=\small},
-		lnk/.style={thick},
-		node distance=1.2cm]
-		\node[br] (lan) {\texttt{rl-lan}\\[2pt] bridge \texttt{br0}};
-		\node[ns, left=1.6cm of lan, yshift=0.85cm] (att) {\texttt{rl-attacker}\\ 10.10.0.2 (\texttt{att0})\\ \texttt{hping3 -S --flood}};
-		\node[ns, left=1.6cm of lan, yshift=-0.85cm] (ben) {\texttt{rl-benign}\\ 10.10.0.3 (\texttt{ben0})\\ \texttt{ping -i 0.2}};
-		\node[ns, right=1.9cm of lan, minimum width=4.2cm] (vic) {\texttt{rl-victim}\\ 10.10.0.1 (\texttt{vic0})\\ TCP stack, \texttt{TcpInSegs}};
-		\draw[lnk] (att.east) -- node[above, font=\scriptsize]{veth} (lan.west |- att.east);
-		\draw[lnk] (ben.east) -- node[below, font=\scriptsize]{veth} (lan.west |- ben.east);
-		\draw[lnk] (lan.east) -- node[above, font=\scriptsize]{veth} (vic.west);
-		\node[draw=orange!80!black, fill=orange!15, thick, font=\scriptsize\bfseries, align=center, inner sep=2pt] at ([xshift=-1pt]vic.west) [anchor=east] {XDP};
-		\node[below=0.15cm of vic, font=\scriptsize, align=center] {\texttt{xdp\_ratelimit} on \texttt{vic0}\\ (generic or native mode)};
-	\end{tikzpicture}
-	\caption{Namespace test bed of \texttt{run\_demo.sh}. The XDP program filters all traffic that enters the victim namespace.}\label{fig:t4-topo}
-\end{figure}
-
-The demo runs labelled phases, all logged with timestamps to \texttt{logs/demo.log}: (0)~topology and connectivity check; (1)~baseline flood \emph{without} XDP; (2)~attach in generic (skb) mode with the libbpf loader; (3)~benign ping alone; (4)~flood and benign ping in parallel with the limiter active (the main result); (5)~map inspection with \texttt{bpftool map dump}; (6)~runtime control: raise the limit to 1,000 via \texttt{bpftool map update}, restore it, and block-list the attacker; (7)~the same program in native (driver) mode, which veth supports; (8)~loading with iproute2 only (\texttt{ip link set dev vic0 xdpgeneric obj \dots}), configuration with bpftool and a 3\,s flood.
+\section{Test Bed}\label{sec:t4-demo}
+To test the filter without touching a physical interface, we use a single network namespace \texttt{atk}, connected to the host by a veth pair. The namespace has two addresses on its interface: 10.0.0.2 acts as the attacker and 10.0.0.3 as a benign client. The host (10.0.0.1, interface \texttt{veth0}) is the victim, and the rate limiter is attached to \texttt{veth0} in generic (skb) mode. The attacker runs a SYN flood to port~80 (\texttt{hping3 -S -p 80 --flood}) for 5\,s. We count the packets that reach the host's IP layer, i.e.\ that passed XDP, with the kernel counter \texttt{IpInReceives} (\texttt{nstat}, reset before each round), and read the exact per-source counts from the map. The commands are typed by hand (they are listed in \texttt{xdp/ratelimit/README.md}): a baseline flood without XDP, attaching the program with \texttt{ip}, the same flood while the benign client pings the victim five times per second, and a dump of \texttt{rl\_state} with bpftool. The limit is 100 packets per second and source.
 
 \section{Results}\label{sec:t4-results}
-\Cref{tab:t4-results} summarises the attack rounds. Without XDP, all 331,744 flood packets reached the victim's TCP stack (the kernel counted 331,745 segments; one-packet differences between hping3 and kernel counters are within the counting granularity). With the rate limiter in generic mode, the attacker sent 679,608 packets in 5\,s, and exactly 500 TCP segments reached the victim, i.e.\ 100 per second for 5 seconds, as configured. Native mode gave the same result (613,271 packets sent, 500 received; \texttt{rl\_state} counted 613,272 for the attacker, the same counting granularity), and so did the iproute2-loaded object over 3\,s (383,335 sent, 300 received). In all rounds, the benign client lost no ping. The attacker could send about twice as many packets with the filter active as in the baseline; we attribute this to the CPU time that the victim's stack spent on processing (and answering) every SYN in the baseline, since all namespaces share the same host.
+\Cref{tab:t4-results} summarises both rounds. Without XDP, the attacker sent 372,537 packets in 5\,s, and the host's IP layer received 372,564 packets, i.e.\ the whole flood plus 27 packets of other host traffic (\cref{fig:ss-task4_baseline.png}). With the rate limiter, the attacker sent 697,064 packets, and the IP layer received only 525 (\cref{fig:ss-task4_flood_xdp.png}): the 500 flood packets that the limiter let through (100 per second for 5\,s, as configured) and the 25 benign pings, all of which were answered (0\,\% loss). The attacker could send almost twice as many packets with the filter active; we attribute this to the CPU time the host spent on every SYN in the baseline, since attacker and victim share the same machine.
 
 \begin{table}[htbp]
 	\centering\small
-	\caption{Results of the attack rounds (limit 100 packets/s per source; values from \texttt{logs/demo.log}, \texttt{hping3\_*.log}, \texttt{victim\_*.log} and \texttt{benign\_*.log}).}\label{tab:t4-results}
-	\begin{tabular}{llrrrc}
+	\caption{Results of the two flood rounds (limit 100 packets/s per source, 5\,s flood; values from \texttt{task4\_terminal\_output.txt}).}\label{tab:t4-results}
+	\begin{tabular}{lrrr}
 		\toprule
-		Round & XDP mode / loader & Flood & Packets sent & Segments at victim & Benign ping loss \\
+		Round & Packets sent & Packets at victim (IP layer) & Benign ping loss \\
 		\midrule
-		Baseline & none & 5\,s & 331,744 & 331,745 & 0\,\% (25/25) \\
-		Phase 4 & generic, libbpf loader & 5\,s & 679,608 & 500 & 0\,\% (25/25) \\
-		Phase 7 & native, libbpf loader & 5\,s & 613,271 & 500 & 0\,\% (25/25) \\
-		Phase 8 & generic, iproute2 + bpftool & 3\,s & 383,335 & 300 & 0\,\% (15/15) \\
+		Baseline, no XDP & 372,537 & 372,564 & -- \\
+		XDP, generic mode (\texttt{ip}) & 697,064 & 525 & 0\,\% (25/25) \\
 		\bottomrule
 	\end{tabular}
 \end{table}
 
-\paragraph{Drop rate and maps.} The loader's per-second statistics show between 112,135 and 140,096 rate-limit drops per second in generic mode and between 123,321 and 130,299 in native mode (full seconds of the flood), with a steady 104--106 passed packets per second (100 from the attacker plus the benign pings). These rates are limited by what hping3 could offer on the same host, not by the filter, so they are no throughput measurement of XDP; with a single sender, generic and native mode cannot be distinguished. The map dump after phase~4 (\cref{fig:ss-demo_phase5_maps.png}) shows the BPF maps and the per-CPU \texttt{rl\_stats} slots, which show that the drops were spread over several CPUs (three in phase~4), which justifies the shared state map. According to \texttt{logs/demo.log}, \texttt{rl\_state} holds the attacker 10.10.0.2 with \texttt{total} 679,608 and \texttt{dropped} 679,108 (exactly 500 passed) and the benign client 10.10.0.3 with 40 packets and none dropped.
+\paragraph{Map.} The dump of \texttt{rl\_state} after the attack (\cref{fig:ss-task4_map_dump.png}) shows one entry per source. The attacker \texttt{[10,0,0,2]} has 500 packets passed and 696,564 dropped, which together are exactly the 697,064 packets hping3 sent. The benign client \texttt{[10,0,0,3]} has 25 passed and none dropped. The limit held exactly (500 in 5\,s). Because the entry is shared rather than per-CPU, this also holds when one source's packets are processed on several CPUs.
 
-\paragraph{Runtime control and block list.} In phase~6 we raised the limit to 1,000 packets/s by writing the little-endian value into \texttt{rl\_config} with \texttt{bpftool map update}; the following dump confirmed the new value without any reload (the flood had already ended, so this shows the control path, not its effect under load). We then restored the limit and inserted the attacker into \texttt{rl\_block}. Afterwards, the attacker's pings had 100\,\% loss (5 of 5 dropped, block counter 5), while the benign client still had 0\,\% loss. This is the hook through which an IDS or our ML classifier can block a source (\cref{sec:t4-bridge}). When the loader was stopped, the program was detached, as \texttt{ip link show} confirmed.
-
-\screenshot[0.8\linewidth]{demo_phase4_skb.png}{Demo phase~4: flood with the rate limiter in generic mode; 500 TCP segments reach the victim, the benign ping has 0\,\% loss, and the loader shows more than 110,000 drops per second.}
-\screenshot[0.8\linewidth]{demo_phase5_maps.png}{Demo phase~5: \texttt{bpftool map show} of \texttt{rl\_state} and the per-CPU counters in \texttt{rl\_stats} (the full dump of \texttt{rl\_state} and \texttt{rl\_config} is in \texttt{logs/demo.log}).}
-\screenshot[0.8\linewidth]{demo_phase6_blocklist.png}{Demo phase~6: runtime limit change via \texttt{bpftool map update} and block-listing of the attacker (attacker 100\,\% loss, benign 0\,\% loss).}
+\screenshot[0.8\linewidth]{task4_baseline.png}{Baseline without XDP: 372,537 SYN packets sent, 372,564 packets reach the host's IP layer.}
+\screenshot[0.8\linewidth]{task4_flood_xdp.png}{Flood with the rate limiter attached: 697,064 packets sent, 525 reach the host's IP layer (500 flood packets and 25 pings); the benign ping has 0\,\% loss.}
+\screenshot[0.7\linewidth]{task4_map_dump.png}{\texttt{bpftool map dump name rl\_state}: 500 passed and 696,564 dropped for the attacker, 25 passed and 0 dropped for the benign client.}
 
 \section{Problems and Fixes}\label{sec:t4-problems}
-Two bugs in the first demo script cost us time. (1)~\textbf{tcpdump did not terminate.} We first counted packets at the victim with \texttt{tcpdump} stopped by \texttt{timeout} (SIGTERM). Already in phase~1 the script hung: tcpdump acts on the signal only once its blocking read returns, and after the flood no further matching packet arrived. We replaced it with the victim namespace's own counter \texttt{TcpInSegs} from \texttt{/proc/net/snmp}, read before and after each round, which counts exactly what reached the TCP stack. (2)~\textbf{The loader was not stopped.} The loader runs in the background through a shell function, so \verb|$!| is the PID of a subshell; a non-interactive bash starts background jobs with SIGINT ignored, so our SIGINT never reached the loader and the program stayed attached. The fix signals the child with SIGTERM (\texttt{pkill -TERM -P \$LOADER\_PID}), which the loader handles by detaching cleanly. A trap removes all namespaces, and with them all XDP attachments, on every exit.
+\emph{The firewall hid the flood.} In our first run we counted the TCP segments that reached the host (\texttt{TcpInSegs}). The counter stayed near zero in both rounds, also without XDP, although hundreds of thousands of SYNs were sent. The reason is the host firewall (ufw, default policy: deny incoming): netfilter drops the SYNs before TCP sees them, so \texttt{TcpInSegs} only counted the host's own traffic. We therefore count with \texttt{IpInReceives}, which the kernel increments when a packet enters the IP layer, before netfilter, and which thus shows exactly what passed XDP.
 
 \section{Limitations and Bridge to the ML Model}\label{sec:t4-limits}\label{sec:t4-bridge}
-(1)~\textbf{Spoofed sources.} Per-source limiting assumes that the source IP identifies the sender. A SYN flood with random spoofed sources sends one or two packets per address and is never limited; it also churns the LRU map. Real systems add aggregate limits, SYN cookies and signature rules as in L4Drop \autocite{cf_l4drop}. (2)~\textbf{Window boundary.} A fixed window lets up to $2\times$limit packets pass around a boundary; a token bucket would smooth this. (3)~\textbf{Shared addresses.} Users behind one carrier-grade NAT share one budget. (4)~\textbf{IPv4 only.} IPv6 is passed unfiltered. (5)~\textbf{Ingress only, small test bed.} XDP sees only received packets, and our tests used veth on one host with a single attacker.
+(1)~\textbf{Spoofed sources.} Per-source limiting assumes that the source IP identifies the sender. A SYN flood with random spoofed sources sends one or two packets per address and is never limited; it also churns the LRU map. Real systems add aggregate limits, SYN cookies and signature rules as in L4Drop \autocite{cf_l4drop}. (2)~\textbf{Window boundary.} A fixed window lets up to $2\times$limit packets pass around a boundary; a token bucket would smooth this. (3)~\textbf{Shared addresses.} Users behind one carrier-grade NAT share one budget. (4)~\textbf{IPv4 only.} IPv6 is passed unfiltered. (5)~\textbf{Ingress only, small test bed.} XDP sees only received packets, and our tests used veth on one host with a single attacker. (6)~\textbf{Fixed limit.} The limit is a compile-time constant; changing it means recompiling and re-attaching the program.
 
-The block-list map \texttt{rl\_block} is the interface between \emph{detection} and \emph{enforcement}. When a user-space classifier (our Lab~3 model or a Lab~4 detector) flags a source, it inserts the address with \texttt{bpf\_map\_update\_elem()} or \texttt{bpftool map update name rl\_block key A B C D value 1}; from the next packet on, that source is dropped in the driver, as phase~6 demonstrated. This is the division of labour Cloudflare uses at scale: Gatebot detects in user space, L4Drop enforces in XDP \autocite{cf_gatebot,cf_l4drop}. The classifier's decision latency (\cref{sec:cost}) then matters once per flow, not per packet.
+The program has no interface for a detector yet; this is the natural next step. A second hash map with blocked source addresses, checked before the rate limit, would let a user-space classifier (our Lab~3 model or a Lab~4 detector) act on its decision: it inserts a flagged source with \texttt{bpf\_map\_update\_elem()} or \texttt{bpftool map update}, and from the next packet on that source is dropped in the driver. This is the division of labour Cloudflare uses at scale: Gatebot detects in user space, L4Drop enforces in XDP \autocite{cf_gatebot,cf_l4drop}. The classifier's decision latency (\cref{sec:cost}) then matters once per flow, not per packet.

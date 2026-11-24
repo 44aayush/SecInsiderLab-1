@@ -129,7 +129,7 @@ function table(s, rows, x, y, w, colW, rowH) {
 // ============ 1. Title ============
 {
   const meta = { speaker: A, time: "0:20",
-    notes: "Welcome. This is Lab 3 of the Security Insider Lab, group 8. Our lab has two halves: detecting DDoS flows with machine learning and deep learning, and dropping attack traffic early in the kernel with eBPF and XDP. I present the detection part, Justlyn presents the XDP part. The three numbers on the right are the headline results: eight models compared on 33,463 test flows, XGBoost with zero errors, and an XDP rate limiter that lets 500 TCP segments through a flood of 679,608 packets." };
+    notes: "Welcome. This is Lab 3 of the Security Insider Lab, group 8. Our lab has two halves: detecting DDoS flows with machine learning and deep learning, and dropping attack traffic early in the kernel with eBPF and XDP. I present the detection part, Justlyn presents the XDP part. The three numbers on the right are the headline results: eight models compared on 33,463 test flows, XGBoost with zero errors, and an XDP rate limiter that lets only 500 flood packets of 697,064 through." };
   ensureSection("Intro");
   const s = pres.addSlide({ masterName: "TITLE", sectionTitle: "Intro" });
   const title = "Lab 3: ML and DL Detection of DDoS, Enforced with eBPF/XDP";
@@ -140,17 +140,17 @@ function table(s, rows, x, y, w, colW, rowH) {
     { text: "Presentation, 25 November 2026" },
   ], { placeholder: "body", paraSpaceAfter: 6 });
   s.addNotes(`Speaker: ${meta.speaker} (about ${meta.time}).\n\n${meta.notes}`);
-  SLIDES.push({ title, ...meta, summary: ["Headline numbers: 8 models on 33,463 test flows; XGBoost 0 errors; 500 of 679,608 flood packets reach the victim."] });
+  SLIDES.push({ title, ...meta, summary: ["Headline numbers: 8 models on 33,463 test flows; XGBoost 0 errors; 500 of 697,064 flood packets reach the victim."] });
   stat(s, 8.9, 2.6, 3.9, 1.3, "8 models", "compared on 33,463 test flows");
   stat(s, 8.9, 4.15, 3.9, 1.3, "0 errors", "XGBoost on the test set (FP 0, FN 0)", C.accent6);
-  stat(s, 8.9, 5.7, 3.9, 1.3, "500 of 679,608", "flood packets reach the victim", C.accent1);
+  stat(s, 8.9, 5.7, 3.9, 1.3, "500 of 697,064", "flood packets reach the victim", C.accent1);
 }
 
 // ============ 2. Pipeline ============
 {
   const s = content("Intro", "From detection to enforcement", { speaker: A, time: "0:30",
-    summary: ["Tasks 1-3 (Aayush Kapoor): data preparation, 5 classical models, 3 neural networks, comparison.", "Tasks 4-5 (Justlyn Kaniyanthara Johnson): eBPF/XDP theory and filter, xdp-tools.", "Block list = bridge between the two parts."],
-    notes: "The lab has five tasks and they form one story. On the left, detection: we clean the CIC-IDS2017 Friday DDoS file, train five classical classifiers in Task 1 and three neural networks in Task 2, and compare all eight in Task 3. On the right, enforcement: in Task 4 Justlyn explains eBPF and XDP and presents our own XDP rate limiter, and in Task 5 the xdp-tools collection. The arrow in the middle is the block list of our XDP program: that is where a detector would hand over a flagged source. The whole detection pipeline runs with one command, python script/main.py." });
+    summary: ["Tasks 1-3 (Aayush Kapoor): data preparation, 5 classical models, 3 neural networks, comparison.", "Tasks 4-5 (Justlyn Kaniyanthara Johnson): eBPF/XDP theory and filter, xdp-tools.", "Future work: a block list as the bridge between the two parts."],
+    notes: "The lab has five tasks and they form one story. On the left, detection: we clean the CIC-IDS2017 Friday DDoS file, train five classical classifiers in Task 1 and three neural networks in Task 2, and compare all eight in Task 3. On the right, enforcement: in Task 4 Justlyn explains eBPF and XDP and presents our own XDP rate limiter, and in Task 5 the xdp-tools collection. The arrow in the middle is future work: a block list in the XDP program, where a detector would hand over a flagged source. That block list does not exist yet; our rate limiter works on its own. The whole detection pipeline runs with one command, python script/main.py." });
   // left panel
   s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 1.4, w: 5.6, h: 5.3, rectRadius: 0.1, fill: { color: C.background2 }, line: { color: C.background2 }, objectName: "detection panel" });
   s.addText("Detection · Tasks 1-3", { x: 0.9, y: 1.55, w: 5.0, h: 0.5, fontSize: 22, bold: true, color: C.text2, fontFace: THEME.headFontFace, margin: 0, isTextBox: true });
@@ -164,7 +164,7 @@ function table(s, rows, x, y, w, colW, rowH) {
   // right panel
   s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 7.1, y: 1.4, w: 5.6, h: 5.3, rectRadius: 0.1, fill: { color: C.background2 }, line: { color: C.background2 }, objectName: "enforcement panel" });
   s.addText("Enforcement · Tasks 4-5", { x: 7.4, y: 1.55, w: 5.0, h: 0.5, fontSize: 22, bold: true, color: C.text2, fontFace: THEME.headFontFace, margin: 0, isTextBox: true });
-  const right = [["eBPF and XDP", "theory, use cases, tools"], ["Rate limiter", "per-source-IP filter in XDP"], ["Test bed", "namespaces, SYN flood, results"], ["xdp-tools", "built from source, verified"]];
+  const right = [["eBPF and XDP", "theory, use cases, tools"], ["Rate limiter", "per-source-IP filter in XDP"], ["Test", "one namespace, SYN flood, results"], ["xdp-tools", "built from source, verified"]];
   right.forEach((r, i) => {
     const y = 2.3 + i * 1.05;
     badge(s, 7.4, y + 0.1, 0.5, i + 5, C.accent1);
@@ -173,7 +173,7 @@ function table(s, rows, x, y, w, colW, rowH) {
   });
   // bridge arrow
   s.addShape(pres.shapes.RIGHT_ARROW, { x: 6.25, y: 3.55, w: 0.8, h: 0.6, fill: { color: C.accent1 }, line: { color: C.accent1 }, objectName: "bridge arrow" });
-  s.addText("block list", { x: 5.85, y: 4.25, w: 1.6, h: 0.35, fontSize: 14, bold: true, color: C.accent1, align: "center", margin: 0, isTextBox: true });
+  s.addText("future:\nblock list", { x: 6.0, y: 4.25, w: 1.3, h: 0.55, fontSize: 14, bold: true, color: C.accent1, align: "center", margin: 0, isTextBox: true });
   s.addText("Aayush Kapoor", { x: 0.9, y: 6.2, w: 5.0, h: 0.35, fontSize: 14, italic: true, color: C.accent4, margin: 0, isTextBox: true });
   s.addText("Justlyn Kaniyanthara Johnson", { x: 7.4, y: 6.2, w: 5.0, h: 0.35, fontSize: 14, italic: true, color: C.accent4, margin: 0, isTextBox: true });
 }
@@ -310,68 +310,86 @@ function table(s, rows, x, y, w, colW, rowH) {
 // ============ 10. XDP ============
 {
   const s = content("Tasks 4-5", "Task 4: eBPF and XDP in one slide", { speaker: J, time: "0:50",
-    summary: ["eBPF: sandboxed programs in the kernel, checked by the verifier, state in maps.", "XDP: hook in the NIC driver before sk_buff allocation; actions DROP, PASS, TX, REDIRECT, ABORTED.", "Our filter: per-source-IP rate limiter with allow/block lists, configurable at runtime."],
-    notes: "Task 4 asks what eBPF and XDP are and for a small filter program. eBPF runs small sandboxed programs inside the Linux kernel. The verifier checks every path before loading, and state lives in maps that are shared with user space. XDP is an eBPF hook in the network driver, right after the packet arrives and before the kernel allocates an sk_buff. The program returns one of five actions: drop, pass, transmit back, redirect, or aborted. Because there is no sk_buff yet, drops are cheap, tens of millions of packets per second per core is the order of magnitude reported in the literature, and that is why XDP suits DDoS mitigation. Our filter is a per-source-IP rate limiter. For every IPv4 packet it checks the block list and allow list, then counts packets per source in a fixed window and drops everything above the limit. Limit, window, allow list and block list live in BPF maps and can be changed at runtime. The figure on the right shows the decision path in the kernel and the maps shared with user space." });
+    summary: ["eBPF: sandboxed programs in the kernel, checked by the verifier, state in maps.", "XDP: hook in the NIC driver before sk_buff allocation; actions DROP, PASS, TX, REDIRECT, ABORTED.", "Our filter: per-source-IP rate limiter, 100 pkt/s, one LRU map, attached with ip."],
+    notes: "Task 4 asks what eBPF and XDP are and for a small filter program. eBPF runs small sandboxed programs inside the Linux kernel. The verifier checks every path before loading, and state lives in maps that are shared with user space. XDP is an eBPF hook in the network driver, right after the packet arrives and before the kernel allocates an sk_buff. The program returns one of five actions: drop, pass, transmit back, redirect, or aborted. Because there is no sk_buff yet, drops are cheap, tens of millions of packets per second per core is the order of magnitude reported in the literature, and that is why XDP suits DDoS mitigation. Our filter is a per-source-IP rate limiter of about 80 lines, attached with a single ip link command. The decision path: first a bounds check on every header, then IPv4 only, everything else passes. Then we look up the source address in one map called rl_state, or create an entry. If more than one second has passed since the window started, the window and the counter are reset. The counter is incremented atomically, and above 100 packets in the window the program returns XDP_DROP, otherwise XDP_PASS. The map is an LRU hash, so a flood of new spoofed sources can never make the program refuse a new entry: the oldest one is evicted. It is a shared map, not per-CPU, so the limit of 100 holds across all CPUs even when packets of one source arrive on several of them. The box on the right shows exactly this last part of the program." });
   const items = [
     ["What", "Sandboxed programs in the kernel; the verifier checks them; state in maps"],
     ["Hook", "In the NIC driver, before the sk_buff is allocated"],
     ["Actions", "DROP, PASS, TX, REDIRECT, ABORTED"],
     ["Why cheap", "No sk_buff yet: tens of millions of drops per second per core"],
-    ["Our filter", "Per-source-IP rate limiter, limit and lists in maps, changeable at runtime"],
+    ["Our filter", "Per-source-IP rate limiter: 100 pkt/s, one LRU map, attached with ip"],
   ];
   items.forEach((r, i) => {
     const y = 1.35 + i * 1.08;
     s.addText(r[0], { x: 0.6, y, w: 1.5, h: 0.35, fontSize: 16, bold: true, color: C.accent1, margin: 0, isTextBox: true });
     s.addText(r[1], { x: 0.6, y: y + 0.35, w: 4.9, h: 0.65, fontSize: 14, color: C.text1, margin: 0, valign: "top", isTextBox: true });
   });
-  img(s, XDPI("xdp_pipeline.png"), 1644, 1140, 5.7, 1.3, 7.1, 5.5, "XDP rate limiter architecture");
+const CODE = [
+  "\tif (now - r->win_start >= WINDOW_NS) {  /* new window */",
+  "\t\tr->win_start = now;",
+  "\t\tr->count = 0;",
+  "\t}",
+  "",
+  "\t/* Atomic, because packets of one source can arrive on several CPUs. */",
+  "\tif (__sync_fetch_and_add(&r->count, 1) >= LIMIT_PPS) {",
+  "\t\t__sync_fetch_and_add(&r->dropped, 1);",
+  "\t\treturn XDP_DROP;",
+  "\t}",
+  "\t__sync_fetch_and_add(&r->passed, 1);",
+  "\treturn XDP_PASS;",
+].map((l) => l.replace(/\t/g, "    ")).join("\n");
+  s.addShape(pres.shapes.RECTANGLE, { x: 5.6, y: 1.3, w: 7.2, h: 3.8, fill: { color: "1B2433" }, line: { color: "1B2433" }, objectName: "code box" });
+  s.addText(CODE, { x: 5.75, y: 1.4, w: 6.95, h: 3.6, fontFace: "Courier New", fontSize: 11, color: "EEF2F7", valign: "top", margin: 0, isTextBox: true, objectName: "code" });
+  caption(s, "xdp_ratelimit.bpf.c, lines 64-75: window reset, atomic count, drop or pass", 5.6, 5.25, 7.2);
 }
 
 // ============ 11. Test bed + results ============
 {
   const s = content("Tasks 4-5", "Limit of 100 packets/s per source holds", { speaker: J, time: "0:55",
-    summary: ["Test bed: 4 namespaces (attacker 10.10.0.2, benign 10.10.0.3, victim 10.10.0.1, bridge); SYN flood hping3 5 s; limit 100 pkt/s.", "Baseline 331,744 sent / 331,745 reached; generic 679,608 / 500; native 613,271 / 500; iproute2 383,335 / 300 (3 s); benign ping 0 % loss in all rounds."],
-    notes: "To test without touching the host's interfaces, we built four network namespaces: an attacker, a benign client and a victim, connected through a bridge. The filter is attached to the victim's interface. The attacker runs a SYN flood with hping3 for 5 seconds, the benign client pings five times per second, and the limit is 100 packets per second per source. We count what reaches the victim's TCP stack with the kernel's TcpInSegs counter. Without XDP, all 331,744 flood packets reach the victim. With the rate limiter in generic mode the attacker sends 679,608 packets and exactly 500 reach the victim, which is 100 per second for 5 seconds as configured. Native mode gives the same: 613,271 sent, 500 received. Loading the object with iproute2 only, over 3 seconds, gives 383,335 sent and 300 received. In every round the benign client loses no ping. The attacker could send about twice as many packets with the filter on, which we attribute to the processing time the victim's stack no longer spends on every SYN, since all namespaces share one host. The screenshot is phase 4 of the demo log. Note that the drop rates are limited by what hping3 can offer on the same host, so this is no throughput measurement of XDP." });
+    summary: ["Test bed: one namespace (attacker 10.0.0.2, benign client 10.0.0.3), host 10.0.0.1 on veth0 is the victim; 5 s hping3 SYN flood to port 80; limit 100 pkt/s.", "Packets counted with nstat IpInReceives: the host's ufw firewall drops SYNs before TCP, so TcpInSegs stayed near zero.", "Baseline 372,537 sent / 372,564 at the IP layer (27 other host traffic); with XDP 697,064 sent / 525 = 500 flood + 25 pings; benign ping 25/25, 0 % loss.", "Not a throughput measurement: attacker and victim share one machine."],
+    notes: "To test without touching the real network, we use one network namespace called atk. It holds the attacker at 10.0.0.2 and a benign client at 10.0.0.3. The host itself is 10.0.0.1 on a virtual interface, veth0, and is the victim. The filter is attached to veth0 in generic mode with one ip link command. The attacker runs a SYN flood with hping3 for 5 seconds against port 80, and the benign client pings. The limit is 100 packets per second per source. We count packets with the kernel counter IpInReceives from nstat, not TcpInSegs, because the host's ufw firewall drops the SYNs before they reach TCP, so the TCP counter stayed near zero. Without XDP the attacker sends 372,537 packets and 372,564 arrive at the IP layer; the 27 extra are other traffic on the host. With the filter the attacker sends 697,064 packets and the victim sees 525 packets: that is exactly 500 flood packets, 100 per second for 5 seconds, plus the 25 pings of the benign client. The benign ping has no loss, 25 of 25. The attacker sent almost twice as many packets with the filter on. We attribute this to the host no longer spending time on every SYN, since attacker and victim share one machine. So this is not a throughput measurement of XDP; it shows that the limit is enforced and that benign traffic is not affected." });
   const rows = [
-    [hcell("Round"), hcell("XDP mode / loader"), hcell("Packets sent", "right"), hcell("Reached victim", "right"), hcell("Benign ping loss", "right")],
-    [cell("Baseline"), cell("none"), cell("331,744", "right"), cell("331,745", "right"), cell("0 %", "right")],
-    [cell("Phase 4"), cell("generic, libbpf loader"), cell("679,608", "right"), cell("500", "right", { bold: true }), cell("0 %", "right")],
-    [cell("Phase 7"), cell("native, libbpf loader"), cell("613,271", "right"), cell("500", "right", { bold: true }), cell("0 %", "right")],
-    [cell("Phase 8 (3 s)"), cell("generic, iproute2 + bpftool"), cell("383,335", "right"), cell("300", "right", { bold: true }), cell("0 %", "right")],
+    [hcell("Round"), hcell("XDP mode / loader"), hcell("Packets sent", "right"), hcell("Packets at victim (IP layer)", "right"), hcell("Benign ping loss", "right")],
+    [cell("Baseline"), cell("none"), cell("372,537", "right"), cell("372,564", "right"), cell("\u2013", "right")],
+    [cell("XDP"), cell("generic, ip"), cell("697,064", "right"), cell("525 (500 flood + 25 ping)", "right", { bold: true }), cell("0 %", "right")],
   ];
-  table(s, rows, 0.6, 1.3, 12.1, [2.1, 3.9, 2.0, 2.2, 1.9], 0.45);
-  caption(s, "Demo phase 4: generic mode, flood with the limiter active; 500 segments reach the victim, benign ping 0 % loss", 0.6, 3.75, 12.1);
-  img(s, XDPI("demo_phase4_skb.png"), 942, 254, 1.5, 4.15, 10.3, 2.7, "Demo phase 4");
+  table(s, rows, 0.6, 1.3, 12.1, [1.6, 2.6, 2.0, 3.9, 2.0], 0.45);
+  // real size of task4_flood_xdp.png is 856 x 401
+  caption(s, "Flood with the limiter: 500 of 697,064 flood packets reach the victim, benign ping 0 % loss (25/25)", 0.6, 2.85, 12.1);
+  img(s, XDPI("task4_flood_xdp.png"), 856, 401, 1.5, 3.3, 10.3, 3.6, "Flood with XDP");
 }
 
-// ============ 12. Block list ============
+// ============ 12. Per-source counters ============
 {
-  const s = content("Tasks 4-5", "The block list bridges ML and XDP", { speaker: J, time: "0:40",
-    summary: ["rl_block map: a user-space detector inserts the source address; dropped from the next packet.", "Demo phase 6: attacker 100 % loss, benign client 0 % loss; limit raised to 1,000 at runtime via bpftool without reload.", "No trained model is connected yet; the rate limiter works without any model."],
-    notes: "The block-list map is the interface between detection and enforcement. When a user-space classifier flags a source, it inserts the address into the map with bpf_map_update_elem or with bpftool, and from the next packet on that source is dropped in the driver. This is the division of labour Cloudflare uses at scale: Gatebot detects in user space and L4Drop enforces in XDP. The classifier's decision latency then matters once per flow, not per packet, which is why the prediction times on the cost slide are acceptable. In phase 6 of our demo we first raised the limit to 1,000 packets per second at runtime with bpftool, and the dump confirmed the new value without reloading the program. Then we inserted the attacker into the block list: the attacker's pings had 100 percent loss while the benign client had none. Honest limit: we did not connect a trained model to the map. The rate limiter itself works without any model." });
-  const chips = [["Detector", "ML model in user space flags a source"], ["rl_block map", "bpf_map_update_elem or bpftool"], ["XDP drop", "source dropped from the next packet"]];
+  const s = content("Tasks 4-5", "Per-source counters in the map", { speaker: J, time: "0:40",
+    summary: ["bpftool dump of rl_state: attacker passed 500 + dropped 696,564 = 697,064 sent; benign passed 25, dropped 0.", "Future work: a block-list map that a user-space detector fills (Gatebot detects, L4Drop enforces at Cloudflare).", "No block list and no trained model connected yet; the rate limiter works without any model."],
+    notes: "After the test we read the state map with bpftool. It has one entry per source address. The attacker, 10.0.0.2, has 500 packets passed and 696,564 dropped, together 697,064, which is exactly the number hping3 reported as sent. The benign client, 10.0.0.3, has 25 passed and none dropped. So the counters match the test result and the limiter treats the two sources separately. A natural next step, which we did not build, is a second map as a block list that a user-space detector fills. This is the division of labour Cloudflare uses at scale: Gatebot detects in user space and L4Drop enforces in XDP. The classifier's decision latency would then matter once per flow, not per packet, which is why the prediction times on the cost slide would be acceptable. Honest limit: there is no block list in our program and no trained model is connected to it. The rate limiter works without any model." });
+  // real size of task4_map_dump.png is 851 x 382
+  img(s, XDPI("task4_map_dump.png"), 851, 382, 0.6, 1.3, 7.4, 3.5, "bpftool map dump");
+  s.addText([
+    { text: "Attacker: 500 passed + 696,564 dropped = 697,064 sent", options: { bullet: true, breakLine: true } },
+    { text: "Benign client: 25 passed, 0 dropped", options: { bullet: true, breakLine: true } },
+    { text: "Counters match the test: one entry per source", options: { bullet: true } },
+  ], { x: 8.3, y: 1.4, w: 4.5, h: 3.4, fontSize: 18, color: C.text1, valign: "top", paraSpaceAfter: 10, margin: 0, isTextBox: true });
+  s.addText("Future work (not built)", { x: 0.6, y: 5.0, w: 12.1, h: 0.4, fontSize: 18, bold: true, color: C.accent1, fontFace: THEME.headFontFace, margin: 0, isTextBox: true });
+  const chips = [["Detector", "ML model in user space flags a source"], ["Block-list map", "a second BPF map, filled by user space"], ["XDP drop", "decision latency matters once per flow"]];
   chips.forEach((c, i) => {
     const x = 0.6 + i * 4.2;
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 1.4, w: 3.6, h: 1.7, rectRadius: 0.08, fill: { color: C.background2 }, line: { color: C.background2 }, objectName: "chip " + c[0] });
-    s.addText(c[0], { x: x + 0.2, y: 1.5, w: 3.2, h: 0.5, fontSize: 20, bold: true, color: i === 1 ? C.accent1 : C.text2, fontFace: THEME.headFontFace, margin: 0, isTextBox: true });
-    s.addText(c[1], { x: x + 0.2, y: 2.05, w: 3.2, h: 0.9, fontSize: 16, color: C.text1, margin: 0, valign: "top", isTextBox: true });
-    if (i < 2) s.addShape(pres.shapes.RIGHT_ARROW, { x: x + 3.7, y: 2.05, w: 0.4, h: 0.5, fill: { color: C.accent1 }, line: { color: C.accent1 }, objectName: "arrow " + i });
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: 5.5, w: 3.6, h: 1.3, rectRadius: 0.08, fill: { color: C.background2 }, line: { color: C.background2 }, objectName: "chip " + c[0] });
+    s.addText(c[0], { x: x + 0.2, y: 5.55, w: 3.2, h: 0.45, fontSize: 18, bold: true, color: C.text2, fontFace: THEME.headFontFace, margin: 0, isTextBox: true });
+    s.addText(c[1], { x: x + 0.2, y: 6.0, w: 3.2, h: 0.75, fontSize: 14, color: C.text1, margin: 0, valign: "top", isTextBox: true });
+    if (i < 2) s.addShape(pres.shapes.RIGHT_ARROW, { x: x + 3.7, y: 5.95, w: 0.4, h: 0.4, fill: { color: C.accent1 }, line: { color: C.accent1 }, objectName: "arrow " + i });
   });
-  img(s, XDPI("demo_phase6_blocklist.png"), 872, 152, 0.6, 3.5, 12.1, 2.2, "Demo phase 6");
-  caption(s, "Demo phase 6: limit change via bpftool map update, then block-listing of the attacker", 0.6, 5.75, 12.1);
-  stat(s, 0.6, 6.1, 5.9, 0.8, "", "", C.text2);
-  s.addText("Result: attacker 100 % loss, benign client 0 % loss", { x: 0.6, y: 6.1, w: 5.9, h: 0.8, fontSize: 16, bold: true, color: C.text2, margin: [0, 0.2, 0, 0.2], valign: "middle", isTextBox: true });
-  s.addText("Not done: no trained model is connected to the map yet", { x: 6.8, y: 6.1, w: 5.9, h: 0.8, fontSize: 16, color: C.text1, margin: 0, valign: "middle", isTextBox: true });
 }
 
 // ============ 13. Task 5 ============
 {
   const s = content("Tasks 4-5", "Task 5: xdp-tools built from source", { speaker: J, time: "0:45",
-    summary: ["Cloned at commit 92a98287fd59 (v1.6.3-32), clang 21.1.8, bpftool v7.7.0; make finished without errors.", "Tools: libxdp, xdp-loader, xdp-filter, xdpdump, xdp-bench and others.", "install_and_verify.sh: ALL CHECKS PASSED; drop rule gives 100 % loss, after removal ping works again.", "Screenshot: xdp-filter on lo, ping from 127.0.0.2 blocked (SS_T7_9)."],
-    notes: "Task 5 asks to download and configure xdp-tools. We cloned the repository at commit 92a98287fd59, configured it with clang 21 and bpftool 7.7, and built it with make without errors or warnings. It produces libxdp and the tools xdp-loader, xdp-filter, xdpdump, xdp-bench and others. To verify it, our script install_and_verify.sh installs the tools and runs smoke tests, a loopback check and a functional test. In that test, xdp-filter loads in generic mode on a veth pair and a drop rule for the namespace's address makes the ping fail with 100 percent loss; after removing the rule the ping works again. The final run ended with ALL CHECKS PASSED. The screenshot shows the manual check on the loopback interface: a drop rule for 127.0.0.2, pings from 127.0.0.1 have no loss and pings from 127.0.0.2 are lost completely. xdp-filter does with a ready-made tool what the block list of our own program does, but it has no rate limiting." });
+    summary: ["Cloned at commit 92a98287fd59 (v1.6.3-32), clang 21.1.8, bpftool v7.7.0; make finished without errors.", "Tools: libxdp, xdp-loader, xdp-filter, xdpdump, xdp-bench and others.", "install_and_verify.sh: make install + help, features lo, status: ALL CHECKS PASSED.", "Screenshot: xdp-filter on lo, ping from 127.0.0.2 blocked (SS_T7_9)."],
+    notes: "Task 5 asks to download and configure xdp-tools. We cloned the repository at commit 92a98287fd59, configured it with clang 21 and bpftool 7.7, and built it with make without errors or warnings. It produces libxdp and the tools xdp-loader, xdp-filter, xdpdump, xdp-bench and others. To verify it, our script install_and_verify.sh runs make install and then the help commands of xdp-loader, xdp-filter and xdpdump, xdp-loader features on lo, and xdp-loader status. The final run ended with ALL CHECKS PASSED. The screenshot shows the manual check on the loopback interface: a drop rule for 127.0.0.2, pings from 127.0.0.1 have no loss and pings from 127.0.0.2 are lost completely. xdp-filter drops by address with a ready-made tool but has no rate limiting; our program limits per source." });
   card(s, 0.6, 1.3, 5.6, 1.7, "Build", ["Commit 92a98287fd59 (v1.6.3-32)", "clang 21.1.8, bpftool v7.7.0, make without errors"]);
   card(s, 0.6, 3.2, 5.6, 1.7, "Tools", ["libxdp, xdp-loader, xdp-filter, xdpdump, xdp-bench, xdp-monitor, xdp-trafficgen, xdp-forward"]);
-  card(s, 0.6, 5.1, 5.6, 1.7, "Verification", ["install_and_verify.sh: ALL CHECKS PASSED", "Drop rule: 100 % loss; after removal: ping works"], C.accent6);
+  card(s, 0.6, 5.1, 5.6, 1.7, "Verification", ["install_and_verify.sh: make install + help, features lo, status: ALL CHECKS PASSED"], C.accent6);
   const r13 = img(s, SS("SS_T7_9.png"), 543, 312, 6.5, 1.3, 6.3, 4.8, "xdp-filter drop rule on lo");
   caption(s, "xdp-filter on lo: pings from 127.0.0.1 0 % loss, from 127.0.0.2 100 % loss", 6.5, r13.y + r13.h + 0.15, 6.3);
 }
@@ -379,8 +397,8 @@ function table(s, rows, x, y, w, colW, rowH) {
 // ============ 14. Conclusion ============
 {
   const meta = { speaker: `${A}, ${J}`, time: "0:50",
-    summary: ["Tree ensembles and KNN best (0-6 errors, order within noise); MLP best DL (F1 0.9995).", "Limits: port-80 shortcut, one dataset/split, no trained model connected to the block list yet.", "Questions."],
-    notes: "To summarize the detection part, Aayush: all eight models detect the DDoS flows very well, F1 from 0.9909 to 1.0000. The tree ensembles and KNN are best with zero to six errors on 33,463 test flows, and their order is within noise. Among the networks the MLP is best with F1 0.9995, but none beats the tree ensembles, which also train in seconds. The LSTM only became competitive after tuning. Limitations: the destination port is a shortcut, we use one dataset from one day, one attack type and one split, and differences of a few errors could change with another seed. Justlyn: on the enforcement side, an XDP rate limiter drops floods in the driver and leaves benign traffic untouched, and the block list is ready to receive decisions from a detector. We did not connect a trained model to it yet, and the filter assumes honest source addresses and covers IPv4 only. Thank you, we are happy to take questions." };
+    summary: ["Tree ensembles and KNN best (0-6 errors, order within noise); MLP best DL (F1 0.9995).", "Limits: port-80 shortcut, one dataset/split, no block list / ML connection yet (future work).", "Questions."],
+    notes: "To summarize the detection part, Aayush: all eight models detect the DDoS flows very well, F1 from 0.9909 to 1.0000. The tree ensembles and KNN are best with zero to six errors on 33,463 test flows, and their order is within noise. Among the networks the MLP is best with F1 0.9995, but none beats the tree ensembles, which also train in seconds. The LSTM only became competitive after tuning. Limitations: the destination port is a shortcut, we use one dataset from one day, one attack type and one split, and differences of a few errors could change with another seed. Justlyn: on the enforcement side, an XDP rate limiter drops floods in the driver and leaves benign traffic untouched. A block list that a detector fills is future work: we did not build it and did not connect a trained model, and the filter assumes honest source addresses and covers IPv4 only. Thank you, we are happy to take questions." };
   ensureSection("Conclusion");
   const s = pres.addSlide({ masterName: "CLOSING", sectionTitle: "Conclusion" });
   const title = "Conclusion and limitations";
@@ -393,13 +411,13 @@ function table(s, rows, x, y, w, colW, rowH) {
   s.addText([
     { text: "Tree ensembles and KNN are best: 0-6 errors on 33,463 flows, order within noise", options: { bullet: true, breakLine: true } },
     { text: "MLP is the best network (F1 0.9995); none beats the tree ensembles", options: { bullet: true, breakLine: true } },
-    { text: "XDP limiter: 500 of 679,608 flood packets reach the victim, benign ping 0 % loss", options: { bullet: true } },
+    { text: "XDP limiter: 500 of 697,064 flood packets reach the victim, benign ping 0 % loss", options: { bullet: true } },
   ], { x: 5.5, y: 1.15, w: 7.3, h: 2.5, fontSize: 18, color: C.text1, valign: "top", paraSpaceAfter: 10, margin: 0, isTextBox: true });
   s.addText("Limitations", { x: 5.5, y: 3.85, w: 7.3, h: 0.45, fontSize: 22, bold: true, color: C.accent1, fontFace: THEME.headFontFace, margin: 0, isTextBox: true });
   s.addText([
     { text: "Port-80 shortcut, no ablation", options: { bullet: true, breakLine: true } },
     { text: "One dataset, one day, one attack type, one split", options: { bullet: true, breakLine: true } },
-    { text: "No trained model is connected to the block list yet", options: { bullet: true, breakLine: true } },
+    { text: "No block list / ML connection yet (future work)", options: { bullet: true, breakLine: true } },
     { text: "Rate limiter: IPv4 only, trusts source addresses", options: { bullet: true } },
   ], { x: 5.5, y: 4.4, w: 7.3, h: 2.4, fontSize: 18, color: C.text1, valign: "top", paraSpaceAfter: 8, margin: 0, isTextBox: true });
 }
@@ -410,7 +428,7 @@ function writeMd() {
   const per = {};
   SLIDES.forEach((s) => { const [m, sec] = s.time.split(":").map(Number); s.speaker.split(", ").forEach((n) => { per[n] = (per[n] || 0) + (m * 60 + sec) / s.speaker.split(", ").length; }); });
   const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, "0")}`;
-  let md = `# Lab 3 Presentation: ML/DL DDoS Detection and eBPF/XDP (Group 8)\n\n**Security Insider Lab I, Uni Passau, Group 8**\nJustlyn Kaniyanthara Johnson (121024), Aayush Kapoor (120957), presentation 25 November 2026\n\nDeck: \`G8.Lab3.Presentation.pptx\` (${SLIDES.length} slides), built by \`build_deck.js\`. Source: \`G8.Report3.pdf\`; every number comes from the report, \`outputs/metrics/comparison_test.md\` or \`xdp/ratelimit/logs/demo.log\`. The scripts below are the speaker notes of each slide.\n\nTime budget: 10 minutes plus 2 minutes discussion. Planned total ${fmt(total)}. Aayush Kapoor presents Tasks 1-3 (about ${fmt(per[A])}), Justlyn Kaniyanthara Johnson presents Tasks 4-5 (about ${fmt(per[J])}); the conclusion is shared.\n\n| Slide | Title | Speaker | Time |\n|---|---|---|---|\n`;
+  let md = `# Lab 3 Presentation: ML/DL DDoS Detection and eBPF/XDP (Group 8)\n\n**Security Insider Lab I, Uni Passau, Group 8**\nJustlyn Kaniyanthara Johnson (121024), Aayush Kapoor (120957), presentation 25 November 2026\n\nDeck: \`G8.Lab3.Presentation.pptx\` (${SLIDES.length} slides), built by \`build_deck.js\`. Source: \`G8.Report3.pdf\`; every number comes from the report, \`outputs/metrics/comparison_test.md\` or \`xdp/ratelimit/task4_terminal_output.txt\`. The scripts below are the speaker notes of each slide.\n\nTime budget: 10 minutes plus 2 minutes discussion. Planned total ${fmt(total)}. Aayush Kapoor presents Tasks 1-3 (about ${fmt(per[A])}), Justlyn Kaniyanthara Johnson presents Tasks 4-5 (about ${fmt(per[J])}); the conclusion is shared.\n\n| Slide | Title | Speaker | Time |\n|---|---|---|---|\n`;
   SLIDES.forEach((s, i) => { md += `| ${i + 1} | ${s.title} | ${s.speaker} | ${s.time} |\n`; });
   md += "\n---\n\n";
   SLIDES.forEach((s, i) => {

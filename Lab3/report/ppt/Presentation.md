@@ -3,7 +3,7 @@
 **Security Insider Lab I, Uni Passau, Group 8**
 Justlyn Kaniyanthara Johnson (121024), Aayush Kapoor (120957), presentation 25 November 2026
 
-Deck: `G8.Lab3.Presentation.pptx` (14 slides), built by `build_deck.js`. Source: `G8.Report3.pdf`; every number comes from the report, `outputs/metrics/comparison_test.md` or `xdp/ratelimit/logs/demo.log`. The scripts below are the speaker notes of each slide.
+Deck: `G8.Lab3.Presentation.pptx` (14 slides), built by `build_deck.js`. Source: `G8.Report3.pdf`; every number comes from the report, `outputs/metrics/comparison_test.md` or `xdp/ratelimit/task4_terminal_output.txt`. The scripts below are the speaker notes of each slide.
 
 Time budget: 10 minutes plus 2 minutes discussion. Planned total 9:20. Aayush Kapoor presents Tasks 1-3 (about 5:45), Justlyn Kaniyanthara Johnson presents Tasks 4-5 (about 3:35); the conclusion is shared.
 
@@ -20,7 +20,7 @@ Time budget: 10 minutes plus 2 minutes discussion. Planned total 9:20. Aayush Ka
 | 9 | Cost: training and prediction time | Aayush Kapoor | 0:25 |
 | 10 | Task 4: eBPF and XDP in one slide | Justlyn Kaniyanthara Johnson | 0:50 |
 | 11 | Limit of 100 packets/s per source holds | Justlyn Kaniyanthara Johnson | 0:55 |
-| 12 | The block list bridges ML and XDP | Justlyn Kaniyanthara Johnson | 0:40 |
+| 12 | Per-source counters in the map | Justlyn Kaniyanthara Johnson | 0:40 |
 | 13 | Task 5: xdp-tools built from source | Justlyn Kaniyanthara Johnson | 0:45 |
 | 14 | Conclusion and limitations | Aayush Kapoor, Justlyn Kaniyanthara Johnson | 0:50 |
 
@@ -30,9 +30,9 @@ Time budget: 10 minutes plus 2 minutes discussion. Planned total 9:20. Aayush Ka
 
 **Speaker:** Aayush Kapoor · **Time:** about 0:20
 
-- Headline numbers: 8 models on 33,463 test flows; XGBoost 0 errors; 500 of 679,608 flood packets reach the victim.
+- Headline numbers: 8 models on 33,463 test flows; XGBoost 0 errors; 500 of 697,064 flood packets reach the victim.
 
-**Script.** Welcome. This is Lab 3 of the Security Insider Lab, group 8. Our lab has two halves: detecting DDoS flows with machine learning and deep learning, and dropping attack traffic early in the kernel with eBPF and XDP. I present the detection part, Justlyn presents the XDP part. The three numbers on the right are the headline results: eight models compared on 33,463 test flows, XGBoost with zero errors, and an XDP rate limiter that lets 500 TCP segments through a flood of 679,608 packets.
+**Script.** Welcome. This is Lab 3 of the Security Insider Lab, group 8. Our lab has two halves: detecting DDoS flows with machine learning and deep learning, and dropping attack traffic early in the kernel with eBPF and XDP. I present the detection part, Justlyn presents the XDP part. The three numbers on the right are the headline results: eight models compared on 33,463 test flows, XGBoost with zero errors, and an XDP rate limiter that lets only 500 flood packets of 697,064 through.
 
 ## Slide 2. From detection to enforcement
 
@@ -40,9 +40,9 @@ Time budget: 10 minutes plus 2 minutes discussion. Planned total 9:20. Aayush Ka
 
 - Tasks 1-3 (Aayush Kapoor): data preparation, 5 classical models, 3 neural networks, comparison.
 - Tasks 4-5 (Justlyn Kaniyanthara Johnson): eBPF/XDP theory and filter, xdp-tools.
-- Block list = bridge between the two parts.
+- Future work: a block list as the bridge between the two parts.
 
-**Script.** The lab has five tasks and they form one story. On the left, detection: we clean the CIC-IDS2017 Friday DDoS file, train five classical classifiers in Task 1 and three neural networks in Task 2, and compare all eight in Task 3. On the right, enforcement: in Task 4 Justlyn explains eBPF and XDP and presents our own XDP rate limiter, and in Task 5 the xdp-tools collection. The arrow in the middle is the block list of our XDP program: that is where a detector would hand over a flagged source. The whole detection pipeline runs with one command, python script/main.py.
+**Script.** The lab has five tasks and they form one story. On the left, detection: we clean the CIC-IDS2017 Friday DDoS file, train five classical classifiers in Task 1 and three neural networks in Task 2, and compare all eight in Task 3. On the right, enforcement: in Task 4 Justlyn explains eBPF and XDP and presents our own XDP rate limiter, and in Task 5 the xdp-tools collection. The arrow in the middle is future work: a block list in the XDP program, where a detector would hand over a flagged source. That block list does not exist yet; our rate limiter works on its own. The whole detection pipeline runs with one command, python script/main.py.
 
 ## Slide 3. Dataset and preprocessing
 
@@ -119,28 +119,30 @@ Time budget: 10 minutes plus 2 minutes discussion. Planned total 9:20. Aayush Ka
 
 - eBPF: sandboxed programs in the kernel, checked by the verifier, state in maps.
 - XDP: hook in the NIC driver before sk_buff allocation; actions DROP, PASS, TX, REDIRECT, ABORTED.
-- Our filter: per-source-IP rate limiter with allow/block lists, configurable at runtime.
+- Our filter: per-source-IP rate limiter, 100 pkt/s, one LRU map, attached with ip.
 
-**Script.** Task 4 asks what eBPF and XDP are and for a small filter program. eBPF runs small sandboxed programs inside the Linux kernel. The verifier checks every path before loading, and state lives in maps that are shared with user space. XDP is an eBPF hook in the network driver, right after the packet arrives and before the kernel allocates an sk_buff. The program returns one of five actions: drop, pass, transmit back, redirect, or aborted. Because there is no sk_buff yet, drops are cheap, tens of millions of packets per second per core is the order of magnitude reported in the literature, and that is why XDP suits DDoS mitigation. Our filter is a per-source-IP rate limiter. For every IPv4 packet it checks the block list and allow list, then counts packets per source in a fixed window and drops everything above the limit. Limit, window, allow list and block list live in BPF maps and can be changed at runtime. The figure on the right shows the decision path in the kernel and the maps shared with user space.
+**Script.** Task 4 asks what eBPF and XDP are and for a small filter program. eBPF runs small sandboxed programs inside the Linux kernel. The verifier checks every path before loading, and state lives in maps that are shared with user space. XDP is an eBPF hook in the network driver, right after the packet arrives and before the kernel allocates an sk_buff. The program returns one of five actions: drop, pass, transmit back, redirect, or aborted. Because there is no sk_buff yet, drops are cheap, tens of millions of packets per second per core is the order of magnitude reported in the literature, and that is why XDP suits DDoS mitigation. Our filter is a per-source-IP rate limiter of about 80 lines, attached with a single ip link command. The decision path: first a bounds check on every header, then IPv4 only, everything else passes. Then we look up the source address in one map called rl_state, or create an entry. If more than one second has passed since the window started, the window and the counter are reset. The counter is incremented atomically, and above 100 packets in the window the program returns XDP_DROP, otherwise XDP_PASS. The map is an LRU hash, so a flood of new spoofed sources can never make the program refuse a new entry: the oldest one is evicted. It is a shared map, not per-CPU, so the limit of 100 holds across all CPUs even when packets of one source arrive on several of them. The box on the right shows exactly this last part of the program.
 
 ## Slide 11. Limit of 100 packets/s per source holds
 
 **Speaker:** Justlyn Kaniyanthara Johnson · **Time:** about 0:55
 
-- Test bed: 4 namespaces (attacker 10.10.0.2, benign 10.10.0.3, victim 10.10.0.1, bridge); SYN flood hping3 5 s; limit 100 pkt/s.
-- Baseline 331,744 sent / 331,745 reached; generic 679,608 / 500; native 613,271 / 500; iproute2 383,335 / 300 (3 s); benign ping 0 % loss in all rounds.
+- Test bed: one namespace (attacker 10.0.0.2, benign client 10.0.0.3), host 10.0.0.1 on veth0 is the victim; 5 s hping3 SYN flood to port 80; limit 100 pkt/s.
+- Packets counted with nstat IpInReceives: the host's ufw firewall drops SYNs before TCP, so TcpInSegs stayed near zero.
+- Baseline 372,537 sent / 372,564 at the IP layer (27 other host traffic); with XDP 697,064 sent / 525 = 500 flood + 25 pings; benign ping 25/25, 0 % loss.
+- Not a throughput measurement: attacker and victim share one machine.
 
-**Script.** To test without touching the host's interfaces, we built four network namespaces: an attacker, a benign client and a victim, connected through a bridge. The filter is attached to the victim's interface. The attacker runs a SYN flood with hping3 for 5 seconds, the benign client pings five times per second, and the limit is 100 packets per second per source. We count what reaches the victim's TCP stack with the kernel's TcpInSegs counter. Without XDP, all 331,744 flood packets reach the victim. With the rate limiter in generic mode the attacker sends 679,608 packets and exactly 500 reach the victim, which is 100 per second for 5 seconds as configured. Native mode gives the same: 613,271 sent, 500 received. Loading the object with iproute2 only, over 3 seconds, gives 383,335 sent and 300 received. In every round the benign client loses no ping. The attacker could send about twice as many packets with the filter on, which we attribute to the processing time the victim's stack no longer spends on every SYN, since all namespaces share one host. The screenshot is phase 4 of the demo log. Note that the drop rates are limited by what hping3 can offer on the same host, so this is no throughput measurement of XDP.
+**Script.** To test without touching the real network, we use one network namespace called atk. It holds the attacker at 10.0.0.2 and a benign client at 10.0.0.3. The host itself is 10.0.0.1 on a virtual interface, veth0, and is the victim. The filter is attached to veth0 in generic mode with one ip link command. The attacker runs a SYN flood with hping3 for 5 seconds against port 80, and the benign client pings. The limit is 100 packets per second per source. We count packets with the kernel counter IpInReceives from nstat, not TcpInSegs, because the host's ufw firewall drops the SYNs before they reach TCP, so the TCP counter stayed near zero. Without XDP the attacker sends 372,537 packets and 372,564 arrive at the IP layer; the 27 extra are other traffic on the host. With the filter the attacker sends 697,064 packets and the victim sees 525 packets: that is exactly 500 flood packets, 100 per second for 5 seconds, plus the 25 pings of the benign client. The benign ping has no loss, 25 of 25. The attacker sent almost twice as many packets with the filter on. We attribute this to the host no longer spending time on every SYN, since attacker and victim share one machine. So this is not a throughput measurement of XDP; it shows that the limit is enforced and that benign traffic is not affected.
 
-## Slide 12. The block list bridges ML and XDP
+## Slide 12. Per-source counters in the map
 
 **Speaker:** Justlyn Kaniyanthara Johnson · **Time:** about 0:40
 
-- rl_block map: a user-space detector inserts the source address; dropped from the next packet.
-- Demo phase 6: attacker 100 % loss, benign client 0 % loss; limit raised to 1,000 at runtime via bpftool without reload.
-- No trained model is connected yet; the rate limiter works without any model.
+- bpftool dump of rl_state: attacker passed 500 + dropped 696,564 = 697,064 sent; benign passed 25, dropped 0.
+- Future work: a block-list map that a user-space detector fills (Gatebot detects, L4Drop enforces at Cloudflare).
+- No block list and no trained model connected yet; the rate limiter works without any model.
 
-**Script.** The block-list map is the interface between detection and enforcement. When a user-space classifier flags a source, it inserts the address into the map with bpf_map_update_elem or with bpftool, and from the next packet on that source is dropped in the driver. This is the division of labour Cloudflare uses at scale: Gatebot detects in user space and L4Drop enforces in XDP. The classifier's decision latency then matters once per flow, not per packet, which is why the prediction times on the cost slide are acceptable. In phase 6 of our demo we first raised the limit to 1,000 packets per second at runtime with bpftool, and the dump confirmed the new value without reloading the program. Then we inserted the attacker into the block list: the attacker's pings had 100 percent loss while the benign client had none. Honest limit: we did not connect a trained model to the map. The rate limiter itself works without any model.
+**Script.** After the test we read the state map with bpftool. It has one entry per source address. The attacker, 10.0.0.2, has 500 packets passed and 696,564 dropped, together 697,064, which is exactly the number hping3 reported as sent. The benign client, 10.0.0.3, has 25 passed and none dropped. So the counters match the test result and the limiter treats the two sources separately. A natural next step, which we did not build, is a second map as a block list that a user-space detector fills. This is the division of labour Cloudflare uses at scale: Gatebot detects in user space and L4Drop enforces in XDP. The classifier's decision latency would then matter once per flow, not per packet, which is why the prediction times on the cost slide would be acceptable. Honest limit: there is no block list in our program and no trained model is connected to it. The rate limiter works without any model.
 
 ## Slide 13. Task 5: xdp-tools built from source
 
@@ -148,18 +150,18 @@ Time budget: 10 minutes plus 2 minutes discussion. Planned total 9:20. Aayush Ka
 
 - Cloned at commit 92a98287fd59 (v1.6.3-32), clang 21.1.8, bpftool v7.7.0; make finished without errors.
 - Tools: libxdp, xdp-loader, xdp-filter, xdpdump, xdp-bench and others.
-- install_and_verify.sh: ALL CHECKS PASSED; drop rule gives 100 % loss, after removal ping works again.
+- install_and_verify.sh: make install + help, features lo, status: ALL CHECKS PASSED.
 - Screenshot: xdp-filter on lo, ping from 127.0.0.2 blocked (SS_T7_9).
 
-**Script.** Task 5 asks to download and configure xdp-tools. We cloned the repository at commit 92a98287fd59, configured it with clang 21 and bpftool 7.7, and built it with make without errors or warnings. It produces libxdp and the tools xdp-loader, xdp-filter, xdpdump, xdp-bench and others. To verify it, our script install_and_verify.sh installs the tools and runs smoke tests, a loopback check and a functional test. In that test, xdp-filter loads in generic mode on a veth pair and a drop rule for the namespace's address makes the ping fail with 100 percent loss; after removing the rule the ping works again. The final run ended with ALL CHECKS PASSED. The screenshot shows the manual check on the loopback interface: a drop rule for 127.0.0.2, pings from 127.0.0.1 have no loss and pings from 127.0.0.2 are lost completely. xdp-filter does with a ready-made tool what the block list of our own program does, but it has no rate limiting.
+**Script.** Task 5 asks to download and configure xdp-tools. We cloned the repository at commit 92a98287fd59, configured it with clang 21 and bpftool 7.7, and built it with make without errors or warnings. It produces libxdp and the tools xdp-loader, xdp-filter, xdpdump, xdp-bench and others. To verify it, our script install_and_verify.sh runs make install and then the help commands of xdp-loader, xdp-filter and xdpdump, xdp-loader features on lo, and xdp-loader status. The final run ended with ALL CHECKS PASSED. The screenshot shows the manual check on the loopback interface: a drop rule for 127.0.0.2, pings from 127.0.0.1 have no loss and pings from 127.0.0.2 are lost completely. xdp-filter drops by address with a ready-made tool but has no rate limiting; our program limits per source.
 
 ## Slide 14. Conclusion and limitations
 
 **Speaker:** Aayush Kapoor, Justlyn Kaniyanthara Johnson · **Time:** about 0:50
 
 - Tree ensembles and KNN best (0-6 errors, order within noise); MLP best DL (F1 0.9995).
-- Limits: port-80 shortcut, one dataset/split, no trained model connected to the block list yet.
+- Limits: port-80 shortcut, one dataset/split, no block list / ML connection yet (future work).
 - Questions.
 
-**Script.** To summarize the detection part, Aayush: all eight models detect the DDoS flows very well, F1 from 0.9909 to 1.0000. The tree ensembles and KNN are best with zero to six errors on 33,463 test flows, and their order is within noise. Among the networks the MLP is best with F1 0.9995, but none beats the tree ensembles, which also train in seconds. The LSTM only became competitive after tuning. Limitations: the destination port is a shortcut, we use one dataset from one day, one attack type and one split, and differences of a few errors could change with another seed. Justlyn: on the enforcement side, an XDP rate limiter drops floods in the driver and leaves benign traffic untouched, and the block list is ready to receive decisions from a detector. We did not connect a trained model to it yet, and the filter assumes honest source addresses and covers IPv4 only. Thank you, we are happy to take questions.
+**Script.** To summarize the detection part, Aayush: all eight models detect the DDoS flows very well, F1 from 0.9909 to 1.0000. The tree ensembles and KNN are best with zero to six errors on 33,463 test flows, and their order is within noise. Among the networks the MLP is best with F1 0.9995, but none beats the tree ensembles, which also train in seconds. The LSTM only became competitive after tuning. Limitations: the destination port is a shortcut, we use one dataset from one day, one attack type and one split, and differences of a few errors could change with another seed. Justlyn: on the enforcement side, an XDP rate limiter drops floods in the driver and leaves benign traffic untouched. A block list that a detector fills is future work: we did not build it and did not connect a trained model, and the filter assumes honest source addresses and covers IPv4 only. Thank you, we are happy to take questions.
 

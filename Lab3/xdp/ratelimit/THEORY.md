@@ -143,113 +143,34 @@ XDP is the right place for cheap, early decisions on huge packet volumes.
 
 ## 4. Our filter: a per-source-IP rate limiter
 
-### 4.1 Design
+`ratelimit/xdp_ratelimit.bpf.c` (78 lines) counts packets per IPv4 source address in a
+fixed window of 1 s and drops everything above 100 packets/s (`LIMIT_PPS`).
 
 ```
-             +-------------------- user space ---------------------+
-             | xdp_ratelimit_user  | bpftool / ip | IDS / ML model  |
-             +-------|-------------------|---------------|----------+
-                     | bpf() syscalls: config, stats, block-list
-   kernel            v                   v               v
-   NIC RX --> [ XDP: xdp_ratelimit ] <--> maps: rl_config  ARRAY[1]
-                 | parse Eth/VLAN/IPv4       rl_state   LRU_HASH  saddr -> window state
-                 | block-list? -> DROP       rl_stats   PERCPU_ARRAY counters
-                 | allow-list? -> PASS       rl_allow   HASH
-                 | count in window           rl_block   HASH
-                 | > limit ?  DROP : PASS
-                 v                    \
-            XDP_PASS: skb -> tc ->    XDP_DROP: buffer recycled
-            netfilter -> TCP/IP
+NIC RX --> [ XDP: xdp_ratelimit ] <--> map rl_state (LRU_HASH, 65,536 entries)
+              | Eth + IPv4 in bounds?  no -> PASS      key: source IPv4 [a,b,c,d]
+              | not IPv4               -> PASS      value: win_start, count,
+              | window over? reset count                   passed, dropped
+              | ++count > 100 ? DROP : PASS
 ```
 
-(The figure `figures/xdp_pipeline.png` shows the same architecture.)
-
-For every frame the program parses Ethernet and an optional 802.1Q/802.1ad
-tag, then IPv4. Each header access is preceded by a `data_end` bounds check,
-so the verifier accepts the program. Non-IPv4 frames (ARP, IPv6) are passed
-and counted. For IPv4, it first checks the source address against the block
-list (drop) and the allow list (pass). It then runs a **fixed-window counter**:
-the `rl_state` entry stores `win_start` (from `bpf_ktime_get_ns()`) and
-`count`. When `now − win_start ≥ window`, the window is reset. `count` is
-incremented atomically, and packets with `count > limit` get `XDP_DROP`. The
-limit and window length are read from the `rl_config` array map on every
-packet, so the operator can change them at runtime without recompiling or
-reloading (shown with `bpftool map update` in phase 6 of the demo).
-
-**Map choices.**
-
-* `rl_state` is a **`BPF_MAP_TYPE_LRU_HASH`** with 65,536 entries. An LRU map
-  cannot become "full": when capacity is reached, the least recently used
-  source is evicted. A plain hash would start refusing new sources, and
-  an attacker could exploit that. We chose the **shared** variant over
-  `LRU_PERCPU_HASH` on purpose. With RSS, packets from one source can be
-  spread over several RX queues and CPUs. Per-CPU counters would give each
-  CPU its own budget, so the effective limit would be `limit × #CPUs` and
-  would depend on hashing. The price is atomic `fetch_add` on a shared cache
-  line (needs `-mcpu=v3`) and a benign race on the window reset, where at worst
-  a few extra packets pass.
-* `rl_stats` is a **`PERCPU_ARRAY`**. Global counters are written by every
-  packet, so per-CPU slots avoid contention. User space sums them.
-* `rl_allow` / `rl_block` are plain **`HASH`** maps. Exact-match lookups are
-  O(1). An `LPM_TRIE` would be the natural extension for prefixes.
-* `rl_config` is a single-entry **`ARRAY`**, the cheapest lookup there is.
-
-The loader uses the libbpf skeleton. It writes the config and the
-allow/block lists *before* attaching (so the first packet is already
-governed), attaches with `bpf_xdp_attach()` in skb or native mode, prints the
-per-second counters and the top sources by drops, and detaches on
-SIGINT/SIGTERM.
-
-### 4.2 Limitations
-
-1. **Spoofed source addresses.** Per-source limiting assumes the source IP
-   identifies the sender. A SYN flood with random spoofed sources sends only
-   one or two packets per address and is never limited. The same flood also
-   churns the LRU map: legitimate entries are evicted, so their counters
-   reset all the time. Real systems combine per-source limits with aggregate
-   limits (per destination or port), SYN cookies (which can also be generated
-   in XDP), and signature rules like the ones Gatebot/L4Drop generate.
-2. **Window boundary effect.** A fixed window lets up to `2 × limit` packets
-   through in a short interval around the boundary. A token bucket
-   (tokens += elapsed × rate, capped at a burst size) or a sliding window
-   smooths this, at the cost of slightly more arithmetic per packet.
-3. **Carrier-grade NAT / shared addresses.** Many benign users behind one NAT
-   share one budget and can be limited together (collateral damage). The
-   allow-list helps for known gateways.
-4. **IPv6 is not handled.** IPv6 packets are passed unfiltered. Support would
-   need a second state map keyed by `struct in6_addr` (or by /64 prefix).
-5. **Generic mode performance.** In generic mode the skb has already been
-   allocated, so most of the XDP speedup is lost. Our demo uses `veth`, which
-   also supports native XDP (phase 7). Real gains need native mode on a
-   physical NIC.
-6. **Ingress only.** XDP sees received packets only. It does not protect
-   against the host taking part in an attack, and it cannot drop outgoing
-   responses.
-7. **Fairness under racing CPUs.** The window reset is not atomic with the
-   increment. This is acceptable for rate limiting but not for exact
-   accounting.
-
-### 4.3 Bridge to Lab 4 and to our ML model
-
-The `rl_block` map is the interface between *detection* and *enforcement*.
-A user-space component (the Lab 3 ML classifier or a Lab 4 detector) can
-analyse flow features from captured or exported traffic. When it classifies
-a source as malicious, it inserts the address with
-`bpf_map_update_elem(rl_block_fd, &ip, &one, BPF_ANY)` or
-`bpftool map update name rl_block key A B C D value 1`. From the next packet
-on, that source is dropped in the driver, before it costs any stack
-resources. We show this at runtime in phase 6 of the demo. This is the same
-split that Cloudflare uses at scale: Gatebot detects attacks in user space
-and L4Drop enforces in XDP [12, 13]. Possible extensions for Lab 4:
-
-* give block-list entries an expiry time (value = timestamp) so that
-  false positives heal themselves;
-* use an `LPM_TRIE` to block whole prefixes found by the model;
-* export per-source features from XDP (packet counts, SYN ratio, size
-  histogram) through a ring buffer, so the model can be fed from the data
-  path itself instead of from pcap files;
-* replace the fixed window with a token bucket and add aggregate
-  per-destination limits to cope with spoofed floods.
+- **LRU hash:** when full, the least recently used source is evicted, so new sources
+  are never refused.
+- **Shared, not per-CPU:** one source spread over several CPUs still gets one budget.
+  This needs atomic adds (`-mcpu=v3`).
+- **Loading:** no loader program. `ip link set dev veth0 xdpgeneric obj
+  xdp_ratelimit.bpf.o sec xdp` attaches it, and `bpftool map dump name rl_state` shows
+  the counters.
+- **Test:** see `ratelimit/README.md`. Result on 24 Nov 2026: 697,064 SYNs sent, 500
+  passed, 696,564 dropped; the benign client 25/25.
+- **Limitations:**
+  - spoofed sources are never limited
+  - a fixed window lets up to 2x the limit through around a window boundary
+  - NAT users share one budget
+  - IPv4 only
+  - the limit is a compile-time constant
+- **Bridge to the ML model (future work):** a block-list map checked first, which a
+  user-space classifier fills with `bpftool map update` / `bpf_map_update_elem()`.
 
 ## References
 

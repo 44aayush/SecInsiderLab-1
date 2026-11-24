@@ -1,191 +1,34 @@
-Fri Nov 13 10:16:16 PM CET 2026
+Tue Nov 24 01:02:43 PM CET 2026
 7.0.0-43-generic
 
-=== Install ===
-+ make -C /home/jkj/Documents/Studies/Semester 2/Sec_Insider_1/Lab3/xdp/xdp-tools-build/xdp-tools install
+=== install ===
+installed to /usr/local/sbin
+/usr/local/sbin/xdp-loader
+/usr/local/sbin/xdp-filter
+/usr/local/sbin/xdpdump
+/usr/local/sbin/xdp-bench
 
-lib
+=== checks ===
 
-  libxdp
-make[3]: Nothing to be done for 'all'.
-
-  util
-make[2]: Nothing to be done for 'all'.
-
-  testing
-make[2]: Nothing to be done for 'all'.
-
-xdp-filter
-make[1]: Nothing to be done for 'all'.
-
-xdp-loader
-make[1]: Nothing to be done for 'all'.
-
-xdp-dump
-make[1]: Nothing to be done for 'all'.
-
-xdp-bench
-make[1]: Nothing to be done for 'all'.
-
-xdp-forward
-make[1]: Nothing to be done for 'all'.
-
-xdp-monitor
-make[1]: Nothing to be done for 'all'.
-
-xdp-trafficgen
-make[1]: Nothing to be done for 'all'.
-
-  libxdp
-make[3]: Nothing to be done for 'all'.
-install -m 0755 -d /usr/local/include/xdp
-make -C libxdp install
-make[3]: Nothing to be done for 'all'.
-install -m 0755 -d /usr/local/share/xdp-tools/tests/libxdp
-install -m 0644 ./test-libxdp.sh /usr/local/share/xdp-tools/tests/libxdp
-install -m 0755 test_xsk_refcnt test_xdp_frags test_link_detach test_xsk_umem_flags test_xdp_devbound test_xsk_map_leak check_kern_compat test_dispatcher_versions /usr/local/share/xdp-tools/tests/libxdp
-install -m 0644 xdp_dispatcher_v1.o xdp_dispatcher_v2.o xdp_pass.o /usr/local/share/xdp-tools/tests/libxdp
-make -C testing install
-install -m 0755 -d /usr/local/share/xdp-tools
-install -m 0644 test_config.install.sh /usr/local/share/xdp-tools/test_config.sh
-install -m 0644 test_long_func_name.o xdp_drop.o xdp_pass.o xdp_adjust_tail.o /usr/local/share/xdp-tools/
-install -m 0755 -d /usr/local/sbin
-install -m 0755 -d /usr/local/lib/bpf
-install -m 0755 -d /usr/local/share/xdp-tools
-install -m 0755 test_runner.sh setup-netns-env.sh run_tests.sh /usr/local/share/xdp-tools
-install -m 0755 test-tool /usr/local/share/xdp-tools
-install -m 0755 -d /usr/local/sbin
-install -m 0755 -d /usr/local/lib/bpf
-install -m 0755 xdp-filter /usr/local/sbin
-install -m 0644 xdpfilt_dny_udp.o xdpfilt_dny_tcp.o xdpfilt_dny_ip.o xdpfilt_dny_eth.o xdpfilt_dny_all.o xdpfilt_alw_udp.o xdpfilt_alw_tcp.o xdpfilt_alw_ip.o xdpfilt_alw_eth.o xdpfilt_alw_all.o /usr/local/lib/bpf
-install -m 0755 -d /usr/local/share/man/man8
-install -m 0644 xdp-filter.8 /usr/local/share/man/man8
-install -m 0755 -d /usr/local/share/xdp-tools/tests/xdp-filter
-install -m 0644 tests/test-xdp-filter.sh /usr/local/share/xdp-tools/tests/xdp-filter
-install -m 0644 tests/common.py tests/test_basic.py tests/test_slow.py /usr/local/share/xdp-tools/tests/xdp-filter
-install -m 0755 -d /usr/local/sbin
-install -m 0755 -d /usr/local/lib/bpf
-install -m 0755 xdp-loader /usr/local/sbin
-install -m 0755 -d /usr/local/share/man/man8
-install -m 0644 xdp-loader.8 /usr/local/share/man/man8
-install -m 0755 -d /usr/local/share/xdp-tools/tests/xdp-loader
-install -m 0644 tests/test-xdp-loader.sh /usr/local/share/xdp-tools/tests/xdp-loader
-install -m 0755 -d /usr/local/sbin
-install -m 0755 -d /usr/local/lib/bpf
-install -m 0755 xdpdump /usr/local/sbin
-install -m 0644 xdpdump_bpf.o xdpdump_xdp.o /usr/local/lib/bpf
-install -m 0755 -d /usr/local/share/man/man8
-install -m 0644 xdpdump.8 /usr/local/share/man/man8
-install -m 0755 -d /usr/local/share/xdp-tools/tests/xdpdump
-install -m 0644 tests/test-xdpdump.sh /usr/local/share/xdp-tools/tests/xdpdump
-install -m 0755 -d /usr/local/sbin
-install -m 0755 -d /usr/local/lib/bpf
-install -m 0755 xdp-bench /usr/local/sbin
-install -m 0755 -d /usr/local/share/man/man8
-install -m 0644 xdp-bench.8 /usr/local/share/man/man8
-install -m 0755 -d /usr/local/share/xdp-tools/tests/xdp-bench
-install -m 0644 tests/test-xdp-bench.sh /usr/local/share/xdp-tools/tests/xdp-bench
-install -m 0755 -d /usr/local/sbin
-install -m 0755 -d /usr/local/lib/bpf
-install -m 0755 xdp-forward /usr/local/sbin
-install -m 0755 -d /usr/local/share/man/man8
-install -m 0644 xdp-forward.8 /usr/local/share/man/man8
-install -m 0755 -d /usr/local/share/xdp-tools/tests/xdp-forward
-install -m 0644 tests/test-xdp-forward.sh /usr/local/share/xdp-tools/tests/xdp-forward
-install -m 0755 -d /usr/local/sbin
-install -m 0755 -d /usr/local/lib/bpf
-install -m 0755 xdp-monitor /usr/local/sbin
-install -m 0755 -d /usr/local/share/man/man8
-install -m 0644 xdp-monitor.8 /usr/local/share/man/man8
-install -m 0755 -d /usr/local/share/xdp-tools/tests/xdp-monitor
-install -m 0644 tests/test-xdp-monitor.sh /usr/local/share/xdp-tools/tests/xdp-monitor
-install -m 0755 -d /usr/local/sbin
-install -m 0755 -d /usr/local/lib/bpf
-install -m 0755 xdp-trafficgen /usr/local/sbin
-install -m 0755 -d /usr/local/share/man/man8
-install -m 0644 xdp-trafficgen.8 /usr/local/share/man/man8
-install -m 0755 -d /usr/local/share/xdp-tools/tests/xdp-trafficgen
-install -m 0644 tests/test-xdp-trafficgen.sh /usr/local/share/xdp-tools/tests/xdp-trafficgen
-[PASS] make install
-using: /usr/local/sbin/xdp-loader
-
-=== Tool smoke tests ===
-NOTE: this xdp-loader has no --version option (it prints 'Command --version is unknown'); using 'help' + version.mk
-Command '--version' is unknown, try 'xdp-loader help'.
-TOOLS_VERSION := "1.6.3"
-	@echo $(TOOLS_VERSION)
-+ xdp-loader help
+$ xdp-loader help
 Usage: xdp-loader COMMAND [options]
 
 COMMAND can be one of:
        load        - load an XDP program on an interface
-       unload      - unload an XDP program from an interface
-       status      - show current XDP program status
-       clean       - clean up detached program links in XDP bpffs directory
-       features    - show XDP features supported by the NIC
-       help        - show this help message
 
-Use 'xdp-loader COMMAND --help' to see options for each command
-[PASS] xdp-loader help
-+ xdp-filter help
+$ xdp-filter help
 Usage: xdp-filter COMMAND [options]
 
 COMMAND can be one of:
        load        - load xdp-filter on an interface
-       unload      - unload xdp-filter from an interface
-       port        - add a port to the filter list
-       ip          - add an IP address to the filter list
-       ether       - add an Ethernet MAC address to the filter list
-       status      - show current xdp-filter status
-       poll        - poll statistics output
-       help        - show this help message
 
-Use 'xdp-filter COMMAND --help' to see options for each command
-[PASS] xdp-filter help
-+ xdpdump --help
+$ xdpdump --help
 
 Usage: xdpdump [options]
 
  XDPDump tool to dump network traffic
 
-Options:
-     --rx-capture <mode>          Capture point for the rx direction (valid values: entry,exit)
- -D, --list-interfaces            Print the list of available interfaces
-     --load-xdp-mode <mode>       Mode used for --load-xdp-mode, default native (valid values: native,skb,hw,unspecified)
-     --load-xdp-program           Load XDP trace program if no XDP program is loaded
- -i, --interface <ifname>         Name of interface to capture on
-     --perf-wakeup <events>       Wake up xdpdump every <events> packets
- -p, --program-names <prog>       Specific program to attach to
- -P, --promiscuous-mode           Open interface in promiscuous mode
- -s, --snapshot-length <snaplen>  Minimum bytes of packet to capture
-     --use-pcap                   Use legacy pcap format for XDP traces
- -w, --write <file>               Write raw packets to pcap file
- -x, --hex                        Print the full packet in hex
- -v, --verbose                    Enable verbose logging (-vv: more verbose)
-     --version                    Display version information
- -h, --help                       Show this help
-
-[PASS] xdpdump --help
-+ xdp-bench help
-Usage: xdp-bench COMMAND [options]
-
-COMMAND can be one of:
-       drop           - Drop all packets on an interface
-       pass           - Pass all packets to the network stack
-       tx             - Transmit packets back out on an interface (hairpin forwarding)
-       redirect       - XDP redirect using the bpf_redirect() helper
-       redirect-cpu   - XDP CPU redirect using BPF_MAP_TYPE_CPUMAP
-       redirect-map   - XDP redirect using BPF_MAP_TYPE_DEVMAP
-       redirect-multi - XDP multi-redirect using BPF_MAP_TYPE_DEVMAP and the BPF_F_BROADCAST flag
-       xsk-drop       - AF_XDP socket-based drop
-       xsk-tx         - AF_XDP socket-based hairpin forwarding
-       help           - show this help message
-
-Use 'xdp-bench COMMAND --help' to see options for each command
-[PASS] xdp-bench help
-
-=== Loopback ===
-+ xdp-loader features lo
+$ xdp-loader features lo
 NETDEV_XDP_ACT_BASIC:		no
 NETDEV_XDP_ACT_REDIRECT:	no
 NETDEV_XDP_ACT_NDO_XMIT:	no
@@ -193,8 +36,8 @@ NETDEV_XDP_ACT_XSK_ZEROCOPY:	no
 NETDEV_XDP_ACT_HW_OFFLOAD:	no
 NETDEV_XDP_ACT_RX_SG:		no
 NETDEV_XDP_ACT_NDO_XMIT_SG:	no
-[PASS] xdp-loader features lo
-+ xdp-loader status
+
+$ xdp-loader status
 CURRENT XDP PROGRAM STATUS:
 
 Interface        Prio  Program name      Mode     ID   Tag               Chain actions
@@ -206,110 +49,7 @@ br-3a71d38bb8ab        <No XDP program loaded!>
 br-5ea9a55b07e6        <No XDP program loaded!>
 docker0                <No XDP program loaded!>
 br-f7e0f11c493d        <No XDP program loaded!>
-surfshark_ipv6         <No XDP program loaded!>
-surfshark_wg           <No XDP program loaded!>
-
-[PASS] xdp-loader status
-
-=== Functional test: xdp-filter on veth in netns (skb/generic mode) ===
-+ ping -c2 -W1 10.77.0.2
-PING 10.77.0.2 (10.77.0.2) 56(84) bytes of data.
-64 bytes from 10.77.0.2: icmp_seq=1 ttl=64 time=0.079 ms
-64 bytes from 10.77.0.2: icmp_seq=2 ttl=64 time=0.061 ms
-
---- 10.77.0.2 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1015ms
-rtt min/avg/max/mdev = 0.061/0.070/0.079/0.009 ms
-[PASS] baseline ping works
-+ xdp-filter load -m skb xdpt-h
-[PASS] xdp-filter load (skb mode) on xdpt-h
-+ xdp-filter ip -m src 10.77.0.2
-[PASS] add drop rule for src 10.77.0.2
-CURRENT XDP-FILTER STATUS:
-
-Aggregate per-action statistics:
-  XDP_ABORTED                                   0 pkts           0 KiB
-  XDP_DROP                                      0 pkts           0 KiB
-  XDP_PASS                                      0 pkts           0 KiB
-
-Loaded on interfaces:
-                                           Enabled features
-xdpfilt_alw_all
-  xdpt-h (skb mode)                        tcp,udp,ipv6,ipv4,ethernet,allow
-
-Filtered ports:
-                                           Mode             Hit counter
-
-Filtered IP addresses:
-                                           Mode             Hit counter
-  10.77.0.2                                src              0
-
-Filtered MAC addresses:
-                                           Mode             Hit counter
-
-+ ping from namespace (expected to FAIL while rule active)
-PING 10.77.0.1 (10.77.0.1) 56(84) bytes of data.
-
---- 10.77.0.1 ping statistics ---
-3 packets transmitted, 0 received, 100% packet loss, time 2062ms
-
-[PASS] ping blocked by xdp-filter
-+ xdp-filter poll (statistics, 3s)
-+ xdp-filter ip -r -m src 10.77.0.2
-[PASS] remove rule
-+ ip netns exec xdpt-ns ping -c3 -W1 10.77.0.1
-PING 10.77.0.1 (10.77.0.1) 56(84) bytes of data.
-64 bytes from 10.77.0.1: icmp_seq=1 ttl=64 time=0.064 ms
-64 bytes from 10.77.0.1: icmp_seq=2 ttl=64 time=0.090 ms
-64 bytes from 10.77.0.1: icmp_seq=3 ttl=64 time=0.070 ms
-
---- 10.77.0.1 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2054ms
-rtt min/avg/max/mdev = 0.064/0.074/0.090/0.011 ms
-[PASS] ping works again after rule removal
-+ xdp-filter status
-CURRENT XDP-FILTER STATUS:
-
-Aggregate per-action statistics:
-  XDP_ABORTED                                   0 pkts           0 KiB
-  XDP_DROP                                      6 pkts           0 KiB
-  XDP_PASS                                     48 pkts           6 KiB
-
-Loaded on interfaces:
-                                           Enabled features
-xdpfilt_alw_all
-  xdpt-h (skb mode)                        tcp,udp,ipv6,ipv4,ethernet,allow
-
-Filtered ports:
-                                           Mode             Hit counter
-
-Filtered IP addresses:
-                                           Mode             Hit counter
-
-Filtered MAC addresses:
-                                           Mode             Hit counter
-
-[PASS] xdp-filter status
-+ xdp-filter unload xdpt-h
-[PASS] xdp-filter unload
-CURRENT XDP PROGRAM STATUS:
-
-Interface        Prio  Program name      Mode     ID   Tag               Chain actions
---------------------------------------------------------------------------------------
-lo                     <No XDP program loaded!>
-enp2s0f0               <No XDP program loaded!>
-wlp3s0                 <No XDP program loaded!>
-br-3a71d38bb8ab        <No XDP program loaded!>
-br-5ea9a55b07e6        <No XDP program loaded!>
-docker0                <No XDP program loaded!>
-br-f7e0f11c493d        <No XDP program loaded!>
-surfshark_ipv6         <No XDP program loaded!>
-surfshark_wg           <No XDP program loaded!>
-xdpt-h                 <No XDP program loaded!>
+vethbd18a34            <No XDP program loaded!>
 
 
-=== Result ===
 ALL CHECKS PASSED
-
-=== cleanup ===
-namespace and veth removed

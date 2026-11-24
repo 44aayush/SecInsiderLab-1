@@ -2,7 +2,7 @@
 % !TeX encoding = UTF-8
 \chapter{Task 5: xdp-tools}\label{ch:task5}
 
-xdp-tools is the XDP project's collection of utilities and the \texttt{libxdp} library \autocite{xdptools_github}. We downloaded it from GitHub, configured, built and installed it from source and verified it with a functional test in a network namespace.
+xdp-tools is the XDP project's collection of utilities and the \texttt{libxdp} library \autocite{xdptools_github}. We downloaded it from GitHub, configured, built and installed it from source and checked the installed tools.
 
 \section{Tools and Setup}\label{sec:t5-setup}
 
@@ -37,32 +37,26 @@ cap-ng support: no
 \end{lstlisting}
 
 \section{Verification}\label{sec:t5-verify}
-The script \texttt{install\_and\_verify.sh} installs the tools and checks them in three stages; every check prints \texttt{[PASS]} or \texttt{[FAIL]}:
-\begin{enumerate}
-	\item \textbf{Smoke tests.} \texttt{xdp-loader help}, \texttt{xdp-filter help}, \texttt{xdpdump --help} and \texttt{xdp-bench help} must print their usage text.
-	\item \textbf{Loopback.} \texttt{xdp-loader features lo} and \texttt{xdp-loader status} must run. The feature query reports \enquote{no} for all XDP features of the loopback device (no native XDP support), so only generic mode is possible there; the status lists all interfaces without an XDP program.
-	\item \textbf{Functional test of xdp-filter.} A veth pair connects the host (10.77.0.1, \texttt{xdpt-h}) with a namespace (10.77.0.2, \texttt{xdpt-n}). After a successful baseline ping, \texttt{xdp-filter load -m skb xdpt-h} loads the filter in generic mode (program \texttt{xdpfilt\_alw\_all}: default policy \emph{allow}, listed addresses are dropped), and \texttt{xdp-filter ip -m src 10.77.0.2} adds a drop rule for the namespace's address. A ping from the namespace then fails with 100\,\% loss. After removing the rule (\texttt{xdp-filter ip -r -m src 10.77.0.2}), the ping succeeds again (3/3), and \texttt{xdp-filter status} reports 6 packets for \texttt{XDP\_DROP} and 48 for \texttt{XDP\_PASS}. Finally, the filter is unloaded, and a trap removes the namespace and the veth pair.
-\end{enumerate}
-The final run ended with \texttt{ALL CHECKS PASSED} (\cref{lst:t5-verify}). Functionally, \texttt{xdp-filter} does with a ready-made tool what the block list of our own program does (\cref{sec:t4-design}), but it has no rate limiting.
+The script \texttt{install\_and\_verify.sh} installs the tools (\texttt{make install}, \texttt{ldconfig}) and runs a few checks: \texttt{xdp-loader help}, \texttt{xdp-filter help} and \texttt{xdpdump --help} must print their usage text, and \texttt{xdp-loader features lo} and \texttt{xdp-loader status} must run. The feature query reports \enquote{no} for all XDP features of the loopback device (no native XDP support), so only generic mode is possible there; the status lists all interfaces without an XDP program. The run ended with \texttt{ALL CHECKS PASSED} (\cref{lst:t5-verify}). \Cref{sec:t5-manual} shows xdp-filter at work. It drops by address with a ready-made tool, but has no rate limiting; our own program (\cref{sec:t4-design}) limits per source instead.
 
-\begin{lstlisting}[style=bashsh,float=htbp,caption={Abridged excerpt of \texttt{install\_verify.log}: drop rule, failed ping, restore, counters.},label=lst:t5-verify]
-+ xdp-filter load -m skb xdpt-h
-[PASS] xdp-filter load (skb mode) on xdpt-h
-+ xdp-filter ip -m src 10.77.0.2
-[PASS] add drop rule for src 10.77.0.2
-+ ping from namespace (expected to FAIL while rule active)
-3 packets transmitted, 0 received, 100% packet loss, time 2062ms
-[PASS] ping blocked by xdp-filter
-+ xdp-filter ip -r -m src 10.77.0.2
-[PASS] remove rule
-3 packets transmitted, 3 received, 0% packet loss, time 2054ms
-[PASS] ping works again after rule removal
-+ xdp-filter status
-  XDP_ABORTED                                   0 pkts           0 KiB
-  XDP_DROP                                      6 pkts           0 KiB
-  XDP_PASS                                     48 pkts           6 KiB
+\begin{lstlisting}[style=bashsh,float=htbp,caption={Abridged excerpt of \texttt{install\_verify.log}.},label=lst:t5-verify]
+=== install ===
+installed to /usr/local/sbin
+=== checks ===
+$ xdp-loader help
+Usage: xdp-loader COMMAND [options]
+$ xdp-filter help
+Usage: xdp-filter COMMAND [options]
+$ xdpdump --help
+Usage: xdpdump [options]
+$ xdp-loader features lo
+NETDEV_XDP_ACT_BASIC:		no
+NETDEV_XDP_ACT_REDIRECT:	no
 ...
-=== Result ===
+$ xdp-loader status
+Interface        Prio  Program name      Mode     ID   Tag               Chain actions
+lo                     <No XDP program loaded!>
+...
 ALL CHECKS PASSED
 \end{lstlisting}
 
@@ -74,4 +68,4 @@ We also tried the tools by hand on \texttt{lo}. Because we ran them from the bui
 \screenshot[0.8\linewidth]{SS_T7_10.png}{\texttt{xdp-filter status}: \texttt{XDP\_DROP} 3, \texttt{XDP\_PASS} 8, hit counter 3 for 127.0.0.2.}
 
 \section{Problems and Fixes}\label{sec:t5-problems}
-(1)~\textbf{Missing compiler.} At first, clang and llc were not installed on the system. We installed the toolchain via apt (\texttt{clang llvm libbpf-dev libelf-dev libpcap-dev m4 \dots}); once clang was available, \texttt{configure} and the build succeeded without any source change. (2)~\textbf{bpffs hidden inside the namespace.} Loading xdp-filter on the namespace side via \texttt{ip netns exec} failed with \enquote{Could not find BPF working dir}: \texttt{ip netns exec} remounts \texttt{/sys}, which hides the BPF file system at \texttt{/sys/fs/bpf} where xdp-filter and libxdp pin their maps and programs. We therefore attach xdp-filter to the \emph{host-side} veth \texttt{xdpt-h} in the root namespace and drop the namespace's source address there, which is equivalent because its traffic arrives on that interface. (3)~\textbf{Help commands exit non-zero} after printing usage, so the script checks the output for \enquote{Usage}. (4)~\textbf{No \texttt{--version} option} in \texttt{xdp-loader}; we read \texttt{version.mk}. (5)~\textbf{Root privileges} are required, so the verification runs through \texttt{sudo}.
+(1)~\textbf{Missing compiler.} At first, clang and llc were not installed on the system. We installed the toolchain via apt (\texttt{clang llvm libbpf-dev libelf-dev libpcap-dev m4 \dots}); once clang was available, \texttt{configure} and the build succeeded without any source change. (2)~\textbf{Help commands exit non-zero} after printing usage, so the script checks the output for \enquote{Usage}. (3)~\textbf{No \texttt{--version} option} in \texttt{xdp-loader}; we read \texttt{version.mk}. (4)~\textbf{Root privileges} are required, so the verification runs through \texttt{sudo}.

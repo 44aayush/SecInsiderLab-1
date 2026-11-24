@@ -1,0 +1,65 @@
+# Terminal recording of the Task 4 test (24 Nov 2026), cleaned. Some command lines were
+# garbled by zsh autosuggestions and removed (e.g. the "ip link set ... xdpgeneric obj"
+# attach and "bpftool map dump"); the full command list is in README.md. All output is kept.
+
+Script started on 2026-11-24 13:07:17+01:00 [TERM="xterm-256color" TTY="/dev/pts/9" COLUMNS="230" LINES="55"]
+$ sudo ip link add veth0 type veth peer name veth1 netns atk
+$ sudo ip addr add 10.0.0.1/24 dev veth0
+$ sudo ip link set veth0 up
+$ sudo ip -n atk addr add 10.0.0.2/24 dev veth1
+$ sudo ip -n atk addr add 10.0.0.3/24 dev veth1
+$ sudo ip -n atk link set veth1 up
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+64 bytes from 10.0.0.2: icmp_seq=1 ttl=64 time=0.134 ms
+64 bytes from 10.0.0.2: icmp_seq=2 ttl=64 time=0.110 ms
+--- 10.0.0.2 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1010ms
+rtt min/avg/max/mdev = 0.110/0.122/0.134/0.012 ms
+$ sudo ip netns exec atk timeout -s INT 5 hping3 -S -p 80 --flood 10.0.0.1
+HPING 10.0.0.1 (veth1 10.0.0.1): S set, 40 headers + 0 data bytes
+hping in flood mode, no replies will be shown
+--- 10.0.0.1 hping statistic ---
+372537 packets transmitted, 0 packets received, 100% packet loss
+round-trip min/avg/max = 0.0/0.0/0.0 ms
+#kernel
+IpInReceives                    372564             0.0
+$ sudo ip netns exec atk ping -q -c 25 -i 0.2 -I 10.0.0.3 10.0.0.1 > benign.txt &
+$ sudo nstat -n
+$ sudo ip netns exec atk timeout -s INT 5 hping3 -S -p 80 --flood 10.0.0.1
+$ sudo nstat IpInReceives
+$ wait; cat benign.txt
+[1] 1268858
+HPING 10.0.0.1 (veth1 10.0.0.1): S set, 40 headers + 0 data bytes
+hping in flood mode, no replies will be shown
+[1]  + 1268858 done       sudo ip netns exec atk ping -q -c 25 -i 0.2 -I 10.0.0.3 10.0.0.1 > benign.txt
+--- 10.0.0.1 hping statistic ---
+697064 packets transmitted, 0 packets received, 100% packet loss
+round-trip min/avg/max = 0.0/0.0/0.0 ms
+#kernel
+IpInReceives                    525                0.0
+PING 10.0.0.1 (10.0.0.1) from 10.0.0.3 : 56(84) bytes of data.
+--- 10.0.0.1 ping statistics ---
+25 packets transmitted, 25 received, 0% packet loss, time 4989ms
+rtt min/avg/max/mdev = 0.052/0.103/0.150/0.023 ms
+[{
+        "key": [10,0,0,3
+        ],
+        "value": {
+            "win_start": 812299143051040,
+            "count": 5,
+            "passed": 25,
+            "dropped": 0
+        }
+    },{
+        "key": [10,0,0,2
+        ],
+        "value": {
+            "win_start": 812299025783170,
+            "count": 139087,
+            "passed": 500,
+            "dropped": 696564
+        }
+    }
+]
+$ sudo ip netns del atk
+Script done on 2026-11-24 13:07:53+01:00 [COMMAND_EXIT_CODE="0"]
