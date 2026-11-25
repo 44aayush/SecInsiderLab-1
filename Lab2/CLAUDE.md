@@ -1,103 +1,204 @@
-# CLAUDE.md: Security Insider Lab, Lab 2 (Tasks 3 & 4)
+# CLAUDE.md: Security Insider Lab, Lab 2 (Tasks 3 & 4), Friday DDoS
 
-This lab does ML-based intrusion detection on CIC-IDS2017 flow features. The workspace covers **Task 3 (Data Pre-processing)** and **Task 4 (Logistic Regression + Decision Tree, plus real-time use)**. Tasks 1 and 2 are already done; their outputs are listed in §4.
+This sub-project does ML-based intrusion detection on CIC-IDS2017 flow features from the **Friday** file `Friday-WorkingHours-Afternoon-DDos.csv`. It covers **Task 3 (Data Pre-processing)** and **Task 4 (Logistic Regression + Decision Tree, plus real-time use)**.
 
 - Course: Security Insider Lab, Uni Passau, group **G8**. Deadline: **2026-11-11**.
-- Specs: `Task3.png` and `Task4.png` (in this root), and slides 9–10 of `Thursday_Dataset/lab-2.pptx`. Progress is tracked in `TASKS.md` of each dataset folder.
-- **Scope rule:** implement only what the specs ask for, plus the tests needed to trust the results. Do not add tasks, features, or demos without the user's approval.
-
-## Datasets
-
-> **Thursday (`Thursday_Dataset/`):** `Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv`. The user chose this file, and the report covers it. Slide 8 names the Friday DDoS file, so this is a deliberate deviation. Do not switch datasets (do not swap the file in `Thursday_Dataset/`).
-
-> **Friday DDoS (parallel, 2026-11-09), `Friday_Dataset/`:** a separate, self-contained implementation of Tasks 3 & 4 on `Friday-WorkingHours-Afternoon-DDos.csv` (user request). It has its own uv project, CLAUDE.md and TASKS.md, and it does not replace the Thursday pipeline.
-
-Each folder has its own `CLAUDE.md`, `TASKS.md`, uv project (`.venv`), `SS/` (screenshots) and its own report folder (`Thursday_Dataset/reports/`, `Friday_Dataset/report/`). **Always `cd` into the dataset folder before `uv run`.** Verified data facts, design decisions and commands are in that folder's CLAUDE.md. (Old section numbers §2, §3 and §5 moved to `Thursday_Dataset/CLAUDE.md`; §1, §4 and §6–§9 stay here.)
+- Specs: `../Task3.png`, `../Task4.png`, and slides 9–10 of `../Thursday_Dataset/lab-2.pptx`. Slide 8 names this Friday file. Progress is tracked in `TASKS.md`.
+- This is a **parallel, self-contained implementation** (user request, 2026-11-09). It does not replace the Thursday pipeline in `../Thursday_Dataset/src/lab2ids/` (the Thursday project now lives in `../Thursday_Dataset/`), and it never imports `lab2ids`.
+- **Scope rule:** same as `../CLAUDE.md`. Implement only what the specs ask for, plus the tests needed to trust the results. Do not add tasks, features, or demos without the user's approval.
+- **Out of scope (plan decision 6):** the Destination-Port ablation. (The report and the presentation were requested by the user on 2026-11-09; see §9 and §10.)
 
 ---
 
 ## 1. Model routing (MANDATORY)
 
-The main session runs on **Opus 5.5**. It orchestrates, analyzes, and reviews. It does not write bulk code or run long command sequences itself, and delegates with the `Agent` tool:
+Same table and rules as `../CLAUDE.md` §1.
 
 | Work type | Model | How to delegate |
 |---|---|---|
-| Analysis, planning, design decisions, interpreting metrics, reviewing subagent output | **Opus 5.5** (main session) | inline |
-| Development: writing code, unit tests, e2e tests, debugging | **Sonnet 5.5** | `Agent(subagent_type="general-purpose", model="sonnet", ...)` |
-| Presentations and documents: creating or updating `.pptx` decks, `Presentation.md`, speaking scripts, report text | **Sonnet 5.5** | `Agent(subagent_type="general-purpose", model="sonnet", ...)` |
-| Browser use, running terminal commands, env setup, running scripts and collecting output, light tasks | **Haiku 5.5** | `Agent(subagent_type="general-purpose", model="haiku", ...)` |
+| Analysis, planning, design decisions, interpreting metrics, reviewing subagent output | **Opus** (main session) | inline |
+| Development: writing code, unit tests, e2e tests, debugging | **Sonnet** | `Agent(subagent_type="general-purpose", model="sonnet", ...)` |
+| Presentations and documents, report text | **Sonnet** | `Agent(subagent_type="general-purpose", model="sonnet", ...)` |
+| Browser use, running terminal commands, env setup, running scripts and collecting output, light tasks | **Haiku** | `Agent(subagent_type="general-purpose", model="haiku", ...)` |
 
-Delegation rules:
-
-1. Subagents start cold. Each prompt names the **TASKS.md ID** and tells the agent to read `CLAUDE.md` plus that task's spec and AC first.
-2. Give each subagent one task and expect one result back. Independent tasks may run in parallel.
+1. Subagents start cold. Each prompt names the **`Friday_Dataset/TASKS.md` F-ID** and tells the agent to read this file, `TASKS.md` and the Thursday source it ports first.
+2. One task per subagent, one result back. Independent tasks may run in parallel.
 3. Haiku runs commands and reports output verbatim. It does **not** edit `src/`. Opus routes code fixes to Sonnet.
-4. Opus checks every result against its AC and against §2, then ticks the box in `TASKS.md`. Subagents never tick boxes.
+4. Opus checks every result against its AC and against §2, then ticks the box in `TASKS.md`. **Only Opus ticks boxes.**
 5. `sudo` is not available non-interactively. Hand any root step to the user as a `! sudo ...` command.
 
 ---
 
-## 4. Repository layout
+## 2. Verified data facts (Haiku profile, 2026-11-09; pandas 3.1.0, sklearn 1.9.1)
+
+- **225,745 rows × 79 columns**, CRLF line endings, pure ASCII, no blank lines. The header is **identical to Thursday's**: 65 names with stray spaces, and `Fwd Header Length.1` is an exact copy that gets dropped.
+- **Labels are clean.** There is no U+FFFD. DDoS is the **majority class**.
+
+  | Label | Raw count | After cleaning |
+  |---|---:|---:|
+  | `DDoS` | 128,027 (56.7%) | 128,014 |
+  | `BENIGN` | 97,718 | 95,068 |
+
+- **Infinity/NaN (all +inf):**
+  - `Flow Bytes/s`: 30 inf and 4 NaN
+  - `Flow Packets/s`: 34 inf
+  - 34 rows are affected: **32 BENIGN, 2 DDoS**. Unlike Thursday, a few attack rows are dropped.
+- **Duplicates:** 2,633 raw (4 of them are inf/NaN rows). In the cleaning order of §3, the dedup step drops **2,629** (2,618 BENIGN, 11 DDoS).
+- **Constant columns:** the same 10 as Thursday.
+- **Identical pairs: 8.** These are Thursday's 7 plus `Total Length of Bwd Packets` ≡ `Subflow Bwd Bytes`. `Avg Bwd Segment Size` differs in 2 rows, within `atol=1e-6`.
+- **Clean set: 223,082 rows × 59 features** (78 − 1 − 10 − 8). DDoS 128,014, BENIGN 95,068. Including `Label` and `binary_label`, the final shape is `[223082, 61]`.
+- **Negative values exist** (`Init_Win_bytes_*` = −1, a few IAT/duration values), so `chi2` must run after MinMax scaling.
+- **DDoS is effectively all port 80** (128,011 / 128,014). BENIGN is mostly 53 / 443 / 80.
+- **Split 70/30 (rs=42):** train 156,157 / test 66,925, with 38,404 DDoS in test.
+- **chi2 top-20 (preview):** URG Flag Count, Destination Port, Bwd Packet Length Max/Std/Mean, Bwd IAT Total, Max Packet Length, Packet Length Mean, …
+
+### Preliminary baselines
+
+Sanity ranges for the e2e guards.
+
+| Model | DDoS F1 | Confusion `[[TN, FP], [FN, TP]]` |
+|---|---:|---|
+| DT default / balanced | 0.9996 | `[[28514, 7], [25, 38379]]` |
+| LR default | 0.9739 | 2,008 FP, 45 FN |
+| LR balanced | 0.9744 | 1,974 FP, 45 FN |
+
+- LR converges in 48 iterations.
+- DT importance: Fwd Packet Length Max 0.58, **Destination Port 0.35**.
+
+### Real-time preview
+
+On `../task2_lab2.pcap_Flow.csv`: 547 flows after the Protocol-0 drop, no missing features.
+
+| Model | Alerts |
+|---|---:|
+| DT default / balanced | 0 |
+| LR default | 69 |
+| LR balanced | 64 |
+
+The LR alerts are mostly on port 443, which is a domain-shift effect.
+
+**Never report accuracy alone.** Always include per-class P/R/F1, macro-F1, and the confusion matrix.
+
+---
+
+## 3. Design decisions
+
+1. **Self-contained uv project.** `Friday_Dataset/` has its own `pyproject.toml`, `.python-version` (3.12), `.venv` and package **`ddosids`**. Dependencies are pinned to `../Thursday_Dataset/uv.lock`: pandas==3.1.0, numpy==2.5.4, scikit-learn==1.9.1, matplotlib==3.11.2, joblib==1.6.0, pyarrow==26.0.1, and pytest==9.2.0 (dev).
+2. **Cleaning order:**
+   1. load and strip column names
+   2. normalise labels (U+FFFD fix kept; it is a no-op here)
+   3. drop `Fwd Header Length.1`
+   4. replace ±inf with NaN
+   5. **drop the NaN rows** (34 rows: 32 BENIGN, 2 DDoS)
+   6. drop duplicate rows
+   7. drop constant columns
+   8. drop identical columns (`atol=1e-6`)
+3. **Split before fitting anything.** Stratified 70/30 split, `random_state=42`. Fit the scaler and the selector on **train only**.
+4. **Scaling:** `MinMaxScaler(clip=True)`. **Selection:** `SelectKBest(chi2, k=20)`.
+5. **One sklearn `Pipeline`:** `MinMaxScaler(clip=True) → SelectKBest(chi2, k=20) → classifier`. Persist it with joblib alongside `meta.json`. The real-time detector loads this same pipeline.
+6. **4 models, binary target only.** With two labels, multiclass would duplicate binary. The models are `binary_{lr,dt}_{default,balanced}`: `LogisticRegression(max_iter=5000)` and `DecisionTreeClassifier(random_state=42)`, each default and `class_weight="balanced"`.
+7. **Class names** are `BENIGN` and `DDoS` everywhere, including the real-time verdict.
+8. **Data-driven drops.** Constant and identical columns are detected from the data. Only the e2e test pins the Friday numbers of §2.
+9. **Real-time:** port the Thursday detector (V4→ISCX column map, Protocol-0 drop, inf/NaN→0, persisted pipeline, one line per flow). The expected model is `binary_dt_default`, confirmed at the F2 review.
+10. Every row and column drop is logged with its count.
+
+---
+
+## 4. Layout
 
 ```
-Lab2/
-├── CLAUDE.md  .gitattributes      # this file: lab-wide rules
-├── Task3.png  Task4.png           # task specs (common)
-├── task1_lab2.pcapng              # Task 1 capture: 81,110 frames, 347 s, 99.9% IPv4 (IPv6 off), benign
-├── task2_lab2.pcap_Flow.csv       # CICFlowMeter V4 flows of task1_lab2.pcapng (569 flows); REAL-TIME INPUT for both datasets
-├── Thursday_Dataset/              # Thursday Web Attacks project (own uv project; see Thursday_Dataset/CLAUDE.md)
-│   ├── CLAUDE.md TASKS.md README.md pyproject.toml uv.lock  src/lab2ids/  scripts/  tests/  artifacts/  outputs/  <Thursday CSV>
-│   ├── lab-2.pptx                 # course slides
-│   ├── SS/                        # screenshots SS1-SS25 (no SS16)
-│   └── reports/                   # LaTeX report + reports/presentation/ (moved here 2026-11-09)
-└── Friday_Dataset/                # parallel Friday DDoS project (own uv project; see Friday_Dataset/CLAUDE.md)
-    ├── CLAUDE.md TASKS.md  src/ddosids/  scripts/  tests/  artifacts/  outputs/  <Friday CSV>
-    ├── SS/                        # screenshots SS15/17/18/24/25 (common) and SS26-SS38 (SS26 unused)
-    └── report/                    # LaTeX report (singular; written, in review)
+Lab2/Friday_Dataset/
+├── CLAUDE.md  TASKS.md  pyproject.toml  uv.lock  .python-version
+├── Friday-WorkingHours-Afternoon-DDos.csv          # moved here (mv)
+├── src/ddosids/  config.py data.py features.py models.py evaluate.py colmap.py realtime/detector.py
+├── scripts/      task3_preprocess.py  task4_train.py  realtime_detect.py
+├── tests/        test_task3.py test_task4.py test_realtime.py  fixtures/{make_fixture.py, sample_ddos.csv}
+├── artifacts/    GENERATED: clean.parquet, split_indices.json, selected_features_binary.json, models/*.joblib, models/meta.json
+├── outputs/      GENERATED: task3/ task4/ realtime/  (same file names as Thursday, binary only)
+├── SS/           screenshots: the 5 common ones (SS15/17/18/24/25, copied from ../Thursday_Dataset/SS/, sha256-verified) plus SS26+ to come
+└── report/       LaTeX report (written, in review; see §9)
 ```
 
 ---
 
-## 6. Real-time input (common to both datasets; implemented last)
+## 5. Commands
 
-```
- Task 1 pcap ──(user runs CICFlowMeter, Task 1/2)──► Task 2 flow CSV (V4 columns)
-                                                          │ streamed row by row, Timestamp order
-                                                          ▼
-   colmap (V4 → ISCX names) → inf/NaN→0, drop Protocol-0 rows → joblib Pipeline → per-flow verdict
-```
+Run from `Lab2/Friday_Dataset/`, which has its own `.venv`. **Always `cd` here before `uv run`.**
 
-- **Real-time input:** `task2_lab2.pcap_Flow.csv`, made from `task1_lab2.pcapng` (benign browsing, 2026-11-04, 16:05–16:10). The flow CSV path is always a CLI argument; never hard-code it.
-- **Expect domain shift.** The training data was produced by CICFlowMeter V3 on the 2017 testbed; the Task 2 flows come from V4 on a different network. Report any false positives honestly.
-- Model choice (`REALTIME_MODEL`) and run expectations are in each dataset folder's CLAUDE.md.
+```bash
+cd /home/aayush/Desktop/SecInsiderLab1/SecInsiderLab-1/Lab2/Friday_Dataset
+uv sync
+uv run python scripts/task3_preprocess.py      # 223,082 rows × 59 features, 20 features selected
+uv run python scripts/task4_train.py           # 4 models; DT DDoS-F1 ≈ 0.9996, LR ≈ 0.974
+uv run python scripts/realtime_detect.py ../task2_lab2.pcap_Flow.csv   # 547 classified, 22 dropped
+uv run pytest -m "not e2e" -q                  # < 30 s
+uv run pytest -m e2e -q                        # full Friday CSV + parity
+git -C .. status --short                       # changes only under Friday_Dataset/, plus CLAUDE.md and .gitattributes
+```
 
 ---
 
-## 7. Gotchas (common)
+## 6. Real-time
 
-- **Column names differ between CICFlowMeter V4 and ISCX.** 20 names differ; `Thursday_Dataset/TASKS.md` T5.1 has the table. The remaining 57 match after normalization. All 77 features map (verified). V4's metadata columns are for display only and must never be used as features.
-- **Earlier captures (deleted; the files were 89–98% IPv6) produced bogus flows.** 85–95% of their flows had `Protocol=0` and `Dst Port=0`, implausible IPs (e.g. `136.225.0.0 → 160.0.176.82`) and 0 backward packets. If a future capture shows this, IPv6 was on.
-  **Verified cause:** CICFlowMeter hard-codes `readIP6 = false` (`Cmd.java:126`, `ReadPcapFileWorker.java:152`). Every non-IPv4 frame (IPv6, ARP, HomePlug) falls into `getVPNInfo()`, which force-parses the frame as IPv4 from byte 0. The "src IP" is therefore EtherType + 2 bytes (`134.221.x` = `86 DD` IPv6, `136.225` = `88 E1` HomePlug, `8.6` = ARP). The "dst IP" is the IPv6 flow label + payload length. The IPv4 flows themselves are parsed correctly.
-  The detector must always drop `Protocol==0` rows and log the count.
-- **`task2_lab2.pcap_Flow.csv` (from `task1_lab2.pcapng`) is the good file.** IPv6 was off for the capture. The user renamed it from `benign_lab2_3.*`; the old `task1_lab2.pcap`/`task2_lab2.pcap_Flow.csv` are gone.
-  - 569 flows: 162 TCP, 385 UDP, 22 with Protocol 0
-  - the 22 Protocol-0 rows are 15 real ICMP flows (CICFlowMeter gives every non-TCP/UDP flow protocol 0) plus 4 IPv6 and 3 ARP leftovers
-  - CICFlowMeter only writes flows with ≥2 packets (`FlowGenerator.java:94`), so single-packet traceroute probes and DNS queries are absent by design
-- **`tshark -r <file in $HOME>` fails with "You don't have permission".** Ubuntu's AppArmor profile `/etc/apparmor.d/tshark` blocks tshark from reading files outside `/tmp`. Without sudo, pipe the file in: `cat f.pcap | tshark -r - ...`. To write, use `-w -` and redirect: `> out.pcap`. `capinfos` is not affected.
-- **Save figures as PNG (200 dpi) and PDF;** they are reused in the report.
+- **Input:** `../task2_lab2.pcap_Flow.csv`, made from `../task1_lab2.pcapng`. The flow CSV path is always a CLI argument; it is never copied or hard-coded.
+- **Pipeline:** colmap (V4 → ISCX names) → drop `Protocol==0` rows (expect **22**: 15 ICMP, 4 IPv6, 3 ARP) → inf/NaN→0 → joblib pipeline → per-flow verdict (`BENIGN` / `DDoS`).
+- **Expect domain shift.** The training data was produced by CICFlowMeter V3 on the 2017 testbed; the Task 2 flows come from V4 on the user's network. Report any alerts honestly.
 
-(The dataset-specific gotchas moved: multiclass LR `max_iter` ≥ 2000 and the `artifacts/clean.parquet` cache are in `Thursday_Dataset/CLAUDE.md` §7.)
+---
+
+## 7. Gotchas
+
+- **CRLF line endings** in the raw CSV (and in the fixture).
+- **2 DDoS rows are lost in the inf/NaN drop** (unlike Thursday, where all dropped rows were BENIGN).
+- **Destination Port shortcut risk.** DDoS is effectively all dst port 80, and Destination Port has DT importance **0.35**. Report this honestly; no ablation is done.
+- **LR gives many false positives on port-443 Task 2 flows** (preview: 64–69 of 547).
+- **DDoS is the majority class,** so `class_weight="balanced"` changes little.
+- **LR converges in about 48 iterations.**
+- **`chi2` needs MinMax first** (negative values exist).
+- **The detector must always drop `Protocol==0` rows and log the count.** See `../CLAUDE.md` §7 (Gotchas, common) for the CICFlowMeter IPv6 cause.
+- **Cache the cleaned data** to `artifacts/clean.parquet`. Unit tests use the fixture `tests/fixtures/sample_ddos.csv`, never the 77 MB CSV.
+- **Save figures as PNG (200 dpi) and PDF.**
+
+---
 
 ## 8. Conventions
 
-- Use type hints and small functions in `Thursday_Dataset/src/lab2ids` (`Friday_Dataset/src/ddosids` for Friday). Scripts are thin argparse CLIs.
+- Use type hints and small functions in `src/ddosids`. Scripts are thin argparse CLIs.
 - Use `random_state=42` everywhere. Log every row and column drop with its count.
 - Do not create a git repo or commit unless the user asks.
 
 ---
 
-## 9. Reports
+## 9. Report (written, in review): `G8.Report2.pdf`
 
-- Each dataset folder has its own report folder (`Thursday_Dataset/reports/`, `Friday_Dataset/report/`) and its own screenshots in `<folder>/SS/` (user decision, 2026-11-09).
-- The `latexmkrc_2` build rule (always build with `latexmkrc_2`, from inside the report folder) applies to both reports.
-- Details: `Thursday_Dataset/CLAUDE.md` §9 and `Friday_Dataset/CLAUDE.md` §9.
+User decisions, 2026-11-09. Steps are tracked in `TASKS.md` P4. Status: text written and builds cleanly (19 pages in total, 13 of main matter); in review.
+
+- **Location and deliverable:** `Friday_Dataset/report/` (singular); the deliverable is `G8.Report2.pdf` (made by the review step with `cp report/thesis.pdf report/G8.Report2.pdf`).
+- **Scope:** full Tasks 1–4, same chapter structure as the Thursday report. The Task 1/2 chapters reuse the Thursday text and the common screenshots. Task 3/4 cover the **Friday results only, with NO comparison with Thursday**. Target 10–15 pages of main matter.
+- **Build:** same rule as Thursday. ALWAYS with `latexmkrc_2`, from inside `Friday_Dataset/report/`:
+  ```
+  cd Friday_Dataset/report && latexmk -C -r latexmkrc_2 -jobname=thesis thesis.tex && latexmk -r latexmkrc_2 -jobname=thesis thesis.tex
+  ```
+- **Screenshots** are taken by the user and saved in `Friday_Dataset/SS/`, all run from `Friday_Dataset/`. The report uses:
+  - common, copied from Thursday: SS15 Wireshark protocol hierarchy, SS17 Task 2 flow CSV in LibreOffice, SS24 `sysctl` disabling IPv6, SS25 CICFlowMeter GUI conversion (SS18, the Steam requests, is not used)
+  - SS27: Task 3 raw label summary (`uv run python scripts/task3_preprocess.py`)
+  - SS28: Task 3 cleaning steps ("Final: 223082 rows x 59 features")
+  - SS29: final label summary + 70/30 split counts
+  - SS30: top-20 chi2 features (binary)
+  - SS31 / SS32 / SS33 / SS34: Task 4 blocks `binary_lr_default` / `binary_lr_balanced` / `binary_dt_default` / `binary_dt_balanced` (`uv run python scripts/task4_train.py`); the report shows SS33
+  - SS35: the 4-model comparison table
+  - SS36: `uv run pytest -m "not e2e" -q` (24 passed, 3 deselected)
+  - SS37: `uv run pytest -m e2e -q` (3 passed, 24 deselected)
+  - SS38: real-time detector summary (569 read, 22 dropped, 547 classified, 0 alerts), from `uv run python scripts/realtime_detect.py ../task2_lab2.pcap_Flow.csv`
+  - **SS26 is skipped (user decision) and is not used.**
+- **Order:** take the screenshots BEFORE generating the report tables, because re-running Task 4 changes only the timings.
+- **Numbers rule:** every number comes from the generated `report/tables/*.tex` (default `--out` of `scripts/make_report_tables.py` is `report/tables`) or the Friday `outputs/`. The Task 1/2 numbers come from the reused Thursday chapters.
+- **Paths, relative from `Friday_Dataset/report/`:** `\graphicspath{{images/}{../SS/}{../outputs/task3/figures/}{../outputs/task4/figures/}}`; listings `\lstinputlisting{../src/ddosids/...}`.
+
+## 10. Presentation
+
+User request, 2026-11-09. The deck is `report/presentation/G8.Lab2.Presentation.pptx` (15 slides, speaker notes on every slide), generated by `report/presentation/build_deck.js`.
+
+- **Build:** `cd report/presentation && node build_deck.js` (needs `pptxgenjs`; if `require` fails, run `npm install pptxgenjs` somewhere and set `NODE_PATH`).
+- **Theme:** same as the Thursday deck (Cambria/Calibri, `LAYOUT_WIDE`, same layouts), theme name "G8 Lab2 Passau Friday".
+- **Numbers rule:** every number comes from the Friday report tables, `outputs/`, or the Task 1 chapter. Friday only: no comparison with Thursday.
