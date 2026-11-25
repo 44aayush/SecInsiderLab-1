@@ -1,0 +1,22 @@
+# Lab 4 requirements (direct dependencies only, same pins as Lab 3; no torch, no matplotlib).
+#
+# Install with uv (recommended):
+#   uv venv --python 3.12 .venv
+#   uv pip install --python .venv/bin/python -r requirements.txt
+#
+# Plain pip alternative:
+#   pip install -r requirements.txt
+
+# --- data and classical ML ---
+numpy==2.5.4
+pandas==3.1.0
+scikit-learn==1.9.1
+xgboost==3.4.1
+
+# --- reporting (to_markdown needs tabulate) ---
+tabulate==0.10.0
+
+# --- dev tools (lint, tests, complexity) ---
+pylint==4.1.3
+pytest==9.2.0
+radon==6.0.1

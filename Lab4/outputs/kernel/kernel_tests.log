@@ -1,0 +1,25 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- /usr/local/bin/python3
+cachedir: .pytest_cache
+rootdir: /lab4
+configfile: pytest.ini
+collecting ... collected 16 items
+
+tests/test_kernel.py::test_flowmeter_tcp_fin PASSED                      [  6%]
+tests/test_kernel.py::test_classify_trigger PASSED                       [ 12%]
+tests/test_kernel.py::test_filter_blocks_after_malicious PASSED          [ 18%]
+tests/test_kernel.py::test_block_expiry PASSED                           [ 25%]
+tests/test_kernel.py::test_mode_all_requires_both PASSED                 [ 31%]
+tests/test_kernel.py::test_mode_off PASSED                               [ 37%]
+tests/test_kernel.py::test_not_tracked_pass[arp] PASSED                  [ 43%]
+tests/test_kernel.py::test_not_tracked_pass[ipv6] PASSED                 [ 50%]
+tests/test_kernel.py::test_not_tracked_pass[icmp] PASSED                 [ 56%]
+tests/test_kernel.py::test_not_tracked_pass[fragment] PASSED             [ 62%]
+tests/test_kernel.py::test_not_tracked_pass[short] PASSED                [ 68%]
+tests/test_kernel.py::test_not_tracked_pass[ihl4] PASSED                 [ 75%]
+tests/test_kernel.py::test_not_tracked_pass[doff4] PASSED                [ 81%]
+tests/test_kernel.py::test_not_tracked_pass[vlan] PASSED                 [ 87%]
+tests/test_kernel.py::test_kernel_parity PASSED                          [ 93%]
+tests/test_kernel.py::test_record_evidence PASSED                        [100%]
+
+============================== 16 passed in 1.15s ==============================

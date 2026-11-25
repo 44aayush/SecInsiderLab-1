@@ -1,0 +1,14 @@
+[MAIN]
+# mccabe extension enforces max-complexity (CLAUDE.md 8)
+load-plugins=pylint.extensions.mccabe
+# script/ is the import root, so "import common" and "from clf import ..." resolve
+source-roots=script
+# lets "pylint script tests" descend into the packages
+recursive=yes
+
+[MCCABE]
+max-complexity=10
+
+[BASIC]
+# short names allowed by CLAUDE.md 8
+good-names=i,j,k,ex,Run,_,x,y,df

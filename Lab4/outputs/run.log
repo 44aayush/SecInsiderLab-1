@@ -1,0 +1,15 @@
+2026-11-26 00:13:02,513 INFO preprocess: inf/NaN rows dropped: {'n': 34, 'by_class': {'BENIGN': 32, 'DDoS': 2}} (inf {'Flow Bytes/s': 30, 'Flow Packets/s': 34}, NaN {'Flow Bytes/s': 4})
+2026-11-26 00:13:02,932 INFO preprocess: duplicate rows dropped: {'n': 2629, 'by_class': {'BENIGN': 2618, 'DDoS': 11}}
+2026-11-26 00:13:03,124 INFO preprocess: constant columns dropped (10): ['Bwd PSH Flags', 'Fwd URG Flags', 'Bwd URG Flags', 'CWE Flag Count', 'Fwd Avg Bytes/Bulk', 'Fwd Avg Packets/Bulk', 'Fwd Avg Bulk Rate', 'Bwd Avg Bytes/Bulk', 'Bwd Avg Packets/Bulk', 'Bwd Avg Bulk Rate']
+2026-11-26 00:13:04,854 INFO preprocess: identical columns dropped (9): {'SYN Flag Count': 'Fwd PSH Flags', 'ECE Flag Count': 'RST Flag Count', 'Avg Fwd Segment Size': 'Fwd Packet Length Mean', 'Avg Bwd Segment Size': 'Bwd Packet Length Mean', 'Fwd Header Length.1': 'Fwd Header Length', 'Subflow Fwd Packets': 'Total Fwd Packets', 'Subflow Fwd Bytes': 'Total Length of Fwd Packets', 'Subflow Bwd Packets': 'Total Backward Packets', 'Subflow Bwd Bytes': 'Total Length of Bwd Packets'}
+2026-11-26 00:13:05,015 INFO preprocess: split sizes: {'train': 156157, 'val': 33462, 'test': 33463}
+2026-11-26 00:13:05,862 INFO __main__: dt val F1 by depth {6: 0.9990359311081581, 8: 0.9991403787543307, 10: 0.9990622557957801} -> 6
+2026-11-26 00:13:06,536 INFO __main__: xgb val F1 by depth {4: 0.998958007710743, 5: 0.9990620114643043, 6: 0.9990360315764791} -> 4
+2026-11-26 00:13:08,256 INFO __main__: test metrics:
+| Model | Accuracy | Precision | Recall | F1 | Macro-F1 | ROC-AUC | TP | TN | FP | FN | Train time (s) | Predict time (s) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Decision Tree | 0.9989 | 0.9998 | 0.9983 | 0.9991 | 0.9989 | 0.9999 | 19170 | 14257 | 4 | 32 | 0.2376 | 0.0013 |
+| XGBoost (20 trees) | 0.9987 | 0.9994 | 0.9984 | 0.9989 | 0.9987 | 0.9998 | 19171 | 14250 | 11 | 31 | 0.2953 | 0.0070 |
+| Decision Tree (integer) | 0.9989 | 0.9998 | 0.9983 | 0.9991 | 0.9989 | 0.9990 | 19170 | 14257 | 4 | 32 | 0.2376 | 0.2587 |
+| XGBoost (integer) | 0.9987 | 0.9994 | 0.9984 | 0.9989 | 0.9987 | 0.9998 | 19171 | 14250 | 11 | 31 | 0.2953 | 0.2638 |
+

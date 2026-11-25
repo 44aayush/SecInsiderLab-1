@@ -1,0 +1,57 @@
+{
+ "format": 1,
+ "features": [
+  "Total Fwd Packets",
+  "Total Length of Fwd Packets",
+  "Fwd Packet Length Max",
+  "Fwd Packet Length Min",
+  "Fwd Packet Length Mean",
+  "Fwd IAT Total",
+  "Fwd IAT Mean",
+  "Fwd IAT Max",
+  "Fwd IAT Min",
+  "act_data_pkt_fwd"
+ ],
+ "scales": [
+  1,
+  1,
+  1,
+  1,
+  1000,
+  1000,
+  1000,
+  1000,
+  1000,
+  1
+ ],
+ "leaf_shift": 16,
+ "nodes": [
+  [
+   -1,
+   0,
+   0,
+   0,
+   1
+  ],
+  [
+   -1,
+   0,
+   0,
+   0,
+   65536
+  ]
+ ],
+ "dt_root": 0,
+ "xgb_roots": [
+  1
+ ],
+ "xgb_base_margin": 0,
+ "meta": {
+  "dt_depth": 0,
+  "xgb_depth": 0,
+  "xgb_trees": 1,
+  "n_nodes": 2,
+  "csv_sha256": "",
+  "created": "2026-11-25T00:00:00Z"
+ }
+}

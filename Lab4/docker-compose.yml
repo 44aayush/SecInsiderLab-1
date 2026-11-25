@@ -1,0 +1,58 @@
+# Lab 4 topology (CLAUDE.md 5.6): client -> front -> [ids: XDP gateway] -> back -> nginx/apache/pinger.
+name: lab4
+
+networks:
+  mgmt:
+    ipam: {config: [{subnet: 172.28.0.0/24}]}
+  front:
+    ipam: {config: [{subnet: 172.28.1.0/24}]}
+  back:
+    ipam: {config: [{subnet: 172.28.2.0/24}]}
+
+services:
+  nginx:
+    image: nginx:stable-alpine
+    networks:
+      back: {ipv4_address: 172.28.2.10}
+
+  apache:
+    image: httpd:2.4-alpine
+    networks:
+      back: {ipv4_address: 172.28.2.11}
+
+  pinger:
+    image: alpine:3
+    command: ["sleep", "infinity"]
+    networks:
+      back: {ipv4_address: 172.28.2.30}
+
+  client:
+    image: alpine:3
+    cap_add: [NET_ADMIN]
+    environment:
+      CLIENT_INTERVAL_S: "${CLIENT_INTERVAL_S:-1}"
+    volumes:
+      - ./docker/client_traffic.sh:/client_traffic.sh:ro
+    command: ["sh", "/client_traffic.sh"]
+    depends_on: [ids, nginx, apache]
+    networks:
+      front: {ipv4_address: 172.28.1.20}
+
+  ids:
+    image: lab4-ids:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    privileged: true
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    environment:
+      LAB4_UID: "${LAB4_UID:-}"
+      LAB4_GID: "${LAB4_GID:-}"
+    volumes:
+      - ./models:/lab4/models:ro
+      - ./outputs:/lab4/outputs
+    networks:
+      mgmt: {ipv4_address: 172.28.0.2, interface_name: mgmt0}
+      front: {ipv4_address: 172.28.1.2, interface_name: ext0}
+      back: {ipv4_address: 172.28.2.2, interface_name: int0}

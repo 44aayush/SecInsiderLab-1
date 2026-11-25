@@ -1,0 +1,53 @@
+NAME            IMAGE                 COMMAND                  SERVICE   CREATED          STATUS          PORTS
+lab4-apache-1   httpd:2.4-alpine      "httpd-foreground"       apache    22 minutes ago   Up 22 minutes   80/tcp
+lab4-client-1   alpine:3              "sh /client_traffic.…"   client    22 minutes ago   Up 22 minutes   
+lab4-ids-1      lab4-ids:latest       "/usr/local/bin/ids_…"   ids       16 seconds ago   Up 5 seconds    
+lab4-nginx-1    nginx:stable-alpine   "/docker-entrypoint.…"   nginx     22 minutes ago   Up 22 minutes   80/tcp
+lab4-pinger-1   alpine:3              "sleep infinity"         pinger    22 minutes ago   Up 22 minutes   
+PING nginx (172.28.2.10): 56 data bytes
+64 bytes from 172.28.2.10: seq=0 ttl=64 time=0.111 ms
+64 bytes from 172.28.2.10: seq=1 ttl=64 time=0.052 ms
+64 bytes from 172.28.2.10: seq=2 ttl=64 time=0.105 ms
+
+--- nginx ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 0.052/0.089/0.111 ms
+PASS: ping nginx
+PING apache (172.28.2.11): 56 data bytes
+64 bytes from 172.28.2.11: seq=0 ttl=64 time=0.078 ms
+64 bytes from 172.28.2.11: seq=1 ttl=64 time=0.063 ms
+64 bytes from 172.28.2.11: seq=2 ttl=64 time=0.129 ms
+
+--- apache ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 0.063/0.090/0.129 ms
+PASS: ping apache
+PING 172.28.2.10 (172.28.2.10): 56 data bytes
+64 bytes from 172.28.2.10: seq=0 ttl=64 time=0.058 ms
+64 bytes from 172.28.2.10: seq=1 ttl=64 time=0.117 ms
+64 bytes from 172.28.2.10: seq=2 ttl=64 time=0.183 ms
+
+--- 172.28.2.10 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 0.058/0.119/0.183 ms
+PASS: ping 172.28.2.10
+PING 172.28.2.11 (172.28.2.11): 56 data bytes
+64 bytes from 172.28.2.11: seq=0 ttl=64 time=0.057 ms
+64 bytes from 172.28.2.11: seq=1 ttl=64 time=0.172 ms
+64 bytes from 172.28.2.11: seq=2 ttl=64 time=0.068 ms
+
+--- 172.28.2.11 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 0.057/0.099/0.172 ms
+PASS: ping 172.28.2.11
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+PASS: http nginx (first 4 lines)
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<title>It works! Apache httpd</title>
+PASS: http apache (first 4 lines)
+RESULT: all checks PASSED

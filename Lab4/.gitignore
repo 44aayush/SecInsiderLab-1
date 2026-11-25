@@ -1,0 +1,14 @@
+# outputs/ and models/ are deliberately NOT ignored: the report and the deck reuse them.
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# Side runs go to their own outputs_*/ folder and are not committed.
+outputs_*/
+models_quick/
+# Compiled BPF objects are rebuilt by make -C xdp.
+xdp/*.o
+# LibreOffice lock files
+.~lock.*#
+# Excluded for now (user, 2026-11-26)
+Wednesday_dataset/
