@@ -5,7 +5,9 @@ Legend: **[O]** Opus (main session) · **[S]** Sonnet (dev/test/e2e/docs) · **[
 Only Opus ticks boxes, and only after checking the acceptance criteria (AC).
 Deadline **2026-11-11**.
 
-Scope is exactly what `../Task3.png` / `../Task4.png` ask for, plus the tests needed to trust the results. Do not add tasks without the user's approval. All commands run from `Lab2/Friday_Dataset/` unless stated.
+Scope is exactly what `Task3.png` / `Task4.png` ask for, plus the tests needed to trust the results. Do not add tasks without the user's approval. All commands run from `Lab2/` unless stated.
+
+> **Layout change (user, 2026-11-25):** the contents of `Friday_Dataset/` were moved to the `Lab2/` root, and `Friday_Dataset/` and `Thursday_Dataset/` were deleted. The `Friday_Dataset/` and `../` paths in the ticked tasks below are history; read them relative to `Lab2/`. `bash run.sh` reproduces the pipeline.
 
 ---
 

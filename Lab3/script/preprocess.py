@@ -1,7 +1,7 @@
 """Cleaning, 70/15/15 splitting and scaling of the CIC-IDS2017 Friday DDoS CSV.
 
 Serves Tasks 1-3 (it produces the ``DataSplits`` every model trains on).
-Cleaning logic is ported from ``../Lab2/Friday_Dataset/src/ddosids/data.py``
+Cleaning logic is ported from ``../Lab2/src/ddosids/data.py``
 (copied and adapted, never imported); see CLAUDE.md 4.4-4.7.
 """
 from __future__ import annotations

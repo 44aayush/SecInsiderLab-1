@@ -16,13 +16,12 @@ Lab 3 trains 5 classical classifiers (Task 1) and 3 neural networks (Task 2) on 
 | Work type | Model | How to delegate |
 |---|---|---|
 | Orchestration, planning, analysis of the task specs, design decisions, audit and review of code and outputs, **writing and maintaining this `CLAUDE.md` and `TASKS.md`** | **Opus 5.5** (main session) | inline |
-| Review of `CLAUDE.md` and `TASKS.md` | **Fable 5.2** | `Agent(subagent_type="general-purpose", model="fable", ...)`, read-only; returns findings, and Opus applies them |
 | Coding: Python modules, unit and e2e tests, debugging, pylint fixes. Future docs (README, report text), LaTeX, presentation | **Sonnet 5.5** | `Agent(subagent_type="general-purpose", model="sonnet", ...)` |
 | Browser use, command-line execution (env setup, running `main.py`/`pytest`/`pylint`/`radon`, collecting output), file inventory, text extraction, other low-level tasks | **Haiku 5.5** | `Agent(subagent_type="general-purpose", model="haiku", ...)` |
 
 Rules:
 
-1. **Exception to the global routing** (user, 2026-11-13): the Lab 3 `CLAUDE.md` and `TASKS.md` are written by Opus and reviewed by Fable. Every other document goes to Sonnet.
+1. **Exception to the global routing** (user, 2026-11-13): the Lab 3 `CLAUDE.md` and `TASKS.md` are written by Opus. Every other document goes to Sonnet.
 2. Subagents start cold. Each prompt names the `TASKS.md` ID(s), tells the agent to read this file and its `TASKS.md` entry first, and gives the exact output paths and the AC.
 3. Sonnet may run `pytest`, `pylint`, `radon` and short smoke runs while debugging its own code. This is Opus's interpretation of the routing: "debugging" is Sonnet's work. Env setup, the full `main.py` run, the e2e tests and the official verification runs stay with Haiku.
 4. Haiku reports output verbatim and edits no files. Running commands may create `.venv/`, caches and `outputs/`. Opus routes every fix to Sonnet.
@@ -55,7 +54,7 @@ Binding user instructions (2026-11-13):
 - **D3:** the report and the presentation are deferred; keep the §10 structure.
 - **D4:** keep all the extra comparison outputs (§4.11 metrics, the val table, md/tex exports), and generate **several chart and grid variants** (§5.1). The user picks figures from `outputs/figures/INDEX.md`, and the report and the deck reuse that selection.
 
-- **D6 (2026-11-13):** `WINDOWS.md` for running on Windows with an RTX 3050 6 GB (`--device cuda`); a `--log-txt` report; TP and TN columns. **Per-model DL epoch limits** (MLP 30, CNN 30, LSTM 15) were first chosen by an experiment judged on **test** metrics (user rule: a longer limit only if no metric gets worse). The Fable audit (2026-11-15, M2) flagged this as test-set reuse; the caps are now justified on **validation** evidence: with cap 15 no DL model early-stopped, and with cap 30 the best validation epochs are MLP 29 and CNN 22 (CNN early-stops at 25). Because MLP's best epoch 29 sat at the cap, its cap was raised to **40** (2026-11-15, m12): it then early-stops at 32 with the same best epoch 29 (val loss 0.00167), so the model is identical and the cap no longer ends training. Final caps: MLP 40, CNN 30, LSTM 40. The report must disclose that the test set informed the first choice. **Superseded for the LSTM on 2026-11-15 (D7).**
+- **D6 (2026-11-13):** `GPU.md` (renamed from `WINDOWS.md` on 2026-11-25; PowerShell and Git Bash) for running on Windows with an RTX 3050 6 GB (`--device cuda`); a `--log-txt` report; TP and TN columns. **Per-model DL epoch limits** (MLP 30, CNN 30, LSTM 15) were first chosen by an experiment judged on **test** metrics (user rule: a longer limit only if no metric gets worse). The Fable audit (2026-11-15, M2) flagged this as test-set reuse; the caps are now justified on **validation** evidence: with cap 15 no DL model early-stopped, and with cap 30 the best validation epochs are MLP 29 and CNN 22 (CNN early-stops at 25). Because MLP's best epoch 29 sat at the cap, its cap was raised to **40** (2026-11-15, m12): it then early-stops at 32 with the same best epoch 29 (val loss 0.00167), so the model is identical and the cap no longer ends training. Final caps: MLP 40, CNN 30, LSTM 40. The report must disclose that the test set informed the first choice. **Superseded for the LSTM on 2026-11-15 (D7).**
 - **D7 (2026-11-15, user):** the LSTM gets gradient clipping 1.0, its own learning rate and patience. Values chosen by Opus by lowest **validation** loss over a 3-config grid (Linux CPU): lr 5e-4 / patience 7 / cap 40 (val loss 0.00529) beat lr 5e-4 / p5 / cap 30 (0.00567, hit the cap) and lr 3e-4 / p5 / cap 40 (0.00720). Settings live in `dl/lstm_dl.py` (`LEARNING_RATE`, `PATIENCE`, `MAX_EPOCHS`, `GRAD_CLIP_NORM`) and reach `run_dl` as `dl_common.TrainSettings`; MLP and CNN keep the shared lr 1e-3, patience 3, no clipping.
 
 The Task 1 slide names Gradient Boosting, AdaBoost and SVM but allows an own selection. LR, RF and XGBoost are the user's choice; the report states this.
@@ -64,7 +63,7 @@ The Task 1 slide names Gradient Boosting, AdaBoost and SVM but allows an own sel
 
 ## 3. Verified data facts
 
-Lab 2 profiled this file on 2026-11-09 (`../Lab2/Friday_Dataset/CLAUDE.md` §2). Fable re-ran the §4.4 cleaning on the **Lab 3 copy** on 2026-11-13 (Lab 3 venv: pandas 3.1.0, sklearn 1.9.1), and every number below reproduced.
+Lab 2 profiled this file on 2026-11-09 (`../Lab2/CLAUDE.md` §2). Fable re-ran the §4.4 cleaning on the **Lab 3 copy** on 2026-11-13 (Lab 3 venv: pandas 3.1.0, sklearn 1.9.1), and every number below reproduced.
 
 Both copies have sha256 `646fd1282cf584bd330caf4dab51c689799b223425cf643edde172a1a655793d` (77,349,605 bytes, about 77 MB). The Lab 3 e2e test (T5.7) pins these numbers on the Lab 3 code.
 
@@ -74,7 +73,7 @@ Both copies have sha256 `646fd1282cf584bd330caf4dab51c689799b223425cf643edde172a
 - **Labels:** DDoS 128,027 (56.7 %, the majority class), BENIGN 97,718. Labels are clean (no U+FFFD).
 - **inf/NaN** (all +inf, no −inf): `Flow Bytes/s` has 30 inf and 4 NaN; `Flow Packets/s` has 34 inf. In total **34 rows** are affected: 32 BENIGN, 2 DDoS.
 - **Duplicate rows**, counted after the inf/NaN drop on the full row including `Label`: **2,629** (2,618 BENIGN, 11 DDoS). There are 2,633 in the raw file.
-- **Constant columns: 10**, exactly the list in `../Lab2/Friday_Dataset/tests/test_task3.py:174-177`.
+- **Constant columns: 10**, exactly the list in `../Lab2/tests/test_task3.py:174-177`.
 - **Identical columns: 9 dropped.** These are the 8 in `test_task3.py:178-180` plus `Fwd Header Length.1`, which pairs with `Fwd Header Length`. The first occurrence of each pair is kept. `Avg Bwd Segment Size` is the only twin that is not an exact copy: it differs in 2 rows by less than 1e-6, so the check needs `atol=1e-6`.
 - **Clean set:** **223,082 rows × 59 features** (78 − 10 − 9). DDoS 128,014, BENIGN 95,068. Dropping the columns creates no new duplicate rows.
 - **Negative values** exist (`Init_Win_bytes_*` = −1, and a few IAT/duration values).
@@ -88,7 +87,7 @@ Both copies have sha256 `646fd1282cf584bd330caf4dab51c689799b223425cf643edde172a
   | test | 33,463 | 19,202 | 14,261 |
 
 - **Lab 2 baselines** (70/30, MinMax + chi2 top-20, so not directly comparable): Decision Tree DDoS-F1 0.9996, Logistic Regression ≈ 0.974. Expect near-perfect scores for RF, XGB and the DL models. The differences will show in the FP/FN counts.
-- **Fixture** `../Lab2/Friday_Dataset/tests/fixtures/sample_ddos.csv`: 3,187 rows (1,665 BENIGN / 1,522 DDoS), with 34 inf rows.
+- **Fixture** `../Lab2/tests/fixtures/sample_ddos.csv`: 3,187 rows (1,665 BENIGN / 1,522 DDoS), with 34 inf rows.
 
 ### Final results (test split, final run 2026-11-15 after the Fable fixes, Linux CPU; caps MLP 40 / CNN 30 / LSTM 40, D7 LSTM; `outputs/metrics/comparison_test.md`, `outputs/run_report.txt`, 303 s)
 
@@ -154,7 +153,7 @@ The D7 LSTM is better than every earlier LSTM on every test metric, and it now r
    6. drop identical columns (`np.allclose(a, b, rtol=0, atol=1e-6)`; keep the first occurrence in CSV column order)
 
    Each step logs the rows or columns it dropped, with counts (per class for rows) and names (for columns).
-   - The logic is ported from `../Lab2/Friday_Dataset/src/ddosids/data.py`; `features.py` there is chi2 selection, which §4.7 excludes.
+   - The logic is ported from `../Lab2/src/ddosids/data.py`; `features.py` there is chi2 selection, which §4.7 excludes.
    - **Deviation from Lab 2:** `Fwd Header Length.1` is not dropped by name up front (Lab 2 `data.py:111-115`). Step 6 catches it, and Fable verified that the rows and columns come out the same.
    - **Step 4 is confirmed by the user (decision D1, 2026-11-13).** Without it, duplicates would sit in both train and test and inflate the scores.
    - `clean` reads the flag at call time (`import common`, then `common.DROP_DUPLICATES`), so tests can monkeypatch it.
@@ -344,7 +343,7 @@ All module paths in this table are relative to `script/`.
 
 ```
 Lab3/
-├── CLAUDE.md  TASKS.md                                   # Opus-owned, Fable-reviewed
+├── CLAUDE.md  TASKS.md                                   # Opus-owned
 ├── Task1.png … Task4.png  Security_Insider_lab_3.pptx    # specs (read-only)
 ├── Friday-WorkingHours-Afternoon-DDos.csv                # dataset (read-only, 77 MB)
 ├── requirements.txt  .python-version  .pylintrc  pytest.ini  .gitignore
@@ -430,7 +429,7 @@ pytest -m e2e -q                                                              # 
   - The **LSTM training is unstable on both platforms**: the train loss spikes (CPU epoch 3: 0.13→0.28; GPU epoch 5: 0.05→0.30). With patience 3 the GPU run stopped at epoch 7. Likely cause: exploding gradients over the 59-step sequence on heavy-tailed standardised inputs, with no gradient clipping. **User decision 2026-11-15: LSTM uses gradient clipping** (`GRAD_CLIP_NORM = 1.0` in `dl/lstm_dl.py`, passed as `run_dl(..., settings=TrainSettings(...))`; MLP/CNN do not clip, verified bit-identical MLP rerun). Linux CPU result (`outputs/runs/run_report_lstm_clip_linux_cpu.txt`): F1 0.9943→0.9964, acc 0.9935→0.9958, recall 0.9939→0.9988, FN 118→23, ROC-AUC 0.9998 equal, but precision 0.9947→0.9940 and FP 101→116. The train-loss spikes are smaller, but the val loss still oscillates (0.016–0.086), so clipping reduces the instability without removing it. 
   - LR differs by 3 FP: lbfgs stops at its tolerance, and different BLAS builds/thread counts reach it at a slightly different point. ML models are therefore "identical up to solver tolerance", not bit-identical.
   - **Times are not comparable across machines.** The Linux LR fit of 110 s was contention: re-measured on 2026-11-15 it takes 12.3 s (80 lbfgs iterations, OpenBLAS, 6 threads). The GPU gives no speed-up for the small MLP (≈1.7 s/epoch plus ≈7 s CUDA start-up) but a ≈1.8× per-epoch speed-up for the LSTM.
-  - Artefacts: `outputs/` holds the consolidated Linux CPU run (`run.log`, `run_report.txt`, `metrics/`, `figures/`). Evidence of all other runs is in `outputs/runs/`: `run_linux_cpu_full_untuned_lstm.log` + `run_report_linux_cpu_full_untuned_lstm.txt` (2026-11-13), `run_windows_gpu_full_untuned_lstm.log` + `run_report_windows_gpu_full_untuned_lstm.txt`, `run_report_lstm_clip_linux_cpu.txt`, `run_report_lstm_enhance_linux_cpu.txt`, `run_report_lstm_enhance_windows_gpu.txt`. Side runs go to a git-ignored `outputs_<name>/` (WINDOWS.md §10).
+  - Artefacts: `outputs/` holds the consolidated Linux CPU run (`run.log`, `run_report.txt`, `metrics/`, `figures/`). Evidence of all other runs is in `outputs/runs/`: `run_linux_cpu_full_untuned_lstm.log` + `run_report_linux_cpu_full_untuned_lstm.txt` (2026-11-13), `run_windows_gpu_full_untuned_lstm.log` + `run_report_windows_gpu_full_untuned_lstm.txt`, `run_report_lstm_clip_linux_cpu.txt`, `run_report_lstm_enhance_linux_cpu.txt`, `run_report_lstm_enhance_windows_gpu.txt`. Side runs go to a git-ignored `outputs_<name>/` (GPU.md §10).
 - **Log-x ROC:** FPR = 0 cannot be drawn on a log axis, so clip it at 1e-5 (one false positive on the test set is about 7e-5).
 - LR may warn with `ConvergenceWarning` on the heavy-tailed standardized data. Log the warning; do not silence it.
 - The deck is open in LibreOffice (`.~lock.Security_Insider_lab_3.pptx#`). Never touch the lock file or the deck.
@@ -442,7 +441,7 @@ pytest -m e2e -q                                                              # 
 
 Report started 2026-11-15 (user request); presentation still deferred (D3).
 
-- **Deliverable:** `G8.Report3.pdf` (format `GX.ReportY.pdf`), 10–15 pages, short and clear, with screenshots. "Document everything." It is written in LaTeX by Sonnet in `Lab3/report/`. Reuse the Lab 2 Friday report template and its build rule (`../Lab2/Friday_Dataset/report/`, `latexmkrc_2`).
+- **Deliverable:** `G8.Report3.pdf` (format `GX.ReportY.pdf`), 10–15 pages, short and clear, with screenshots. "Document everything." It is written in LaTeX by Sonnet in `Lab3/report/`. Reuse the Lab 2 Friday report template and its build rule (`../Lab2/report/`, `latexmkrc_2`).
 - **Submission (deck slides 3 and 12; the user sends it):**
   - send to tf@sec.uni-passau.de and aeg@sec.uni-passau.de
   - reply in the **same email thread** as the earlier reports; do not start a new email
@@ -463,6 +462,6 @@ Report started 2026-11-15 (user request); presentation still deferred (D3).
 
 - **No hardware in the report (user 2026-11-15):** no CPU vs GPU table, and no mention that runs were on CPU or GPU (or Windows/Linux). The report covers only the tasks, models, settings and metrics. The cross-platform evidence stays in `outputs/runs/` and §3/§9 for internal use.
 - **Required by the professor (user 2026-11-15):** keep the lists of figures/tables/listings and the declaration page (Eidesstattliche Erklärung).
-- **Title page:** reuse Lab 2 (`../Lab2/Friday_Dataset/report/thesis.tex`): same two authors, group 8, same matriculation numbers.
+- **Title page:** reuse Lab 2 (`../Lab2/report/thesis.tex`): same two authors, group 8, same matriculation numbers.
 - **Numbers rule:** every number comes from `outputs/metrics/*`, and every figure from `outputs/figures/`.
 - Do not commit to git unless the user asks.

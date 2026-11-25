@@ -1,7 +1,7 @@
 """Shared pytest fixtures for the Lab 3 unit tests.
 
 ``fixtures/sample_ddos.csv`` is a byte-for-byte copy of
-``../Lab2/Friday_Dataset/tests/fixtures/sample_ddos.csv`` (3,187 rows,
+``../Lab2/tests/fixtures/sample_ddos.csv`` (3,187 rows,
 CRLF, 34 inf rows) with sha256
 ``e11e365a1de7456954074532a1bd9c6583d7046d666b7a4ae8c360fcdd01db3f``.
 Unit tests never read the 77 MB CSV.

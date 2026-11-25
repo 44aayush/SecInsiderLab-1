@@ -14,7 +14,7 @@ mrt = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(mrt)
 
 NEEDED = [
-    ROOT.parent / "task2_lab2.pcap_Flow.csv",
+    ROOT / "task2_lab2.pcap_Flow.csv",
     ROOT / "outputs" / "task3" / "cleaning_report.json",
     ROOT / "outputs" / "task4" / "metrics.json",
     ROOT / "outputs" / "realtime" / "predictions.csv",

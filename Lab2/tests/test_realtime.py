@@ -18,7 +18,7 @@ from ddosids.realtime.detector import Detector, sort_by_timestamp, stream
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests" / "fixtures" / "sample_ddos.csv"
-FLOWS = config.FRIDAY_ROOT.parent / "task2_lab2.pcap_Flow.csv"
+FLOWS = config.FRIDAY_ROOT / "task2_lab2.pcap_Flow.csv"
 REAL_META = ROOT / "artifacts" / "models" / "meta.json"
 
 

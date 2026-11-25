@@ -1,8 +1,25 @@
-# Running Lab 3 on Windows (NVIDIA RTX 3050, 6 GB)
+# Running Lab 3 on a GPU (Windows, NVIDIA RTX 3050, 6 GB)
 
-Everything below is copy-paste PowerShell unless marked `cmd.exe`. All commands run from the `Lab3` folder.
+Every step with commands comes in two variants: **PowerShell** and **Git Bash**. Pick your shell in the table of contents. All commands run from the `Lab3` folder (`cmd.exe` is mentioned where it differs).
+
+`bash run.sh` is Linux-only: it uses `.venv/bin/python` (on Windows the venv has `.venv/Scripts/python.exe`) and installs the CPU build of PyTorch. Git Bash users should run the commands listed below instead.
+
+## Table of contents
+
+1. [Prerequisites](#1-prerequisites): [PowerShell](#powershell-prerequisites) | [Git Bash](#git-bash-prerequisites)
+2. [Get the code](#2-get-the-code): [PowerShell](#powershell-get-the-code) | [Git Bash](#git-bash-get-the-code)
+3. [Virtual environment and packages](#3-virtual-environment-and-packages): [PowerShell](#powershell-virtual-environment-and-packages) | [Git Bash](#git-bash-virtual-environment-and-packages)
+4. [Quality checks (optional)](#4-quality-checks-optional): [PowerShell](#powershell-quality-checks) | [Git Bash](#git-bash-quality-checks)
+5. [Train, validate and test: one run does all three](#5-train-validate-and-test-one-run-does-all-three)
+6. [Running](#6-running): [PowerShell](#powershell-running) | [Git Bash](#git-bash-running)
+7. [Outputs](#7-outputs)
+8. [Expected runtime and results](#8-expected-runtime-and-results)
+9. [Troubleshooting](#9-troubleshooting)
+10. [Re-running only the LSTM (enhanced settings)](#10-re-running-only-the-lstm-enhanced-settings): [PowerShell](#powershell-re-run-the-lstm) | [Git Bash](#git-bash-re-run-the-lstm)
 
 ## 1. Prerequisites
+
+### PowerShell: prerequisites
 
 1. **NVIDIA driver.** Check it works:
    ```powershell
@@ -15,10 +32,28 @@ Everything below is copy-paste PowerShell unless marked `cmd.exe`. All commands 
    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
    ```
    Close and reopen PowerShell afterwards so `uv` is on the PATH.
-4. **Git LFS (only if needed).** This repo has no `.gitattributes`, so the CSV is a normal 77 MB file. If `Friday-WorkingHours-Afternoon-DDos.csv` is only a tiny pointer file (a few lines of text), run `git lfs install; git lfs pull`.
+4. **Git LFS (required).** The CSV is stored with Git LFS. After cloning, run `git lfs install; git lfs pull`. If `Friday-WorkingHours-Afternoon-DDos.csv` is only a few lines of text, it is still an LFS pointer.
 5. Optional, for deep paths: enable long paths (admin PowerShell): `New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force`.
 
+### Git Bash: prerequisites
+
+1. **NVIDIA driver.** Check it works:
+   ```bash
+   nvidia-smi
+   ```
+   It must list the RTX 3050 and a "CUDA Version". No CUDA toolkit install is needed; the PyTorch wheel ships its own CUDA runtime.
+2. **Git** (https://git-scm.com/download/win). Git Bash comes with it.
+3. **uv** (Python package manager), official installer (it calls PowerShell, so it works from Git Bash too):
+   ```bash
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+   ```
+   Close and reopen Git Bash afterwards so `uv` is on the PATH.
+4. **Git LFS (required).** The CSV is stored with Git LFS. After cloning, run `git lfs install && git lfs pull`. If `Friday-WorkingHours-Afternoon-DDos.csv` is only a few lines of text, it is still an LFS pointer.
+5. Optional, for deep paths: long paths can only be enabled from an admin PowerShell (see the PowerShell variant above).
+
 ## 2. Get the code
+
+### PowerShell: get the code
 
 ```powershell
 git clone <repo-url> SecInsiderLab-1
@@ -26,7 +61,17 @@ cd SecInsiderLab-1\Lab3
 ```
 (or copy the `Lab3` folder, including the CSV, and `cd` into it).
 
+### Git Bash: get the code
+
+```bash
+git clone <repo-url> SecInsiderLab-1
+cd SecInsiderLab-1/Lab3
+```
+(or copy the `Lab3` folder, including the CSV, and `cd` into it).
+
 ## 3. Virtual environment and packages
+
+### PowerShell: virtual environment and packages
 
 ```powershell
 uv venv --python 3.12 .venv
@@ -52,7 +97,29 @@ python -c "import torch; print(torch.__version__, torch.cuda.is_available(), tor
 ```
 Expected: `2.15.0+cu132 True NVIDIA GeForce RTX 3050 ...`. If `python` opens the Microsoft Store, use `.venv\Scripts\python.exe` instead (see section 9).
 
+### Git Bash: virtual environment and packages
+
+```bash
+uv venv --python 3.12 .venv
+source .venv/Scripts/activate
+```
+(or skip activation and call `.venv/Scripts/python` directly, for example `.venv/Scripts/python script/main.py ...`).
+
+Install (same `--torch-backend=auto` as above):
+```bash
+uv pip install -r requirements.txt --torch-backend=auto
+```
+If `auto` picks a wrong build or CUDA is not detected later, force one: `--torch-backend=cu128` (or `cu126` for older drivers). The torch version notes above apply unchanged.
+
+Verify the GPU is visible:
+```bash
+python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+Expected: `2.15.0+cu132 True NVIDIA GeForce RTX 3050 ...`. If `python` opens the Microsoft Store, use `.venv/Scripts/python` instead (see section 9).
+
 ## 4. Quality checks (optional)
+
+### PowerShell: quality checks
 
 ```powershell
 pylint script tests
@@ -60,6 +127,16 @@ radon cc -n C script tests
 pytest -m "not e2e" -q
 pytest -m e2e -q
 ```
+
+### Git Bash: quality checks
+
+```bash
+pylint script tests
+radon cc -n C script tests
+pytest -m "not e2e" -q
+pytest -m e2e -q
+```
+
 `pylint` must score 10.00/10, `radon` must print nothing. The e2e tests read the full 77 MB CSV (about 5–20 s).
 
 ## 5. Train, validate and test: one run does all three
@@ -80,7 +157,10 @@ Where each result lands (under `--out`, default `outputs\`):
 | Every log line | `run.log` |
 | Everything in one shareable file | the `--log-txt` report |
 
+
 ## 6. Running
+
+### PowerShell: running
 
 Full pipeline (all 8 models; DL on the GPU) with the shareable report:
 ```powershell
@@ -91,23 +171,45 @@ ML models only (no torch is loaded):
 ```powershell
 python script\main.py --models gnb lr knn rf xgb
 ```
-One classifier alone: `python script\main.py --models gnb` (also `lr`, `knn`, `rf`, `xgb`).
-
 DL models only, on the GPU:
 ```powershell
 python script\main.py --models mlp lstm cnn --device cuda
 ```
-One DL model alone: `python script\main.py --models lstm --device cuda` (also `mlp`, `cnn`).
-
-CPU fallback: `--device cpu`. The default `--device auto` uses CUDA if available, else CPU.
-Epoch limits: each DL model has its own maximum (`MAX_EPOCHS` in its module: MLP 40, CNN 30, LSTM 40; early stopping may stop sooner). The LSTM also has its own learning rate 5e-4, patience 7 and gradient clipping 1.0 (constants in `script\dl\lstm_dl.py`). `--epochs N` overrides the limit of all DL models, e.g. `--epochs 5`.
-
-Single-model re-runs go to a separate `outputs_<name>` folder so they do not overwrite `outputs\` (see section 10). These folders are git-ignored and can be deleted afterwards.
 Quick smoke run on the small fixture (seconds, any machine):
 ```powershell
 python script\main.py --csv tests\fixtures\sample_ddos.csv --epochs 1 --out outputs_smoke --log-txt outputs_smoke\run_report.txt
 ```
 If `python` does not resolve to the venv, write `.venv\Scripts\python.exe script\main.py ...`.
+
+### Git Bash: running
+
+Full pipeline (all 8 models; DL on the GPU) with the shareable report:
+```bash
+python script/main.py --device cuda --log-txt outputs/run_report.txt
+```
+This writes everything into one consolidated folder, `outputs/` (log: `outputs/run.log`).
+ML models only (no torch is loaded):
+```bash
+python script/main.py --models gnb lr knn rf xgb
+```
+DL models only, on the GPU:
+```bash
+python script/main.py --models mlp lstm cnn --device cuda
+```
+Quick smoke run on the small fixture (seconds, any machine):
+```bash
+python script/main.py --csv tests/fixtures/sample_ddos.csv --epochs 1 --out outputs_smoke --log-txt outputs_smoke/run_report.txt
+```
+If `python` does not resolve to the venv, write `.venv/Scripts/python script/main.py ...`.
+
+### Options (both shells)
+
+One classifier alone: `python script/main.py --models gnb` (also `lr`, `knn`, `rf`, `xgb`). One DL model alone: `python script/main.py --models lstm --device cuda` (also `mlp`, `cnn`). In PowerShell write the paths with backslashes (`script\main.py`).
+
+CPU fallback: `--device cpu`. The default `--device auto` uses CUDA if available, else CPU.
+Epoch limits: each DL model has its own maximum (`MAX_EPOCHS` in its module: MLP 40, CNN 30, LSTM 40; early stopping may stop sooner). The LSTM also has its own learning rate 5e-4, patience 7 and gradient clipping 1.0 (constants in `script\dl\lstm_dl.py`). `--epochs N` overrides the limit of all DL models, e.g. `--epochs 5`.
+
+Single-model re-runs go to a separate `outputs_<name>` folder so they do not overwrite `outputs\` (see section 10). These folders are git-ignored and can be deleted afterwards.
 
 ## 7. Outputs
 
@@ -131,6 +233,10 @@ Reference test results (F1 / FP / FN): XGB 1.0000 / 0 / 0, RF 0.9999 / 0 / 3, KN
 - **Path separators:** use backslashes in PowerShell and cmd.exe as written; forward slashes also work in Python arguments. Quote paths that contain spaces.
 - **CSV looks tiny:** it is a Git LFS pointer; run `git lfs install; git lfs pull`.
 
+
+- **Git Bash: `source .venv/Scripts/activate` fails or `python` is not the venv one:** check that `.venv/Scripts/` exists (not `.venv/bin/`), or call `.venv/Scripts/python` directly.
+- **CSV looks tiny:** it is a Git LFS pointer; run `git lfs install; git lfs pull`.
+
 ## 10. Re-running only the LSTM (enhanced settings)
 
 The LSTM now uses enhanced settings (2026-11-15), chosen by lowest validation loss: learning rate 5e-4, patience 7, gradient-norm clipping 1.0 and a cap of 40 epochs (constants in `script\dl\lstm_dl.py`). MLP and CNN are unchanged.
@@ -139,9 +245,19 @@ The LSTM now uses enhanced settings (2026-11-15), chosen by lowest validation lo
 
 Use a NEW output folder. `--out` defaults to `outputs\`, and a single-model run overwrites `metrics\metrics.json`, `metrics\comparison_*.*`, `figures\` and `run.log` there with a 1-model result. The `outputs_<name>` folder is git-ignored and can be deleted after the run; do not commit it.
 
+
+### PowerShell: re-run the LSTM
+
 ```powershell
 .venv\Scripts\Activate.ps1
 python script\main.py --models lstm --device cuda --out outputs_lstm --log-txt outputs_lstm\run_report_lstm_enhance_windows_gpu.txt
+```
+
+### Git Bash: re-run the LSTM
+
+```bash
+source .venv/Scripts/activate
+python script/main.py --models lstm --device cuda --out outputs_lstm --log-txt outputs_lstm/run_report_lstm_enhance_windows_gpu.txt
 ```
 
 How to check: open `outputs_lstm\metrics\comparison_test.md`. The report file lists the per-epoch losses and the settings line (lr 0.0005, patience 7, grad clip 1); look for "early stop at epoch" and for jumps in the loss.

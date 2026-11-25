@@ -3,16 +3,16 @@
 This sub-project does ML-based intrusion detection on CIC-IDS2017 flow features from the **Friday** file `Friday-WorkingHours-Afternoon-DDos.csv`. It covers **Task 3 (Data Pre-processing)** and **Task 4 (Logistic Regression + Decision Tree, plus real-time use)**.
 
 - Course: Security Insider Lab, Uni Passau, group **G8**. Deadline: **2026-11-11**.
-- Specs: `../Task3.png`, `../Task4.png`, and slides 9–10 of `../Thursday_Dataset/lab-2.pptx`. Slide 8 names this Friday file. Progress is tracked in `TASKS.md`.
-- This is a **parallel, self-contained implementation** (user request, 2026-11-09). It does not replace the Thursday pipeline in `../Thursday_Dataset/src/lab2ids/` (the Thursday project now lives in `../Thursday_Dataset/`), and it never imports `lab2ids`.
-- **Scope rule:** same as `../CLAUDE.md`. Implement only what the specs ask for, plus the tests needed to trust the results. Do not add tasks, features, or demos without the user's approval.
+- Specs: `Task3.png`, `Task4.png`, and slides 9–10 of `lab-2.pptx`. Slide 8 names this Friday file. Progress is tracked in `TASKS.md`.
+- This is a **parallel, self-contained implementation** (user request, 2026-11-09). It never imported the Thursday package `lab2ids`. **Layout change (user, 2026-11-25):** the contents of `Friday_Dataset/` now live at the `Lab2/` root, and `Friday_Dataset/` and `Thursday_Dataset/` no longer exist. Older mentions of the Thursday project are history.
+- **Scope rule:** implement only what the specs ask for, plus the tests needed to trust the results. Do not add tasks, features, or demos without the user's approval.
 - **Out of scope (plan decision 6):** the Destination-Port ablation. (The report and the presentation were requested by the user on 2026-11-09; see §9 and §10.)
 
 ---
 
 ## 1. Model routing (MANDATORY)
 
-Same table and rules as `../CLAUDE.md` §1.
+Same table and rules as `~/.claude/CLAUDE.md`.
 
 | Work type | Model | How to delegate |
 |---|---|---|
@@ -21,7 +21,7 @@ Same table and rules as `../CLAUDE.md` §1.
 | Presentations and documents, report text | **Sonnet** | `Agent(subagent_type="general-purpose", model="sonnet", ...)` |
 | Browser use, running terminal commands, env setup, running scripts and collecting output, light tasks | **Haiku** | `Agent(subagent_type="general-purpose", model="haiku", ...)` |
 
-1. Subagents start cold. Each prompt names the **`Friday_Dataset/TASKS.md` F-ID** and tells the agent to read this file, `TASKS.md` and the Thursday source it ports first.
+1. Subagents start cold. Each prompt names the **`TASKS.md` F-ID** and tells the agent to read this file, `TASKS.md` and the Thursday source it ports first.
 2. One task per subagent, one result back. Independent tasks may run in parallel.
 3. Haiku runs commands and reports output verbatim. It does **not** edit `src/`. Opus routes code fixes to Sonnet.
 4. Opus checks every result against its AC and against §2, then ticks the box in `TASKS.md`. **Only Opus ticks boxes.**
@@ -67,7 +67,7 @@ Sanity ranges for the e2e guards.
 
 ### Real-time preview
 
-On `../task2_lab2.pcap_Flow.csv`: 547 flows after the Protocol-0 drop, no missing features.
+On `task2_lab2.pcap_Flow.csv`: 547 flows after the Protocol-0 drop, no missing features.
 
 | Model | Alerts |
 |---|---:|
@@ -83,7 +83,7 @@ The LR alerts are mostly on port 443, which is a domain-shift effect.
 
 ## 3. Design decisions
 
-1. **Self-contained uv project.** `Friday_Dataset/` has its own `pyproject.toml`, `.python-version` (3.12), `.venv` and package **`ddosids`**. Dependencies are pinned to `../Thursday_Dataset/uv.lock`: pandas==3.1.0, numpy==2.5.4, scikit-learn==1.9.1, matplotlib==3.11.2, joblib==1.6.0, pyarrow==26.0.1, and pytest==9.2.0 (dev).
+1. **Self-contained uv project.** `Lab2/` has its own `pyproject.toml`, `.python-version` (3.12), `.venv` and package **`ddosids`**. Dependencies were pinned to the Thursday project's `uv.lock`: pandas==3.1.0, numpy==2.5.4, scikit-learn==1.9.1, matplotlib==3.11.2, joblib==1.6.0, pyarrow==26.0.1, and pytest==9.2.0 (dev).
 2. **Cleaning order:**
    1. load and strip column names
    2. normalise labels (U+FFFD fix kept; it is a no-op here)
@@ -107,15 +107,16 @@ The LR alerts are mostly on port 443, which is a domain-shift effect.
 ## 4. Layout
 
 ```
-Lab2/Friday_Dataset/
-├── CLAUDE.md  TASKS.md  pyproject.toml  uv.lock  .python-version
-├── Friday-WorkingHours-Afternoon-DDos.csv          # moved here (mv)
+Lab2/
+├── README.md  run.sh  CLAUDE.md  TASKS.md  pyproject.toml  uv.lock
+├── lab-2.pptx  Task3.png  Task4.png               # specs
+├── Friday-WorkingHours-Afternoon-DDos.csv  task1_lab2.pcapng  task2_lab2.pcap_Flow.csv
 ├── src/ddosids/  config.py data.py features.py models.py evaluate.py colmap.py realtime/detector.py
 ├── scripts/      task3_preprocess.py  task4_train.py  realtime_detect.py
 ├── tests/        test_task3.py test_task4.py test_realtime.py  fixtures/{make_fixture.py, sample_ddos.csv}
 ├── artifacts/    GENERATED: clean.parquet, split_indices.json, selected_features_binary.json, models/*.joblib, models/meta.json
 ├── outputs/      GENERATED: task3/ task4/ realtime/  (same file names as Thursday, binary only)
-├── SS/           screenshots: the 5 common ones (SS15/17/18/24/25, copied from ../Thursday_Dataset/SS/, sha256-verified) plus SS26+ to come
+├── SS/           screenshots: the 5 common ones (SS15/17/18/24/25, copied from the Thursday project's SS/, sha256-verified) plus SS26+ to come
 └── report/       LaTeX report (written, in review; see §9)
 ```
 
@@ -123,24 +124,24 @@ Lab2/Friday_Dataset/
 
 ## 5. Commands
 
-Run from `Lab2/Friday_Dataset/`, which has its own `.venv`. **Always `cd` here before `uv run`.**
+Run from `Lab2/`, which has its own `.venv`. **Always `cd` here before `uv run`.** `bash run.sh` runs the whole pipeline below (without the e2e tests).
 
 ```bash
-cd /home/aayush/Desktop/SecInsiderLab1/SecInsiderLab-1/Lab2/Friday_Dataset
+cd /home/aayush/Desktop/SecInsiderLab1/SecInsiderLab-1/Lab2
 uv sync
 uv run python scripts/task3_preprocess.py      # 223,082 rows × 59 features, 20 features selected
 uv run python scripts/task4_train.py           # 4 models; DT DDoS-F1 ≈ 0.9996, LR ≈ 0.974
-uv run python scripts/realtime_detect.py ../task2_lab2.pcap_Flow.csv   # 547 classified, 22 dropped
+uv run python scripts/realtime_detect.py task2_lab2.pcap_Flow.csv   # 547 classified, 22 dropped
 uv run pytest -m "not e2e" -q                  # < 30 s
 uv run pytest -m e2e -q                        # full Friday CSV + parity
-git -C .. status --short                       # changes only under Friday_Dataset/, plus CLAUDE.md and .gitattributes
+git status --short                             # a run regenerates the tracked artifacts/ and outputs/
 ```
 
 ---
 
 ## 6. Real-time
 
-- **Input:** `../task2_lab2.pcap_Flow.csv`, made from `../task1_lab2.pcapng`. The flow CSV path is always a CLI argument; it is never copied or hard-coded.
+- **Input:** `task2_lab2.pcap_Flow.csv`, made from `task1_lab2.pcapng`. The flow CSV path is always a CLI argument; it is never copied or hard-coded.
 - **Pipeline:** colmap (V4 → ISCX names) → drop `Protocol==0` rows (expect **22**: 15 ICMP, 4 IPv6, 3 ARP) → inf/NaN→0 → joblib pipeline → per-flow verdict (`BENIGN` / `DDoS`).
 - **Expect domain shift.** The training data was produced by CICFlowMeter V3 on the 2017 testbed; the Task 2 flows come from V4 on the user's network. Report any alerts honestly.
 
@@ -155,7 +156,7 @@ git -C .. status --short                       # changes only under Friday_Datas
 - **DDoS is the majority class,** so `class_weight="balanced"` changes little.
 - **LR converges in about 48 iterations.**
 - **`chi2` needs MinMax first** (negative values exist).
-- **The detector must always drop `Protocol==0` rows and log the count.** See `../CLAUDE.md` §7 (Gotchas, common) for the CICFlowMeter IPv6 cause.
+- **The detector must always drop `Protocol==0` rows and log the count.** The CICFlowMeter IPv6 cause was documented in the Thursday project's CLAUDE.md §7, which is no longer in the repo.
 - **Cache the cleaned data** to `artifacts/clean.parquet`. Unit tests use the fixture `tests/fixtures/sample_ddos.csv`, never the 77 MB CSV.
 - **Save figures as PNG (200 dpi) and PDF.**
 
@@ -173,13 +174,13 @@ git -C .. status --short                       # changes only under Friday_Datas
 
 User decisions, 2026-11-09. Steps are tracked in `TASKS.md` P4. Status: text written and builds cleanly (19 pages in total, 13 of main matter); in review.
 
-- **Location and deliverable:** `Friday_Dataset/report/` (singular); the deliverable is `G8.Report2.pdf` (made by the review step with `cp report/thesis.pdf report/G8.Report2.pdf`).
+- **Location and deliverable:** `report/` (singular); the deliverable is `G8.Report2.pdf` (made by the review step with `cp report/thesis.pdf report/G8.Report2.pdf`).
 - **Scope:** full Tasks 1–4, same chapter structure as the Thursday report. The Task 1/2 chapters reuse the Thursday text and the common screenshots. Task 3/4 cover the **Friday results only, with NO comparison with Thursday**. Target 10–15 pages of main matter.
-- **Build:** same rule as Thursday. ALWAYS with `latexmkrc_2`, from inside `Friday_Dataset/report/`:
+- **Build:** same rule as Thursday. ALWAYS with `latexmkrc_2`, from inside `report/`:
   ```
-  cd Friday_Dataset/report && latexmk -C -r latexmkrc_2 -jobname=thesis thesis.tex && latexmk -r latexmkrc_2 -jobname=thesis thesis.tex
+  cd report && latexmk -C -r latexmkrc_2 -jobname=thesis thesis.tex && latexmk -r latexmkrc_2 -jobname=thesis thesis.tex
   ```
-- **Screenshots** are taken by the user and saved in `Friday_Dataset/SS/`, all run from `Friday_Dataset/`. The report uses:
+- **Screenshots** are taken by the user and saved in `SS/`, all run from `Lab2/`. The report uses:
   - common, copied from Thursday: SS15 Wireshark protocol hierarchy, SS17 Task 2 flow CSV in LibreOffice, SS24 `sysctl` disabling IPv6, SS25 CICFlowMeter GUI conversion (SS18, the Steam requests, is not used)
   - SS27: Task 3 raw label summary (`uv run python scripts/task3_preprocess.py`)
   - SS28: Task 3 cleaning steps ("Final: 223082 rows x 59 features")
@@ -189,11 +190,11 @@ User decisions, 2026-11-09. Steps are tracked in `TASKS.md` P4. Status: text wri
   - SS35: the 4-model comparison table
   - SS36: `uv run pytest -m "not e2e" -q` (24 passed, 3 deselected)
   - SS37: `uv run pytest -m e2e -q` (3 passed, 24 deselected)
-  - SS38: real-time detector summary (569 read, 22 dropped, 547 classified, 0 alerts), from `uv run python scripts/realtime_detect.py ../task2_lab2.pcap_Flow.csv`
+  - SS38: real-time detector summary (569 read, 22 dropped, 547 classified, 0 alerts), from `uv run python scripts/realtime_detect.py task2_lab2.pcap_Flow.csv`
   - **SS26 is skipped (user decision) and is not used.**
 - **Order:** take the screenshots BEFORE generating the report tables, because re-running Task 4 changes only the timings.
 - **Numbers rule:** every number comes from the generated `report/tables/*.tex` (default `--out` of `scripts/make_report_tables.py` is `report/tables`) or the Friday `outputs/`. The Task 1/2 numbers come from the reused Thursday chapters.
-- **Paths, relative from `Friday_Dataset/report/`:** `\graphicspath{{images/}{../SS/}{../outputs/task3/figures/}{../outputs/task4/figures/}}`; listings `\lstinputlisting{../src/ddosids/...}`.
+- **Paths, relative from `report/`:** `\graphicspath{{images/}{../SS/}{../outputs/task3/figures/}{../outputs/task4/figures/}}`; listings `\lstinputlisting{../src/ddosids/...}`.
 
 ## 10. Presentation
 

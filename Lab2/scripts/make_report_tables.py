@@ -20,7 +20,7 @@ T3 = ROOT / "outputs" / "task3"
 T4 = ROOT / "outputs" / "task4"
 RT = ROOT / "outputs" / "realtime"
 ART = ROOT / "artifacts"
-FLOWS_CSV = FRIDAY_ROOT.parent / "task2_lab2.pcap_Flow.csv"
+FLOWS_CSV = FRIDAY_ROOT / "task2_lab2.pcap_Flow.csv"
 
 LABEL_FULL = {"BENIGN": "BENIGN", "DDoS": "DDoS"}
 LABEL_SHORT = LABEL_FULL
