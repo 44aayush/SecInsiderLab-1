@@ -25,8 +25,8 @@
       "fn": 32,
       "tp": 19170
     },
-    "train_time_s": 0.23757944899989525,
-    "predict_time_s": 0.0013066789997537853
+    "train_time_s": 0.29879213999993226,
+    "predict_time_s": 0.0009822709999980361
   },
   "xgb": {
     "name": "XGBoost (20 trees)",
@@ -54,8 +54,8 @@
       "fn": 31,
       "tp": 19171
     },
-    "train_time_s": 0.29526950599938573,
-    "predict_time_s": 0.00701536899941857
+    "train_time_s": 0.14347920700004124,
+    "predict_time_s": 0.019208999000056792
   },
   "dt_kernel": {
     "name": "Decision Tree (integer)",
@@ -83,8 +83,8 @@
       "fn": 32,
       "tp": 19170
     },
-    "train_time_s": 0.23757944899989525,
-    "predict_time_s": 0.2586506929983443
+    "train_time_s": 0.29879213999993226,
+    "predict_time_s": 0.23936131100003877
   },
   "xgb_kernel": {
     "name": "XGBoost (integer)",
@@ -112,7 +112,7 @@
       "fn": 31,
       "tp": 19171
     },
-    "train_time_s": 0.29526950599938573,
-    "predict_time_s": 0.2638354749997234
+    "train_time_s": 0.14347920700004124,
+    "predict_time_s": 0.2783910289999767
   }
 }

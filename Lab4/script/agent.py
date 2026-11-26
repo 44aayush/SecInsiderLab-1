@@ -12,6 +12,7 @@ import fcntl
 import json
 import logging
 import os
+import random
 import re
 import signal
 import sys
@@ -19,13 +20,15 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, TextIO
+from typing import Any, Callable, TextIO
 
 import bpf_ctl
 import flowview
 import kmodel
+import replay
 from common import (BPF_OBJ, DEFAULT_BLOCK_S, DEFAULT_IFACE, DEFAULT_OUT, DEFAULT_TIMESPAN_S,
-                    KERNEL_MODEL_PATH, MAX_TIMESPAN_S, MGMT_IFACE, MODEL_MODES, PIN_DIR,
+                    KERNEL_MODEL_PATH, MAX_REPLAY, MAX_TIMESPAN_S, MGMT_IFACE, MODEL_MODES,
+                    PIN_DIR,
                     POLL_INTERVAL_S, V_MALICIOUS, setup_logging)
 
 LOG = logging.getLogger(__name__)
@@ -58,7 +61,7 @@ def validate_iface(name: str) -> str:
     return name
 
 
-class Session:
+class Session:  # pylint: disable=too-many-instance-attributes  # config + lock + replay hosts
     """One XDP capture on one interface (context manager; always detaches and unpins)."""
 
     def __init__(self, iface: str, model: str = "ALL", model_file: Path = KERNEL_MODEL_PATH,
@@ -77,6 +80,7 @@ class Session:
         self.model_file, self.block_s, self.xdp_mode = model_file, block_s, xdp_mode
         self.pin = f"{PIN_DIR}/{self.iface}"
         self._lock_fd: int | None = None
+        self._hosts: set[int] = set()  # replay sources already used
 
     def _acquire(self) -> None:
         """Take the per-interface lock.
@@ -117,6 +121,17 @@ class Session:
         rows = flowview.parse_flows(bpf_ctl.dump("flows", self.pin), MODEL_MODES[self.model],
                                     time.time(), time.monotonic_ns())
         return rows, flowview.parse_stats(bpf_ctl.dump("stats", self.pin))
+
+    def replay(self, flows: list[replay.Flow]) -> list[dict[str, Any]]:
+        """Send dataset flows through the running program (random 10.99.x.y sources).
+
+        Args:
+            flows: Pool entries from `replay.pick`.
+
+        Returns:
+            Ground truth per flow: src_ip, sport, label, retvals.
+        """
+        return replay.run(self.pin, flows, random.Random(), self._hosts)
 
     def stop(self) -> None:
         """Detach, unpin and release the lock; safe to call twice."""
@@ -167,7 +182,7 @@ def emit_changes(rows: list[flowview.FlowRow], seen: dict[FlowKey, tuple[str, st
         key = (row.src_ip, row.src_port, row.dst_ip, row.dst_port, row.proto)
         if seen.get(key) != (row.result, row.models):
             seen[key] = (row.result, row.models)
-            line = json.dumps(dataclasses.asdict(row)) + "\n"
+            line = json.dumps(dataclasses.asdict(row), ensure_ascii=False) + "\n"
             sys.stdout.write(line)
             sys.stdout.flush()
             sink.write(line)
@@ -206,6 +221,8 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--timespan", type=_bounded(1, MAX_TIMESPAN_S), default=DEFAULT_TIMESPAN_S)
     p.add_argument("--block-seconds", type=_bounded(1, MAX_BLOCK_S), default=DEFAULT_BLOCK_S)
     p.add_argument("--model-file", type=Path, default=KERNEL_MODEL_PATH)
+    p.add_argument("--replay", type=_bounded(0, MAX_REPLAY), default=0,
+                   help="dataset flows replayed through the kernel program (half per class)")
     p.add_argument("--xdp-mode", choices=["skb", "native"], default="skb")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT / "realtime")
     return p.parse_args(argv)
@@ -225,14 +242,21 @@ def _capture(args: argparse.Namespace, base: Path, stop: threading.Event,
         The last stats read.
     """
     stats: dict[str, int] = {}
+    truth: list[dict[str, Any]] = []
     session = Session(args.iface, args.model, args.model_file, args.block_seconds, args.xdp_mode)
     with session, open(f"{base}.jsonl", "w", encoding="utf-8") as sink:
+        sched = replay.Schedule(replay.pick(args.replay) if args.replay else [], args.timespan,
+                                random.Random())
         deadline = time.monotonic() + args.timespan
         while not stop.is_set() and time.monotonic() < deadline:
+            if flows := sched.due():
+                truth += session.replay(flows)
             rows, stats = session.poll()
             emit_changes(rows, seen, sink)
             sink.flush()
             stop.wait(POLL_INTERVAL_S)
+        if args.replay:
+            Path(f"{base}_replay.json").write_text(json.dumps(truth, indent=1), encoding="utf-8")
     return stats
 
 
@@ -268,7 +292,8 @@ def main(argv: list[str] | None = None) -> int:
                "flows_classified": len(seen),
                "flows_malicious": sum(res == bad for res, _ in seen.values())}
     Path(f"{base}_summary.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
-    _chown([args.out, Path(f"{base}.jsonl"), Path(f"{base}_summary.json")])
+    extra = [Path(f"{base}_replay.json")] if args.replay else []
+    _chown([args.out, Path(f"{base}.jsonl"), Path(f"{base}_summary.json"), *extra])
     return 0
 
 

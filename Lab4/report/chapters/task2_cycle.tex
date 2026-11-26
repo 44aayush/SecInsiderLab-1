@@ -1,0 +1,215 @@
+% !TeX encoding = UTF-8
+\chapter{Task 2: Real-Time Cycle in the Kernel}\label{chap:task2}
+
+\section{Architecture}\label{sec:arch}
+The cycle has four steps: capture, flowmeter, classification and filtration. In our best-case design all four run in one XDP program, \texttt{xdp\_ids} (\texttt{xdp/lab4\_xdp.bpf.c}), attached to the interface \texttt{ext0} of an IDS container that acts as an inline gateway between a client and two web servers (Figure~\ref{fig:arch}; the Docker setup is in Chapter~\ref{chap:task4}).
+
+\begin{figure}[htb]
+\centering
+\begin{tikzpicture}[font=\footnotesize, node distance=5mm and 7mm, >=Stealth,
+  box/.style={draw, rounded corners=2pt, minimum height=7mm, align=center},
+  stage/.style={draw, fill=blue!8, minimum height=6mm, minimum width=3.6cm, align=center},
+  ]
+  \node[stage] (s1) {1 capture: XDP hook, \texttt{ext0}};
+  \node[box, left=8mm of s1] (client) {client\\172.28.1.20};
+  \node[stage, below=2mm of s1] (s2) {2 blocklist: source blocked? $\to$ \texttt{XDP\_DROP}};
+  \node[stage, below=2mm of s2] (s3) {3 flowmeter: per-flow counters (map)};
+  \node[stage, below=2mm of s3] (s4) {4 classify: DT / XGB trees (maps)};
+  \node[stage, below=2mm of s4, fill=red!10] (s5) {5 filter: malicious $\to$ block source, drop};
+  \node[box, right=14mm of s3] (fwd) {\texttt{XDP\_PASS}\\forward\\\texttt{int0}};
+  \node[box, right=8mm of fwd, yshift=7mm] (ng) {nginx\\172.28.2.10};
+  \node[box, below=2mm of ng] (ap) {apache\\172.28.2.11};
+  \node[box, below=10mm of s5, xshift=-10mm] (ua) {user space (same container): \texttt{agent.py} / \texttt{webui.py} $\to$ \texttt{bpftool}};
+  \node[box, left=8mm of ua] (br) {browser (host)\\\texttt{mgmt0}:8080};
+  \draw[->] (client) -- (s1);
+  \draw[->] (s1) -- (s2); \draw[->] (s2) -- (s3); \draw[->] (s3) -- (s4); \draw[->] (s4) -- (s5);
+  \draw[->] (s3.east) -- (fwd.west);
+  \draw[->] (fwd.east) -- ++(2mm,0) |- (ng.west);
+  \draw[->] (fwd.east) -- ++(2mm,0) |- (ap.west);
+  \draw[<->, dashed] (s5.south) -- ++(0,-3mm) -| (ua.north);
+  \draw[<->, dashed] (br) -- (ua);
+\end{tikzpicture}
+\caption{Data path of the best case. Stages 1 to 5 are one XDP program; the models and the blocklist are kernel maps that user space fills and reads through \texttt{bpftool}.}\label{fig:arch}
+\end{figure}
+
+\begin{enumerate}\setlength\itemsep{0pt}
+	\item \textbf{Capture.} The program sees every frame of \texttt{ext0} before the IP stack. IPv4 TCP and UDP packets are parsed with bounds checks; ARP, IPv6, ICMP, fragments, VLAN frames and malformed packets pass untouched and are counted.
+	\item \textbf{Blocklist.} If the source address is in the \texttt{blocklist} map and the entry has not expired, the packet is dropped. Expired entries are deleted on the next packet of that source.
+	\item \textbf{Flowmeter.} A least-recently-used hash map \texttt{flows} keeps one record per 5-tuple with packet and byte counters, the packet length extremes and the inter-arrival times.
+	\item \textbf{Classification.} At certain packets of a flow (below) the program computes the ten features of Section~\ref{sec:features} and walks the integer trees stored in the maps \texttt{nodes} and \texttt{roots}.
+	\item \textbf{Filtration.} A malicious verdict writes the source into the blocklist for \texttt{--block-seconds} (default 60\,s) and drops the packet. All internal errors fail open: the packet passes.
+\end{enumerate}
+
+\section{Kernel features}\label{sec:features}
+XDP runs on ingress only. In our topology the program therefore sees the client-to-server packets of a flow, the \emph{forward} direction, and never the replies. CICFlowMeter, which produced the dataset, also computes backward and bidirectional features (flow duration, bytes per second, backward packet lengths). Computing them differently in the kernel would silently change their meaning, so we use only ten forward-direction features that the kernel computes exactly with integer arithmetic (Table~\ref{tab:features}).
+
+\begin{table}[htb]
+\centering\small
+\begin{tabular}{@{}rllr@{}}
+\toprule
+Idx & CIC column & Kernel computation (forward packets) & Scale\\
+\midrule
+0 & Total Fwd Packets & packet count & 1\\
+1 & Total Length of Fwd Packets & sum of L4 payload bytes & 1\\
+2 & Fwd Packet Length Max & largest payload & 1\\
+3 & Fwd Packet Length Min & smallest payload & 1\\
+4 & Fwd Packet Length Mean & bytes\,$\cdot$\,1000 / packets & 1000\\
+5 & Fwd IAT Total & last $-$ first timestamp (ns) & 1000\\
+6 & Fwd IAT Mean & (last $-$ first) / (packets $-$ 1) & 1000\\
+7 & Fwd IAT Max & largest gap & 1000\\
+8 & Fwd IAT Min & smallest gap & 1000\\
+9 & act\_data\_pkt\_fwd & packets with payload $>0$ & 1\\
+\bottomrule
+\end{tabular}
+\caption{The ten kernel features (\texttt{xdp/lab4\_common.h}, \texttt{common.KERNEL\_FEATURES}). The dataset stores inter-arrival times in microseconds and the kernel measures nanoseconds, hence scale 1000. All divisions are unsigned integer divisions.}\label{tab:features}
+\end{table}
+
+The payload length is the IPv4 total length minus the IP and the TCP or UDP header, never the frame length, so Ethernet padding is not counted. We left out two features that score highly in Lab~2 and Lab~3 but are shortcuts: the \emph{destination port} (nearly all DDoS flows of the file go to port 80, which is exactly the port of our demo web servers, so a port-based model would flag normal demo traffic) and \emph{Init\_Win\_bytes\_forward} (a fingerprint of the 2017 attack hosts). We also left out the standard-deviation features, which need an integer square root and CICFlowMeter's conventions, and the header-length features with known CICFlowMeter quirks. The cost in accuracy is small (Section~\ref{sec:training}).
+
+\section{Integer decision trees}\label{sec:int}
+eBPF has no floating-point arithmetic. Trees are invariant to feature scaling, so we train on the \emph{raw} feature values (no scaler) and convert the thresholds. Features and thresholds are integers in kernel units: $x_{\mathrm{int}}=\lfloor x\cdot s\rfloor$ with the scale $s$ of Table~\ref{tab:features}. A sklearn tree goes left if $x\le t$, so $T=\lfloor t\cdot s\rfloor$. XGBoost goes left if $x<t$ for a float32 threshold $t$, so $T=\lceil t\cdot s\rceil-1$. In both cases the kernel rule is the same: \emph{left iff} $x_{\mathrm{int}}\le T$.
+
+A Decision Tree leaf is class 1 if $P(\mathrm{DDoS})>0.5$. An XGBoost leaf value is stored as a fixed-point integer $\mathrm{round}(\mathrm{leaf}\cdot 2^{16})$; the base score becomes a margin $\mathrm{round}(\mathrm{logit}(b)\cdot 2^{16})$. The verdict is malicious if the margin sum is positive (an exact zero is normal, matching the rule $\mathrm{score}>0.5$). The exported model has 387 nodes in total (\texttt{models/kernel\_model.json}, key \texttt{meta}). Each node is 24 bytes (\texttt{struct tree\_node}); the maps hold up to 8,192 nodes and 64 trees. The decision tree root is \texttt{roots[0]}, the XGBoost trees are \texttt{roots[1..20]}.
+
+\section{The XDP program}\label{sec:xdp}
+Listing~\ref{lst:walk} is the core of the classifier: a bounded loop that follows node indices in the \texttt{nodes} map. The constant bound lets the verifier prove termination, and each map lookup is checked for \texttt{NULL}. XGBoost sums its 20 trees with the helper \texttt{bpf\_loop}, and \texttt{classify} (Listing~\ref{lst:classify}) combines the verdicts: with \texttt{ALL} the flow is malicious only if both models say so, because the action is a drop and a false drop costs more than a missed detection in this demo.
+
+\lstinputlisting[style=bpfc,linerange={108-129},caption={\texttt{walk\_tree}: integer tree walk (\texttt{xdp/lab4\_xdp.bpf.c}).},label={lst:walk}]{../xdp/lab4_xdp.bpf.c}
+\lstinputlisting[style=bpfc,linerange={168-188},caption={\texttt{classify}: DT, XGB or both models must agree (\texttt{xdp/lab4\_xdp.bpf.c}).},label={lst:classify}]{../xdp/lab4_xdp.bpf.c}
+
+\paragraph{When a flow is classified.} The dataset rows describe \emph{completed} flows, while a SYN-only partial flow looks like a one-packet flow, which is something else. The kernel therefore classifies a flow at a packet with the FIN or RST flag, and re-checks long or connectionless flows when the packet count is a power of two and at least 8 (8, 16, 32, \ldots). Flows with fewer than 8 packets and no FIN or RST are never classified. Listing~\ref{lst:block} shows the blocklist check and the filter step.
+
+\lstinputlisting[style=bpfc,linerange={310-317,353-361},caption={Essentials of \texttt{xdp\_ids}: the blocklist check at the start, and the filter step (a malicious verdict blocks the source and drops the packet).},label={lst:block}]{../xdp/lab4_xdp.bpf.c}
+
+\section{User space with bpftool}
+User space contains no custom loader. The agent (\texttt{script/agent.py}) calls \texttt{bpftool} with an argument list (never through a shell): \texttt{prog loadall} with pinned maps, one \texttt{batch} file with all node, root and config updates, \texttt{net attach xdpgeneric}, JSON map dumps that carry BTF-formatted values, and \texttt{prog run} for tests. The program is attached only \emph{after} the model and the configuration are in the maps, and always detached on exit. Once per second the agent dumps the \texttt{flows} and \texttt{stats} maps and prints one JSON line per classified flow. A per-interface file lock allows one capture per interface. The interface name is validated against \texttt{/sys/class/net}, the management interface is refused, and the timespan and model are range-checked. The command line is \texttt{agent.py --iface ext0 --model \{DT,XGB,ALL\} --timespan S --block-seconds B --replay N} (\texttt{--replay} 0 to 100, default 0).
+
+\section{Training and depth selection}\label{sec:training}
+We port the cleaning and the 70/15/15 split of Lab~3, so the test split holds the same rows, and then keep the ten kernel features. The models are \texttt{DecisionTreeClassifier} and \texttt{XGBClassifier} (20 trees, learning rate 0.1, no early stopping, so exactly 20 trees go to the kernel). The depth is chosen on the \emph{validation} split: the smallest depth whose validation F1 is within 0.0005 of the best (Table~\ref{tab:depth}). The test split is used once.
+
+\begin{table}[htb]
+\centering\small
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+Model & Depth & 4 & 5 & 6 \\
+\midrule
+XGBoost (20 trees) & val F1 & 0.99896 & 0.99906 & 0.99904 \\
+\bottomrule
+\end{tabular}\\[3pt]
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+Model & Depth & 6 & 8 & 10 \\
+\midrule
+Decision Tree & val F1 & 0.99904 & 0.99914 & 0.99906 \\
+\bottomrule
+\end{tabular}
+\caption{Validation F1 per depth (\texttt{outputs/metrics/depth\_selection.json}). Selected: DT depth 6, XGB depth 4.}\label{tab:depth}
+\end{table}
+
+Table~\ref{tab:metrics} gives the test results. We report all four counts and F1, not accuracy alone. The \emph{integer} rows are the models as the kernel evaluates them.
+
+\begin{table}[htb]
+\centering\small
+\begin{tabular}{@{}lrrrrrrrrr@{}}
+\toprule
+Model & Acc & Prec & Rec & F1 & ROC-AUC & TP & TN & FP & FN \\
+\midrule
+Decision Tree (d6) & 0.9989 & 0.9998 & 0.9983 & 0.9991 & 0.9999 & 19170 & 14257 & 4 & 32 \\
+XGBoost (20 trees, d4) & 0.9987 & 0.9994 & 0.9984 & 0.9989 & 0.9998 & 19171 & 14250 & 11 & 31 \\
+Decision Tree (integer) & 0.9989 & 0.9998 & 0.9983 & 0.9991 & 0.9990 & 19170 & 14257 & 4 & 32 \\
+XGBoost (integer) & 0.9987 & 0.9994 & 0.9984 & 0.9989 & 0.9998 & 19171 & 14250 & 11 & 31 \\
+\bottomrule
+\end{tabular}
+\caption{Test metrics on 33,463 flows (\texttt{outputs/metrics/comparison\_test.md}); DDoS is the positive class. The integer Decision Tree outputs hard classes, hence its lower ROC-AUC.}\label{tab:metrics}
+\end{table}
+
+The kernel models keep the F1 within about 0.001 of the 59-feature models of Lab~3 (XGBoost F1 1.0000 there), although they see 10 forward-only features and 387 nodes. The integer models have the same confusion matrices as the floating-point models. Table~\ref{tab:imp} shows why so few features suffice: two payload-size features carry about 99\,\% of the importance.
+
+\begin{table}[htb]
+\centering\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Feature & DT importance & XGB gain importance \\
+\midrule
+Total Length of Fwd Packets & 0.4205 & 0.2784 \\
+Fwd Packet Length Max & 0.5765 & 0.7185 \\
+all other eight features, each & $\le 0.0011$ & $\le 0.0012$ \\
+\bottomrule
+\end{tabular}
+\caption{Feature importance (\texttt{outputs/metrics/feature\_importance.md}; the full table lists all ten).}\label{tab:imp}
+\end{table}
+
+\section{Verification chain}\label{sec:verify}
+We check three links. First, \texttt{train.py} compares the floating-point predictions with a Python integer evaluator on all 33,463 test rows: the verdicts agree on 100\,\% of the rows for both models (0 mismatches), and the largest margin error of XGBoost is $4.5\cdot 10^{-5}$ (\texttt{outputs/metrics/parity.json}, \texttt{ac\_pass} true). Second, a second program \texttt{classify\_test} in the same object evaluates 1,024 test vectors in the kernel (\texttt{BPF\_PROG\_TEST\_RUN}); the DT verdicts and XGB margins equal the Python integer evaluator exactly. Third, kernel tests run the real program on crafted packets: flowmeter counts, classification trigger, blocklist, block expiry, mode \texttt{ALL} needs both models, mode off, and the pass-through of ARP, IPv6, ICMP, fragments, short packets, bad header lengths and VLAN frames. \texttt{outputs/kernel/kernel\_tests.log} reports 18 passing kernel tests (Figure~\ref{fig:SS_DOCKER_IDS}). Together, the kernel decides what the trained model decides.
+
+\ssfig[0.6\linewidth]{SS_DOCKER_IDS}{Kernel tests in the IDS image (\texttt{docker run --privileged}, 18 passed).}
+
+\paragraph{Size and cost.} The verifier accepts \texttt{xdp\_ids}: 5,664 bytes of translated and 3,263 bytes of JIT-compiled code (\texttt{outputs/kernel/prog\_sizes.json}). Table~\ref{tab:timing} lists the average run time per packet measured with \texttt{BPF\_PROG\_TEST\_RUN}. Untracked packets cost almost nothing, packets in the middle of a flow only update counters, and the walk of the 20 XGBoost trees is the most expensive step. Classification happens once per flow (at FIN) or at power-of-two packet counts, not for every packet.
+
+\begin{table}[htb]
+\centering\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Packet (ns per run) & DT & XGB & ALL \\
+\midrule
+not tracked (ARP etc.) & \multicolumn{3}{c}{18} \\
+mid-flow (counters only) & 61 & 82 & 60 \\
+classifying (FIN) & 120 & 366 & 542 \\
+\bottomrule
+\end{tabular}
+\caption{Average time per \texttt{BPF\_PROG\_TEST\_RUN} (\texttt{outputs/kernel/timing.json}).}\label{tab:timing}
+\end{table}
+
+\section{Live cycle}\label{sec:live}
+In the Docker topology, a client requests the two web servers once per second through the IDS gateway, normal traffic only. Table~\ref{tab:live} lists the runs. In 60-second runs with DT, XGB and ALL, the program classified 118 flows each, none of them malicious, and dropped no packet. Each classified flow had 5 to 7 packets and was classified at its FIN (Figure~\ref{fig:SS_T2_3} shows the \texttt{ALL} output; the DT and XGB modes work the same way and were also run, Table~\ref{tab:live} has their numbers). The counter \texttt{ST\_PASS} also counts untracked packets, so it can exceed \texttt{ST\_PKTS}.
+
+\begin{table}[htb]
+\centering\small
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+Run & Time (s) & Packets & Classified & Malicious & Drops & Blocks & Untracked \\
+\midrule
+DT, normal traffic & 60 & 703 & 118 & 0 & 0 & 0 & 3 \\
+XGB, normal traffic & 60 & 701 & 118 & 0 & 0 & 0 & 2 \\
+ALL, normal traffic & 60 & 710 & 118 & 0 & 0 & 0 & 1 \\
+DT, stub model, block 20\,s & 30 & 66 & 2 & 2 & 55 & 2 & 2 \\
+\bottomrule
+\end{tabular}
+\caption{Live runs on \texttt{ext0} (\texttt{outputs/realtime/20261125-225252\_ext0\_DT\_summary.json}, \ldots\texttt{225354\_ext0\_XGB}, \ldots\texttt{225456\_ext0\_ALL}, \ldots\texttt{225602\_ext0\_DT}).}\label{tab:live}
+\end{table}
+
+\ssfig{SS_T2_3}{Agent CLI with \texttt{--model ALL}: one JSON line per classified flow, both verdicts listed (client 172.28.1.20 to the two servers, all Normal).}
+
+\paragraph{Filter without attack tools.} With a good model and normal traffic the filter never fires. To show it anyway, we ran the agent with a stub model (\texttt{tests/fixtures/always\_malicious.json}: one decision-tree leaf with value 1) and a 20-second block time. The first classified flow of the client blocked its source, 55 packets were dropped in 30 seconds, and the source was blocked a second time after the first block expired (the last row of Table~\ref{tab:live}). Figure~\ref{fig:SS_T2_5} shows the client: requests fail with a timeout while the source is blocked and succeed between blocks.
+
+\ssfig[0.45\linewidth]{SS_T2_5}{Client log during the filter demo: \texttt{FAIL} lines (timeouts) while the client is blocked, \texttt{OK} lines in between.}
+
+\section{Replay of dataset flows}\label{sec:replay}
+Real attack traffic is not allowed, so we push dataset flows through the \emph{same attached kernel program}. \texttt{train.py} writes \texttt{models/replay\_flows.json}, a pool of 1,000 flows (500 benign, 500 DDoS) of the \emph{test} split whose forward packets can be rebuilt exactly: at most 32 packets, and a list of payload sizes that reproduces the packet count, the total, maximum, minimum, mean and active-packet count. With \texttt{--replay N} (UI default 20) the session draws $N/2$ benign and $N/2$ DDoS flows at random and injects them at random times spread over the first 80\,\% of the capture (each poll tick injects the flows that are due), so they interleave with live flows. Each flow is rebuilt as TCP packets from a random source in 10.99.0.0/16 to 172.28.2.10:80, with FIN and ACK on the last packet, and injected with \texttt{bpftool prog run} into the pinned \texttt{xdp\_ids} program. The real flowmeter, models and blocklist therefore produce the verdicts, and the rows appear in the same table as live flows. Nothing is sent on the wire, and blocks only affect 10.99.x.y.
+
+\paragraph{Limit.} Packets run through \texttt{BPF\_PROG\_TEST\_RUN} are microseconds apart, so the inter-arrival features of a replayed flow do not reproduce the dataset. These features carry less than 0.5\,\% of the importance (Table~\ref{tab:imp}), but the replay is not a test of timing behaviour.
+
+\paragraph{Results.} A kernel test replays 50 DDoS and 50 benign flows: all 50 DDoS flows are classified malicious, none of the benign flows (\texttt{outputs/kernel/replay\_summary.json}). In three live captures with mode \texttt{ALL} (\texttt{outputs/realtime/20261126-*\_ext0\_ALL\_replay.json}) the replayed flows were handled as follows.
+
+\begin{table}[htb]
+\centering\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Capture & DDoS replayed & DDoS dropped & Benign replayed & Benign dropped \\
+\midrule
+20261126-180119 & 30 & 30 & 30 & 0 \\
+20261126-180431 & 30 & 30 & 30 & 0 \\
+20261126-180721 & 13 & 13 & 17 & 0 \\
+\bottomrule
+\end{tabular}
+\caption{Replay in live captures with \texttt{--model ALL} (\texttt{outputs/realtime/*\_replay.json}); a flow counts as dropped if one of its packets returned \texttt{XDP\_DROP}.}\label{tab:replay}
+\end{table}
+
+These flows come from the test split, so the result repeats the high within-day scores of Table~\ref{tab:metrics} in the live program, with the exact flow reconstruction as the only difference.
+
+\section{Proof that classifier and filter run in the kernel}\label{sec:proof}
+During a capture with replayed flows, the following views show that the decision is made in the kernel. Pins live under \texttt{/sys/fs/bpf/lab4/ext0/} and disappear when the capture ends.
+
+\ssgrp{Kernel proof, part 1: attach, program and detach.}{grpK1}{\ssub{SS_K_1}{\texttt{bpftool net show dev ext0}: the XDP program is attached to \texttt{ext0} in generic mode.}\hfill\ssub{SS_K_7}{After the capture, \texttt{bpftool net show dev ext0} lists no XDP program: detached cleanly.}\\[3pt]\ssub[0.8\linewidth]{SS_K_2}{\texttt{bpftool prog show name xdp\_ids}: the verified and JIT-compiled program (5,664 B translated, 3,263 B JIT).}}
+\ssgrp{Kernel proof, part 2: maps and counters.}{grpK2}{\ssub{SS_K_3}{Pinned maps, \texttt{config} and \texttt{nodes}: mode \texttt{ALL}, 20 XGBoost trees, and the root node of the decision tree stored in the kernel.}\hfill\ssub{SS_K_5}{\texttt{blocklist} map dump: each key is a blocked source IPv4 read as a little-endian 32-bit number (e.g.\ 4272710410 = 10.99.172.254, also Malicious in Figure~\ref{fig:SS_K_6}), the value its expiry time in ns.}\\[3pt]\ssub[0.95\linewidth]{SS_K_4}{Counters kept by the program: classified flows, malicious flows, blocks added and dropped packets are all above zero.}}
+\ssgrp{Kernel proof, part 3: verdicts.}{grpK3}{\ssub[0.95\linewidth]{SS_K_6}{Agent output (or the UI table) with Malicious rows from the replayed DDoS flows.}}

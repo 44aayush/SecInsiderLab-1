@@ -1,0 +1,1011 @@
+             Security Insider Lab I
+
+
+
+
+Lab 4: DDoS Defense with eBPF/XDP
+        In-Kernel Detection and Filtering
+
+
+
+
+                     Group 8
+
+
+
+
+       Justlyn Kaniyanthara Johnson 121024
+       Aayush Kapoor                120957
+
+
+
+
+                26. November 2026
+Contents
+1 Introduction                                                                                            1
+
+2 Task 1: xdp-tools                                                                                       1
+  2.1 Installation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .    1
+  2.2 Sandbox . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .     1
+  2.3 xdpdump: listing and loading . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .        2
+  2.4 xdp-filter: IP and port rules . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .     2
+  2.5 xdpdump: capturing at the XDP hook . . . . . . . . . . . . . . . . . . . . . . . . . . .            3
+  2.6 xdp-filter poll and unload . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .      3
+
+3 Task 2: Real-Time Cycle in the Kernel                                                                   7
+  3.1 Architecture . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .    7
+  3.2 Kernel features . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .     7
+  3.3 Integer decision trees . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .    8
+  3.4 The XDP program . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .         8
+  3.5 User space with bpftool . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .      10
+  3.6 Training and depth selection . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .       10
+  3.7 Verification chain . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .   11
+  3.8 Live cycle . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .   11
+  3.9 Replay of dataset flows . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .    12
+  3.10 Proof that classifier and filter run in the kernel . . . . . . . . . . . . . . . . . . . . . .    13
+
+4 Task 3: Front-End Interface                                                                            15
+  4.1 Controls and API . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .     15
+  4.2 Screenshots . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .    15
+
+5 Task 4: Containerization                                                                               18
+  5.1 Communication check . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .        18
+
+6 Discussion                                                                                             19
+
+7 Conclusion                                                                                             20
+
+Appendix A Reproduction                                                                                  20
+
+Bibliography                                                                                             21
+
+Eidesstattliche Erklärung                                                                                22
+
+
+
+
+                                                     ii
+Abstract
+In the fourth lab of the Security Insider Lab, we build a complete real-time DDoS defense cycle with
+eBPF/XDP in which the classifier and the filter run inside the Linux kernel. One XDP program
+captures packets at the network driver hook, computes ten forward-direction flow features per flow in a
+kernel map, classifies the flow with a Decision Tree (depth 6) and an XGBoost model (20 trees, depth
+4) stored in BPF maps, and drops all packets of a source that is classified as malicious. User space
+only trains and exports the models, loads and configures the program, and displays results. On the
+33,463 test flows of the CIC-IDS2017 Friday DDoS file, the integer models reach an F1 score of 0.9991
+(Decision Tree, 4 false alarms, 32 missed attacks) and 0.9989 (XGBoost, 11 false alarms, 31 missed
+attacks). Their verdicts agree with the floating-point models on all test flows, and the kernel code
+reproduces the Python integer evaluator exactly on 1,024 test vectors. In a Docker topology with an
+inline IDS gateway in front of Nginx and Apache, normal client traffic produced no malicious verdict
+and no drop, and a stub model that always answers malicious showed the filter dropping 55 packets
+of the normal client. Without attack tools, 60 dataset flows replayed through the attached kernel
+program were handled correctly: all 30 DDoS flows were classified malicious and blocked, and none of
+the 30 benign flows. We also configured xdp-filter and xdpdump (Task 1), built a web interface (Task
+3) and containerized Nginx, Apache and a pinging container (Task 4). The models are essentially a
+payload-size rule, which we discuss together with the other limits of the in-kernel design.
+
+
+
+
+List of Figures
+   2.1  Section 1: xdpdump -D with no XDP program loaded. . . . . . . . . . . . . . . . . . . .            2
+   2.2  Section 2: after xdp-filter load, xdpdump -D lists the dispatcher and the filter program
+        on t1-host. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .    2
+   2.3 Section 3: the ping from the namespace passes (0 % loss) while the filter has no rule. .            3
+   2.4 Section 4: with the source-IP rule the ping loses all packets; xdp-filter status shows
+        the rule and its counters. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .     3
+   2.5 Section 5: xdpdump --rx-capture=entry,exit shows the exit action XDP_DROP; after the
+        rule is removed the ping works. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .      4
+   2.6 Section 6: port filter. HTTP 200, timeout while the rule exists, status, and HTTP 200
+        again after removal. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .     4
+   2.7 Section 7: xdpdump -x, hex dump of the packets seen at the XDP hook (start of the
+        output). . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .   5
+   2.8 Section 7: xdpdump -x, further packets. . . . . . . . . . . . . . . . . . . . . . . . . . . .       5
+   2.9 Section 8: xdpdump -w - | tcpdump -r - -n, the pipe decodes the captured packets. . .               5
+   2.10 Section 9: xdp-filter poll -i 1000 reports the counters per action for five seconds. .             6
+   2.11 Section 10: after xdp-filter unload no program is loaded. . . . . . . . . . . . . . . . .          6
+
+   3.1   Data path of the best case. Stages 1 to 5 are one XDP program; the models and the
+         blocklist are kernel maps that user space fills and reads through bpftool. . . . . . . . .         7
+   3.2   Kernel tests in the IDS image (docker run --privileged, 18 passed). . . . . . . . . . .           11
+   3.3   Agent CLI with --model DT: one JSON line per classified flow (client 172.28.1.20 to the
+         two servers, all Normal). . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .   12
+   3.4   Agent CLI with --model XGB. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .       12
+
+
+
+                                                     iii
+  3.5  Agent CLI with --model ALL: both verdicts are listed per flow. . . . . . . . . . . . . . .         12
+  3.6  Client log during the filter demo: FAIL lines (timeouts) while the client is blocked, OK
+       lines in between. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .    13
+  3.7 bpftool net show dev ext0: the XDP program is attached to ext0 in generic mode. . .                 14
+  3.8 bpftool prog show name xdp_ids: the verified and JIT-compiled program (5,664 B trans-
+       lated, 3,263 B JIT). . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .     14
+  3.9 The pinned maps and the config and nodes entries: mode ALL, 20 XGBoost trees, and
+       the root node of the decision tree stored in the kernel. . . . . . . . . . . . . . . . . . .       14
+  3.10 Counters kept by the program: classified flows, malicious flows, blocks added and
+       dropped packets are all above zero. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .      14
+  3.11 blocklist map dump: keys starting with 0a 63 are 10.99.x.y addresses, the blocked
+       replay sources; the value is the expiry time. . . . . . . . . . . . . . . . . . . . . . . . .      14
+  3.12 Agent output (or the UI table) with Malicious rows from the replayed DDoS flows. . .               14
+  3.13 After the capture, bpftool net show dev ext0 lists no XDP program: it was detached
+       cleanly. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .   14
+
+  4.1   Web interface with the Decision Tree. . . . . . . . . . . . . . . . . . . . . . . . . . . .       16
+  4.2   Web interface with XGBoost. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .       16
+  4.3   Web interface with both models (ALL): Malicious rows need both verdicts. . . . . . . .            17
+
+  5.1   docker compose ps: all five services are up. . . . . . . . . . . . . . . . . . . . . . . . . .    18
+  5.2   docker/task4_check.sh: ping by name and IP, HTTP to Nginx and Apache. . . . . . .                 19
+
+
+
+
+List of Tables
+  3.1   The ten kernel features (xdp/lab4_common.h, common.KERNEL_FEATURES). The dataset
+        stores inter-arrival times in microseconds and the kernel measures nanoseconds, hence
+        scale 1000. All divisions are unsigned integer divisions. . . . . . . . . . . . . . . . . . .  8
+  3.2   Validation F1 per depth (outputs/metrics/depth_selection.json). Selected: DT depth
+        6, XGB depth 4. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+  3.3   Test metrics on 33,463 flows (outputs/metrics/comparison_test.md); DDoS is the posi-
+        tive class. The integer Decision Tree outputs hard classes, hence its lower ROC-AUC.          10
+  3.4   Feature importance (outputs/metrics/feature_importance.md; the full table lists all ten). 11
+  3.5   Average time per BPF_PROG_TEST_RUN (outputs/kernel/timing.json). . . . . . . . . . . . 11
+  3.6   Live runs on ext0 (outputs/realtime/20261125-225252_ext0_DT_summary.json,
+        …225354_ext0_XGB, …225456_ext0_ALL, …225602_ext0_DT). . . . . . . . . . . . . . . . . . 12
+  3.7   Replay in live captures with --model ALL (outputs/realtime/*_replay.json); a flow
+        counts as dropped if one of its packets returned XDP_DROP. . . . . . . . . . . . . . . . . 13
+
+
+
+
+                                                    iv
+                                                  Listings
+
+
+  5.1   Compose topology (docker-compose.yml). Networks: mgmt 172.28.0.0/24, front
+        172.28.1.0/24, back 172.28.2.0/24. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .      18
+
+
+
+
+Listings
+  3.1   walk_tree: integer tree walk (xdp/lab4_xdp.bpf.c).        . . . . . . . . . . . . . . . . . . . .   8
+  3.2   classify: DT, XGB or both models must agree (xdp/lab4_xdp.bpf.c).               . . . . . . . . .   9
+  3.3   Blocklist check at the start of xdp_ids: drop while the entry is valid, delete it when
+        expired. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .    9
+  3.4   Classification trigger and filter step: a malicious verdict blocks the source and drops the
+        packet. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .   9
+
+
+
+
+                                                      v
+1 Introduction
+In the fourth lab of the Security Insider Lab, we move the DDoS detection of Lab 3 from user space
+into the Linux kernel. A flow classifier that runs in a Python process sees a packet only after the kernel
+has received, queued and copied it. The eXpress Data Path (XDP) [Høi+18] runs a small, verified
+eBPF program at the earliest point of the receive path, before the network stack allocates its packet
+structures. A program at this hook can read a packet, update state in kernel maps and drop the packet
+at once. The lab has four tasks:
+  1. Task 1: configure the xdp-tools collection [XDP] and run example commands of xdp-filter and
+     xdpdump.
+  2. Task 2: build a real-time cycle: capture packets, compute flow features, classify each flow, and
+     filter it. We chose the best case of the task sheet: the classifier and the filter both run in the
+     kernel, inside one XDP program. User space only loads the models, configures the program and
+     displays results.
+  3. Task 3: build a web interface with an interface selector, a timespan, a start button and a table
+     with the algorithm output.
+  4. Task 4: run Nginx, Apache and a pinging container in Docker and check that they can
+     communicate.
+Scope and rules. The task sheet forbids attacking tools in the real-time test. We therefore show
+the filter without any attack tool: with normal client traffic, with a stub model that always answers
+“malicious”, and by replaying flows of the dataset through the attached kernel program (Section 3.9).
+The classifier is a Decision Tree (DT), an XGBoost model (XGB), or both (--model DT|XGB|ALL). With
+ALL, both models run in the kernel and a flow counts as malicious only if they agree.
+
+Data. We use the Friday-afternoon DDoS file of CIC-IDS2017 [SLG18] with the cleaning and the
+70/15/15 stratified split of Lab 3: 225,745 raw flows become 223,082 after removing 34 rows with
+infinite or missing values and 2,629 duplicates, and the split gives 156,157 training, 33,462 validation
+and 33,463 test flows (test: 19,202 DDoS, 14,261 benign; outputs/metrics/preprocess_summary.json).
+Labels are BENIGN = 0 and DDoS = 1.
+Structure. Chapter 2 covers Task 1. Chapter 3 is the core of the report: architecture, kernel features,
+integer models, training, verification, the live cycle and the dataset replay. Chapters 4 and 5 cover
+the interface and Docker. Chapter 6 discusses limits, Chapter 7 concludes, and Appendix A lists
+the commands to reproduce everything. Every number comes from files under outputs/ or from the
+metadata of models/kernel_model.json; the file is named in the caption or the text.
+2 Task 1: xdp-tools
+2.1 Installation
+xdp-tools [XDP] is a collection of utilities around libxdp. We built the source tree (version v1.6.3-
+32-g92a9828) and installed it with make && sudo make install && sudo ldconfig. The binaries (xdp-
+loader, xdp-filter, xdpdump, xdp-bench) go to /usr/local/sbin, libxdp to /usr/local/lib and the BPF
+objects of xdp-filter to /usr/local/lib/bpf. We deliberately did not install a second copy from the
+distribution packages, because two copies on the PATH would conflict.
+
+2.2 Sandbox
+xdp-filter attaches a program to an interface, and a wrong rule on the main uplink can lock a remote
+user out. All Task 1 commands therefore run in a sandbox that xdp_tools/task1_demo.sh creates and
+removes: a network namespace lab4t1 with a veth pair. The host end t1-host (10.10.0.1/24) carries
+
+
+
+                                                    1
+                                         2 Task 1: xdp-tools
+
+
+the XDP program in generic (skb) mode; the other end t1-ns (10.10.0.2/24) lives in the namespace.
+A trap unloads xdp-filter, stops the test web server and deletes the namespace and the veth pair
+when the script ends, also after an error. The script prints ten numbered sections, one per screenshot.
+The commands are the examples of the xdp-filter and xdpdump READMEs with the interface name
+replaced.
+
+2.3 xdpdump: listing and loading
+xdpdump -D lists the interfaces and the XDP programs attached to them.       In Figure 2.1 nothing is
+loaded. xdp-filter load --mode skb t1-host attaches the filter; xdp-filter uses libxdp’s dispatcher,
+so the next xdpdump -D shows xdp_dispatcher with the filter program behind it (Figure 2.2). With no
+rule defined the filter passes all packets, and a ping from the namespace shows 0 % loss (Figure 2.3).
+
+
+
+
+                  Figure 2.1: Section 1: xdpdump -D with no XDP program loaded.
+
+
+
+
+Figure 2.2: Section 2: after xdp-filter load, xdpdump -D lists the dispatcher and the filter program on
+            t1-host.
+
+
+2.4 xdp-filter: IP and port rules
+xdp-filter ip 10.10.0.2 -m src adds the namespace address as a blocked source address. The next
+ping loses all packets, and xdp-filter status lists the address with non-zero hit counters (Figure 2.4).
+The rule is removed with -r, after which the ping works again (Figure 2.5).
+For a port rule, a Python web server runs inside the namespace on 10.10.0.2:8000. A request from
+the host returns HTTP 200. After xdp-filter port 8000 -m src the request times out, because the
+replies carry source port 8000 and enter t1-host; status shows the port, and after the removal the
+request returns 200 again (Figure 2.6).
+
+
+
+
+                                                   2
+                                          2 Task 1: xdp-tools
+
+
+
+
+  Figure 2.3: Section 3: the ping from the namespace passes (0 % loss) while the filter has no rule.
+
+
+
+
+Figure 2.4: Section 4: with the source-IP rule the ping loses all packets; xdp-filter status shows the
+            rule and its counters.
+2.5 xdpdump: capturing at the XDP hook
+xdpdump attaches itself to the program already running on the interface. With --rx-capture=entry,exit
+it records every packet twice: at program entry and at program exit together with the action the
+program returned. While the IP rule is active, the exit records show XDP_DROP (Figure 2.5). Option -x
+prints a hex dump of each packet (Figure 2.7, 2.8). Writing a pcap stream to standard output and
+piping it into tcpdump -r - -n decodes the same packets as ICMP echo requests and replies (Figure 2.9).
+
+2.6 xdp-filter poll and unload
+xdp-filter poll -i 1000 prints the packet and byte rates per XDP action once per second. Figure 2.10
+shows 16 packets counted as XDP_DROP and a slowly growing XDP_PASS count in every period of the five-
+second run. Finally xdp-filter unload t1-host removes the program, and xdpdump -D shows nothing
+loaded again (Figure 2.11).
+xdp-filter is a ready-made, static filter: it drops by address or port rules that an operator adds. It has
+no notion of a flow and no classifier. Task 2 builds what is missing for DDoS defense: a filter whose
+rules the kernel program writes itself, from a per-flow classification.
+
+
+
+
+                                                    3
+                                        2 Task 1: xdp-tools
+
+
+
+
+Figure 2.5: Section 5: xdpdump --rx-capture=entry,exit shows the exit action XDP_DROP; after the rule
+            is removed the ping works.
+
+
+
+
+Figure 2.6: Section 6: port filter. HTTP 200, timeout while the rule exists, status, and HTTP 200
+            again after removal.
+
+
+
+
+                                                 4
+                                        2 Task 1: xdp-tools
+
+
+
+
+Figure 2.7: Section 7: xdpdump -x, hex dump of the packets seen at the XDP hook (start of the output).
+
+
+
+
+                         Figure 2.8: Section 7: xdpdump -x, further packets.
+
+
+
+
+  Figure 2.9: Section 8: xdpdump -w - | tcpdump -r - -n, the pipe decodes the captured packets.
+
+
+
+
+                                                  5
+                                      2 Task 1: xdp-tools
+
+
+
+
+Figure 2.10: Section 9: xdp-filter poll -i 1000 reports the counters per action for five seconds.
+
+
+
+
+            Figure 2.11: Section 10: after xdp-filter unload no program is loaded.
+
+
+
+
+                                               6
+3 Task 2: Real-Time Cycle in the Kernel
+3.1 Architecture
+The cycle has four steps: capture, flowmeter, classification and filtration. In our best-case design all
+four run in one XDP program, xdp_ids (xdp/lab4_xdp.bpf.c), attached to the interface ext0 of an IDS
+container that acts as an inline gateway between a client and two web servers (Figure 3.1; the Docker
+setup is in Chapter 5).
+                          client
+                                            1 capture: XDP hook, ext0
+                        172.28.1.20
+                                      2 blocklist: source blocked? → XDP_DROP                  nginx
+                                                                                 XDP_PASS    172.28.2.10
+                                       3 flowmeter: per-flow counters (map)      forward
+                                                                                               apache
+                                                                                  int0
+                                                                                             172.28.2.11
+                                        4 classify: DT / XGB trees (maps)
+
+                                      5 filter: malicious → block source, drop
+
+
+
+ browser (host)
+                    user space (same container): agent.py / webui.py → bpftool
+   mgmt0:8080
+
+Figure 3.1: Data path of the best case. Stages 1 to 5 are one XDP program; the models and the
+            blocklist are kernel maps that user space fills and reads through bpftool.
+  1. Capture. The program sees every frame of ext0 before the IP stack. IPv4 TCP and UDP packets
+     are parsed with bounds checks; ARP, IPv6, ICMP, fragments, VLAN frames and malformed
+     packets pass untouched and are counted.
+  2. Blocklist. If the source address is in the blocklist map and the entry has not expired, the
+     packet is dropped. Expired entries are deleted on the next packet of that source.
+  3. Flowmeter. A least-recently-used hash map flows keeps one record per 5-tuple with packet and
+     byte counters, the packet length extremes and the inter-arrival times.
+  4. Classification. At certain packets of a flow (below) the program computes the ten features of
+     Section 3.2 and walks the integer trees stored in the maps nodes and roots.
+  5. Filtration. A malicious verdict writes the source into the blocklist for --block-seconds (default
+     60 s) and drops the packet. All internal errors fail open: the packet passes.
+
+3.2 Kernel features
+XDP runs on ingress only. In our topology the program therefore sees the client-to-server packets
+of a flow, the forward direction, and never the replies. CICFlowMeter, which produced the dataset,
+also computes backward and bidirectional features (flow duration, bytes per second, backward packet
+lengths). Computing them differently in the kernel would silently change their meaning, so we use only
+ten forward-direction features that the kernel computes exactly with integer arithmetic (Table 3.1).
+The payload length is the IPv4 total length minus the IP and the TCP or UDP header, never the
+frame length, so Ethernet padding is not counted. We left out two features that score highly in Lab 2
+and Lab 3 but are shortcuts: the destination port (nearly all DDoS flows of the file go to port 80,
+which is exactly the port of our demo web servers, so a port-based model would flag normal demo
+traffic) and Init_Win_bytes_forward (a fingerprint of the 2017 attack hosts). We also left out the
+standard-deviation features, which need an integer square root and CICFlowMeter’s conventions,
+and the header-length features with known CICFlowMeter quirks. The cost in accuracy is small
+(Section 3.6).
+
+
+
+                                                        7
+                                             3 Task 2: Real-Time Cycle in the Kernel
+
+
+                    Idx    CIC column                          Kernel computation (forward packets)   Scale
+                      0    Total Fwd Packets                   packet count                              1
+                      1    Total Length of Fwd Packets         sum of L4 payload bytes                   1
+                      2    Fwd Packet Length Max               largest payload                           1
+                      3    Fwd Packet Length Min               smallest payload                          1
+                      4    Fwd Packet Length Mean              bytes · 1000 / packets                 1000
+                      5    Fwd IAT Total                       last − first timestamp (ns)            1000
+                      6    Fwd IAT Mean                        (last − first) / (packets − 1)         1000
+                      7    Fwd IAT Max                         largest gap                            1000
+                      8    Fwd IAT Min                         smallest gap                           1000
+                      9    act_data_pkt_fwd                    packets with payload > 0                  1
+     Table 3.1: The ten kernel features (xdp/lab4_common.h, common.KERNEL_FEATURES). The dataset stores
+                inter-arrival times in microseconds and the kernel measures nanoseconds, hence scale 1000.
+                All divisions are unsigned integer divisions.
+     3.3 Integer decision trees
+     eBPF has no floating-point arithmetic. Trees are invariant to feature scaling, so we train on the raw
+     feature values (no scaler) and convert the thresholds. Features and thresholds are integers in kernel
+     units: xint = bx · sc with the scale s of Table 3.1. A sklearn tree goes left if x ≤ t, so T = bt · sc.
+     XGBoost goes left if x < t for a float32 threshold t, so T = dt · se − 1. In both cases the kernel rule is
+     the same: left iff xint ≤ T .
+     A Decision Tree leaf is class 1 if P (DDoS) > 0.5. An XGBoost leaf value is stored as a fixed-point
+     integer round(leaf · 216 ); the base score becomes a margin round(logit(b) · 216 ). The verdict is malicious
+     if the margin sum is positive (an exact zero is normal, matching the rule score > 0.5). The exported
+     model has 387 nodes in total (models/kernel_model.json, key meta). Each node is 24 bytes (struct
+     tree_node); the maps hold up to 8,192 nodes and 64 trees. The decision tree root is roots[0], the
+     XGBoost trees are roots[1..20].
+
+     3.4 The XDP program
+     Listing 3.1 is the core of the classifier: a bounded loop that follows node indices in the nodes map. The
+     constant bound lets the verifier prove termination, and each map lookup is checked for NULL. XGBoost
+     sums its 20 trees with the helper bpf_loop, and classify (Listing 3.2) combines the verdicts: with ALL
+     the flow is malicious only if both models say so, because the action is a drop and a false drop costs
+     more than a missed detection in this demo.
+                             Listing 3.1: walk_tree: integer tree walk (xdp/lab4_xdp.bpf.c).
+1    /* Purpose: walk one tree with integer thresholds (left iff x <= T).
+2     * Inputs: root node index, feature vector. Return: leaf value; 0 on any error (fail open). */
+3    static __always_inline __s32 walk_tree(__u32 root, const __s64 *x)
+4    {
+5            __u32 idx = root;
+6
+7            /* constant bound so the verifier can prove termination */
+8            for (int step = 0; step <= MAX_TREE_DEPTH; step++) {
+9                    struct tree_node *n = bpf_map_lookup_elem(&nodes, &idx);
+10
+11                   if (!n) /* idx out of range or map not loaded */
+12                           return 0;
+13                   if (n->feature < 0)
+14                           return n->leaf;
+15                   __u32 f = n->feature;
+16
+17                   if (f >= N_FEATURES) /* bounds the variable stack/map offset */
+18                           return 0;
+
+
+
+
+                                                                    8
+                                             3 Task 2: Real-Time Cycle in the Kernel
+
+
+19                   idx = x[f] <= n->threshold ? n->left : n->right;
+20           }
+21           return 0;
+22   }
+
+
+
+                 Listing 3.2: classify: DT, XGB or both models must agree (xdp/lab4_xdp.bpf.c).
+1    /* Purpose: classify one feature vector for a mode (DT, XGB or ALL = both agree).
+2     * Inputs: config, mode, vector, outputs for the per-model verdicts and the margin.
+3     * Return: final verdict. The model not run gets V_NONE. */
+4    static __always_inline __u32 classify(const struct ids_config *cfg, __u32 mode, const __s64 *x,
+5                                            __u32 *dt, __u32 *xgb, __s64 *margin)
+6    {
+7            *dt = V_NONE;
+8            *xgb = V_NONE;
+9            *margin = 0;
+10           if (mode & MODE_DT)
+11                   *dt = dt_classify(x);
+12           if (mode & MODE_XGB) {
+13                   *margin = xgb_margin(cfg, x);
+14                   *xgb = *margin > 0 ? V_MALICIOUS : V_NORMAL; /* exact 0 is Normal */
+15           }
+16           if (mode == MODE_DT)
+17                   return *dt;
+18           if (mode == MODE_XGB)
+19                   return *xgb;
+20           return (*dt == V_MALICIOUS && *xgb == V_MALICIOUS) ? V_MALICIOUS : V_NORMAL;
+21   }
+
+
+     When a flow is classified. The dataset rows describe completed flows, while a SYN-only partial flow
+     looks like a one-packet flow, which is something else. The kernel therefore classifies a flow at a packet
+     with the FIN or RST flag, and re-checks long or connectionless flows when the packet count is a power
+     of two and at least 8 (8, 16, 32, …). Flows with fewer than 8 packets and no FIN or RST are never
+     classified. Listing 3.3 shows the blocklist check at the start of the program and the verdict step at the
+     end.
+     Listing 3.3: Blocklist check at the start of xdp_ids: drop while the entry is valid, delete it when expired.
+1            expiry = bpf_map_lookup_elem(&blocklist, &p.key.saddr);
+2            if (expiry) {
+3                    if (*expiry > now) {
+4                             stat_inc(ST_DROP);
+5                             return XDP_DROP;
+6                    }
+7                    bpf_map_delete_elem(&blocklist, &p.key.saddr);
+8            }
+
+
+
+     Listing 3.4: Classification trigger and filter step: a malicious verdict blocks the source and drops the
+                  packet.
+1            }
+2            flow_update(st, &p, now);
+3
+4            cfg = bpf_map_lookup_elem(&config, &zero);
+5            if (!cfg || cfg->mode == MODE_OFF ||
+6                !((p.tcp_flags & (TCP_FIN | TCP_RST)) ||
+7                  (st->pkts >= CLASSIFY_MIN_PKTS && (st->pkts & (st->pkts - 1)) == 0))) {
+8                    stat_inc(ST_PASS);
+9                    return XDP_PASS;
+10           }
+11
+12           build_features(st, x);
+13           verdict = classify(cfg, cfg->mode, x, &dt, &xgb, &margin);
+14           st->dt_verdict = dt;
+15           st->xgb_verdict = xgb;
+
+
+
+
+                                                                      9
+                                           3 Task 2: Real-Time Cycle in the Kernel
+
+
+16         st->xgb_margin = margin;
+17         st->verdict = verdict;
+18         st->classified_ns = now;
+19         stat_inc(ST_FLOWS_CLASSIFIED);
+20
+21         if (verdict == V_MALICIOUS) {
+22                __u64 until = now + cfg->block_ns;
+23
+24                bpf_map_update_elem(&blocklist, &p.key.saddr, &until, BPF_ANY);
+25                stat_inc(ST_BLOCKS_ADDED);
+26                stat_inc(ST_FLOWS_MALICIOUS);
+27                stat_inc(ST_DROP);
+28                return XDP_DROP;
+29         }
+30         stat_inc(ST_PASS);
+
+
+
+     3.5 User space with bpftool
+     User space contains no custom loader. The agent (script/agent.py) calls bpftool with an argument list
+     (never through a shell): prog loadall with pinned maps, one batch file with all node, root and config
+     updates, net attach xdpgeneric, JSON map dumps that carry BTF-formatted values, and prog run for
+     tests. The program is attached only after the model and the configuration are in the maps, and always
+     detached on exit. Once per second the agent dumps the flows and stats maps and prints one JSON
+     line per classified flow. A per-interface file lock allows one capture per interface. The interface name is
+     validated against /sys/class/net, the management interface is refused, and the timespan and model
+     are range-checked. The command line is agent.py --iface ext0 --model {DT,XGB,ALL} --timespan S
+     --block-seconds B --replay N (--replay 0 to 100, default 0).
+
+     3.6 Training and depth selection
+     We port the cleaning and the 70/15/15 split of Lab 3, so the test split holds the same rows, and then
+     keep the ten kernel features. The models are DecisionTreeClassifier and XGBClassifier (20 trees,
+     learning rate 0.1, no early stopping, so exactly 20 trees go to the kernel). The depth is chosen on the
+     validation split: the smallest depth whose validation F1 is within 0.0005 of the best (Table 3.2). The
+     test split is used once.
+                                Model                      Depth              4           5          6
+                                XGBoost (20 trees)         val F1      0.99896    0.99906     0.99904
+
+                                      Model            Depth              6          8          10
+                                      Decision Tree    val F1     0.99904       0.99914   0.99906
+     Table 3.2: Validation F1 per depth (outputs/metrics/depth_selection.json). Selected: DT depth 6,
+                XGB depth 4.
+     Table 3.3 gives the test results. We report all four counts and F1, not accuracy alone. The integer
+     rows are the models as the kernel evaluates them.
+         Model                              Acc    Prec         Rec        F1     ROC-AUC            TP     TN    FP   FN
+         Decision Tree (d6)            0.9989     0.9998   0.9983      0.9991         0.9999    19170     14257    4   32
+         XGBoost (20 trees, d4)        0.9987     0.9994   0.9984      0.9989         0.9998    19171     14250   11   31
+         Decision Tree (integer)       0.9989     0.9998   0.9983      0.9991         0.9990    19170     14257    4   32
+         XGBoost (integer)             0.9987     0.9994   0.9984      0.9989         0.9998    19171     14250   11   31
+     Table 3.3: Test metrics on 33,463 flows (outputs/metrics/comparison_test.md); DDoS is the positive
+                class. The integer Decision Tree outputs hard classes, hence its lower ROC-AUC.
+
+
+
+
+                                                                  10
+                               3 Task 2: Real-Time Cycle in the Kernel
+
+
+The kernel models keep the F1 within about 0.001 of the 59-feature models of Lab 3 (XGBoost F1
+1.0000 there), although they see 10 forward-only features and 387 nodes. The integer models have the
+same confusion matrices as the floating-point models. Table 3.4 shows why so few features suffice: two
+payload-size features carry about 99 % of the importance.
+                  Feature                          DT importance      XGB gain importance
+                  Total Length of Fwd Packets               0.4205                 0.2784
+                  Fwd Packet Length Max                     0.5765                 0.7185
+                  all other eight features, each          ≤ 0.0011               ≤ 0.0012
+Table 3.4: Feature importance (outputs/metrics/feature_importance.md; the full table lists all ten).
+
+3.7 Verification chain
+We check three links. First, train.py compares the floating-point predictions with a Python integer
+evaluator on all 33,463 test rows: the verdicts agree on 100 % of the rows for both models (0
+mismatches), and the largest margin error of XGBoost is 4.5 · 10−5 (outputs/metrics/parity.json,
+ac_pass true). Second, a second program classify_test in the same object evaluates 1,024 test
+vectors in the kernel (BPF_PROG_TEST_RUN); the DT verdicts and XGB margins equal the Python
+integer evaluator exactly. Third, kernel tests run the real program on crafted packets: flowmeter
+counts, classification trigger, blocklist, block expiry, mode ALL needs both models, mode off, and the
+pass-through of ARP, IPv6, ICMP, fragments, short packets, bad header lengths and VLAN frames.
+outputs/kernel/kernel_tests.log reports 18 passing kernel tests (Figure 3.2). Together, the kernel
+decides what the trained model decides.
+
+
+
+
+          Figure 3.2: Kernel tests in the IDS image (docker run --privileged, 18 passed).
+
+Size and cost. The verifier accepts xdp_ids: 5,664 bytes of translated and 3,263 bytes of JIT-compiled
+code (outputs/kernel/prog_sizes.json). Table 3.5 lists the average run time per packet measured with
+BPF_PROG_TEST_RUN. Untracked packets cost almost nothing, packets in the middle of a flow only update
+counters, and the walk of the 20 XGBoost trees is the most expensive step. Classification happens
+once per flow (at FIN) or at power-of-two packet counts, not for every packet.
+                               Packet (ns per run)         DT    XGB       ALL
+                               not tracked (ARP etc.)                18
+                               mid-flow (counters only)     61        82    60
+                               classifying (FIN)           120       366   542
+           Table 3.5: Average time per BPF_PROG_TEST_RUN (outputs/kernel/timing.json).
+
+3.8 Live cycle
+In the Docker topology, a client requests the two web servers once per second through the IDS gateway,
+normal traffic only. Table 3.6 lists the runs. In 60-second runs with DT, XGB and ALL, the program
+classified 118 flows each, none of them malicious, and dropped no packet. Each classified flow had 5 to
+7 packets and was classified at its FIN (Figure 3.5 shows the ALL output). The counter ST_PASS also
+counts untracked packets, so it can exceed ST_PKTS.
+Filter without attack tools. With a good model and normal traffic the filter never fires. To show it
+anyway, we ran the agent with a stub model (tests/fixtures/always_malicious.json: one decision-tree
+
+
+
+                                                     11
+                                3 Task 2: Real-Time Cycle in the Kernel
+
+
+   Run                          Time (s)   Packets   Classified   Malicious   Drops   Blocks   Untracked
+   DT, normal traffic                60       703          118           0        0       0           3
+   XGB, normal traffic               60       701          118           0        0       0           2
+   ALL, normal traffic               60       710          118           0        0       0           1
+   DT, stub model, block 20 s        30        66            2           2       55       2           2
+Table 3.6: Live   runs    on    ext0    (outputs/realtime/20261125-225252_ext0_DT_summary.json,
+           …225354_ext0_XGB, …225456_ext0_ALL, …225602_ext0_DT).
+
+
+
+
+Figure 3.3: Agent CLI with --model DT: one JSON line per classified flow (client 172.28.1.20 to the two
+            servers, all Normal).
+
+
+
+
+                                Figure 3.4: Agent CLI with --model XGB.
+
+
+
+
+              Figure 3.5: Agent CLI with --model ALL: both verdicts are listed per flow.
+leaf with value 1) and a 20-second block time. The first classified flow of the client blocked its source,
+55 packets were dropped in 30 seconds, and the source was blocked a second time after the first block
+expired (the last row of Table 3.6). Figure 3.6 shows the client: requests fail with a timeout while the
+source is blocked and succeed between blocks.
+
+3.9 Replay of dataset flows
+Real attack traffic is not allowed, so we push dataset flows through the same attached kernel program.
+train.py writes models/replay_flows.json, a pool of 1,000 flows (500 benign, 500 DDoS) of the test
+split whose forward packets can be rebuilt exactly: at most 32 packets, and a list of payload sizes that
+reproduces the packet count, the total, maximum, minimum, mean and active-packet count. With
+--replay N (UI default 20) the session draws N /2 benign and N /2 DDoS flows at random and injects
+them at random times spread over the first 80 % of the capture (each poll tick injects the flows that
+are due), so they interleave with live flows. Each flow is rebuilt as TCP packets from a random source
+in 10.99.0.0/16 to 172.28.2.10:80, with FIN and ACK on the last packet, and injected with bpftool
+
+
+
+                                                     12
+                               3 Task 2: Real-Time Cycle in the Kernel
+
+
+
+
+Figure 3.6: Client log during the filter demo: FAIL lines (timeouts) while the client is blocked, OK lines
+            in between.
+prog run into the pinned xdp_ids program. The real flowmeter, models and blocklist therefore produce
+the verdicts, and the rows appear in the same table as live flows. Nothing is sent on the wire, and
+blocks only affect 10.99.x.y.
+Limit. Packets run through BPF_PROG_TEST_RUN are microseconds apart, so the inter-arrival features of
+a replayed flow do not reproduce the dataset. These features carry less than 0.5 % of the importance
+(Table 3.4), but the replay is not a test of timing behaviour.
+Results. A kernel test replays 50 DDoS and 50 benign flows: all 50 DDoS flows are classified malicious,
+none of the benign flows (outputs/kernel/replay_summary.json). In three live captures with mode ALL
+(outputs/realtime/20261126-*_ext0_ALL_replay.json) the replayed flows were handled as follows.
+          Capture           DDoS replayed    DDoS dropped     Benign replayed   Benign dropped
+          20261126-180119               30               30                30                 0
+          20261126-180431               30               30                30                 0
+          20261126-180721               13               13                17                 0
+Table 3.7: Replay in live captures with --model ALL (outputs/realtime/*_replay.json); a flow counts
+           as dropped if one of its packets returned XDP_DROP.
+These flows come from the test split, so the result repeats the high within-day scores of Table 3.3 in
+the live program, with the exact flow reconstruction as the only difference.
+
+3.10 Proof that classifier and filter run in the kernel
+During a capture with replayed flows, the following views show that the decision is made in the kernel.
+Pins live under /sys/fs/bpf/lab4/ext0/ and disappear when the capture ends.
+
+
+
+
+                                                   13
+                              3 Task 2: Real-Time Cycle in the Kernel
+
+
+
+
+                                     Screenshot SS_K_1: pending
+
+  Figure 3.7: bpftool net show dev ext0: the XDP program is attached to ext0 in generic mode.
+
+
+
+
+                                     Screenshot SS_K_2: pending
+
+Figure 3.8: bpftool prog show name xdp_ids: the verified and JIT-compiled program (5,664 B trans-
+            lated, 3,263 B JIT).
+
+
+
+
+                                     Screenshot SS_K_3: pending
+
+Figure 3.9: The pinned maps and the config and nodes entries: mode ALL, 20 XGBoost trees, and the
+            root node of the decision tree stored in the kernel.
+
+
+
+
+                                     Screenshot SS_K_4: pending
+
+Figure 3.10: Counters kept by the program: classified flows, malicious flows, blocks added and dropped
+             packets are all above zero.
+
+
+
+
+                                     Screenshot SS_K_5: pending
+
+Figure 3.11: blocklist map dump: keys starting with 0a 63 are 10.99.x.y addresses, the blocked replay
+             sources; the value is the expiry time.
+
+
+
+
+                                     Screenshot SS_K_6: pending
+
+  Figure 3.12: Agent output (or the UI table) with Malicious rows from the replayed DDoS flows.
+
+
+
+
+                                     Screenshot SS_K_7: pending
+
+Figure 3.13: After the capture, bpftool net show dev ext0 lists no XDP program: it was detached
+             cleanly.
+
+
+
+
+                                                 14
+4 Task 3: Front-End Interface
+The sample on the task sheet shows a dark page with a dropdown of local interfaces, a timespan field, a
+Start Packet Capture button and a table called Algorithm Output with source and destination address
+and port, a timestamp and the result (Normal or Malicious). We built the same page (web/index.html,
+one file with HTML, CSS and JavaScript, no external libraries) and a small server (script/webui.py,
+Python standard library only) that uses the same Session class as the command-line agent.
+
+4.1 Controls and API
+  • Available Local Interfaces: filled from GET /api/interfaces. The management interface mgmt0
+    is hidden, so the page cannot attach a program to the interface that carries its own traffic. The
+    default is ext0.
+  • Enter Timespan: seconds, 1 to 3600.
+  • Model: DT, XGB or ALL (we added this dropdown to the sample).
+  • Replay dataset flows: number of test-split flows replayed through the kernel program at
+    random times over the first 80 % of the capture, interleaved with live flows (default 20, 0 to 100;
+    Section 3.9).
+  • Start Packet Capture / Stop: POST /api/start answers 202, 400 for invalid input or 409 if a
+    capture is already running on the interface; POST /api/stop ends it.
+  • Status line and table: the page polls GET /api/flows. The status line shows the remaining
+    time and the counters (packets, dropped, classified, malicious, blocks). Malicious rows are red.
+    The Models column shows the verdict of each model.
+The server validates every field (interface, timespan, model, a request body of at most 4 KB). It listens
+only on the management address 172.28.0.2:8080, so the browser on the host can reach it, but the
+client behind the XDP hook cannot, and its own polling never crosses ext0.
+
+4.2 Screenshots
+Each capture replays 20 dataset flows (half benign, half DDoS), so the table holds at least 20 rows with
+a random mix of Normal and Malicious, together with the live client flows (172.28.1.20). Figure 4.1
+shows DT, Figure 4.2 XGB and Figure 4.3 ALL. In the DT screenshot the status line reads 97 packets,
+4 dropped, 19 classified, 4 malicious and 4 blocks; in the ALL screenshot 335 packets, 8 dropped, 55
+classified, 7 malicious and 7 blocks. The blocked sources are replayed 10.99.x.y addresses, and the
+client 172.28.1.20 stays Normal.
+
+
+
+
+                                                   15
+         4 Task 3: Front-End Interface
+
+
+
+
+Figure 4.1: Web interface with the Decision Tree.
+
+
+
+
+    Figure 4.2: Web interface with XGBoost.
+
+
+
+
+                       16
+                           4 Task 3: Front-End Interface
+
+
+
+
+Figure 4.3: Web interface with both models (ALL): Malicious rows need both verdicts.
+
+
+
+
+                                        17
+5 Task 4: Containerization
+Task 4 asks for Docker containers for Nginx and Apache and a container that pings both, and to check
+whether they can communicate. docker-compose.yml (project lab4) starts these three services and also
+the IDS gateway and the normal-traffic client that Tasks 2 and 3 need. Table 5.1 lists the networks
+and services, Figure 3.1 shows the data path.
+      Service   Image                 Network (IP, interface)      Role
+      nginx     nginx:stable-alpine   back: 172.28.2.10            web server (Task 4)
+      apache    httpd:2.4-alpine      back: 172.28.2.11            web server (Task 4)
+      pinger    alpine:3              back: 172.28.2.30            pings both servers (Task 4)
+      client    alpine:3              front: 172.28.1.20           normal HTTP traffic via the IDS
+      ids       lab4-ids:latest       mgmt: 172.28.0.2 (mgmt0)     UI and agent
+                                      front: 172.28.1.2 (ext0)     XDP hook
+                                      back: 172.28.2.2 (int0)      forwarding with NAT
+Table 5.1: Compose topology (docker-compose.yml).               Networks:    mgmt   172.28.0.0/24,   front
+           172.28.1.0/24, back 172.28.2.0/24.
+The IDS container is privileged (loading BPF needs CAP_BPF, CAP_NET_ADMIN and
+CAP_SYS_ADMIN; membership of the docker group is root-equivalent, which is acceptable for a lab
+machine). It owns its network namespace, so XDP can never touch the host uplink, and removing the
+container removes the program, the pins and all blocks. The interface_name option gives the three
+interfaces fixed names, and the client reaches the servers through the IDS via a route to 172.28.2.0/24
+through 172.28.1.2. The image builds the BPF object in a build stage (clang, libbpf) and ships only
+bpftool, iproute2, iptables and the Python scripts in the runtime stage, so it contains no numpy or
+scikit-learn.
+
+5.1 Communication check
+docker/task4_check.sh runs from the pinger:    three pings each to nginx and apache by name and
+to 172.28.2.10 and 172.28.2.11 by address, and an HTTP request to each server. All checks pass
+(outputs/task4/task4_check.log ends with RESULT: all checks PASSED; ping round trips are below
+1 ms with 0 % loss). Figure 5.1 shows the running services and Figure 5.2 the check.
+
+
+
+
+                        Figure 5.1: docker compose ps: all five services are up.
+
+
+
+
+                                                   18
+       Figure 5.2: docker/task4_check.sh: ping by name and IP, HTTP to Nginx and Apache.
+
+6 Discussion
+What the results show. A decision tree and a 20-tree XGBoost model fit into one XDP program of
+5,664 translated bytes, and the kernel reproduces the Python integer models exactly. A classification
+costs between about 120 ns (DT) and 366 ns (XGB); mode ALL runs both models and costs about
+their sum (542 ns) in the measurement of Table 3.5. The F1 scores of 0.9991 and 0.9989 are within
+about 0.001 of the models of Lab 3 that use 59 features, although the kernel models use ten.
+The model is a payload-size rule. Two features, the largest forward payload and the total forward
+payload, carry about 99 % of the importance (Table 3.4). The Friday DDoS flows are an HTTP flood
+with a characteristic request size, and the trees learned that size. The high F1 therefore says that this
+attack is easy to separate by request size within the test split. It says little about other attacks or
+other networks, and the live demo traffic (small wget requests) happens to fall on the normal side.
+We did not tune the thresholds for the demo. Had normal flows come out malicious, we would have
+reported it instead of changing features.
+Ingress only. XDP runs on receive, so the program sees only the forward direction. Backward and
+bidirectional features (flow duration, bytes per second, backward packet lengths) are absent, because
+computing them differently from CICFlowMeter would change their meaning (Section 3.2).
+Partial flows. CICFlowMeter rows describe completed flows. The kernel classifies at FIN or RST and
+at power-of-two packet counts from 8 on, so a flow with fewer than 8 packets and no FIN or RST (for
+example a short UDP exchange) is never classified, and a source can send many such flows unblocked.
+A timer-based idle expiry would close this gap and is out of scope. A reused 5-tuple continues the old
+flow entry, which is rare with ephemeral ports. Flow counters are not atomic across CPUs, which is
+accepted at demo rates.
+No attack tools. The task sheet forbids attacking tools. The filter is therefore shown with a stub
+model on normal traffic and with the dataset replay. The replay rebuilds the forward packets of dataset
+flows, but the inter-arrival times are not reproduced (Section 3.9), and it uses flows of the test split, so
+
+
+
+
+                                                    19
+it does not measure robustness against a new attack. Classifier performance on live malicious traffic
+was not checked, as the sheet allows.
+Other limits. Only IPv4 TCP and UDP are inspected; everything else passes. The program runs
+in generic (skb) mode, because native mode on veth needs extra setup. The privileged container is
+root-equivalent. The consensus rule of ALL drops fewer flows than either model alone, so a flow that
+only one model flags is passed. Remedies such as multi-day training data or more features were not
+part of this lab.
+7 Conclusion
+We built the best case of the real-time cycle: one XDP program that captures packets, keeps per-flow
+features in a kernel map, classifies flows with a Decision Tree and an XGBoost model stored in BPF
+maps, and drops all traffic of a source that is classified as malicious. User space only trains, exports
+and configures. The integer models match the floating-point models on all 33,463 test flows and the
+kernel matches the Python evaluator exactly on 1,024 vectors; the test F1 is 0.9991 (DT) and 0.9989
+(XGB). In the Docker gateway topology, normal traffic caused no drop, a stub model showed the filter
+blocking the client, and 60 replayed dataset flows were handled correctly, all 30 DDoS flows blocked
+and none of the 30 benign flows. Task 1 documented xdp-filter and xdpdump in a sandbox, Task 3
+provides the interface, and Task 4 shows that Nginx, Apache and the pinger communicate. The main
+limit is the narrow basis of the classifier: it is essentially a request-size rule from one attack file.
+A Reproduction
+All commands run from Lab4/.           The complete, step-by-step list is in                       README.md   and
+USER_COMMANDS_RUN.md; bash run.sh runs training, build and kernel tests in one go.
+uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt
+.venv/bin/python script/train.py          # clean, split, depth selection, train, export, parity
+.venv/bin/pytest -m "not kernel and not docker" -q
+make -C xdp && docker compose build ids
+docker run --rm --privileged -v "$PWD/models:/lab4/models:ro" lab4-ids:latest \
+    python3 -m pytest tests/test_kernel.py -m kernel -q
+docker compose up -d && bash docker/task4_check.sh
+docker compose exec ids python3 script/agent.py --iface ext0 --model ALL --timespan 30
+sudo bash xdp_tools/task1_demo.sh 2>&1 | tee xdp_tools/logs/task1_demo.log
+
+
+The web interface opens at http://172.28.0.2:8080 on the host. The kernel-proof screen-
+shots (Section 3.10) use agent.py --replay 60 with the bpftool commands of Section 7 of
+USER_COMMANDS_RUN.md.
+
+
+
+
+                                                              20
+Bibliography
+[Høi+18]   T. Høiland-Jørgensen et al. “The eXpress Data Path: Fast Programmable Packet Processing in the
+           Operating System Kernel.” In: Proc. 14th Int. Conf. on emerging Networking EXperiments and Technologies
+           (CoNEXT ’18). Paper and artefacts: https://github.com/xdp-project/xdp-paper. ACM, 2018, pp. 54–66.
+           doi: 10.1145/3281411.3281443 (cit. on p. 1).
+[SLG18]    Iman Sharafaldin, Arash Habibi Lashkari, and Ali A. Ghorbani. “Toward Generating a New Intrusion
+           Detection Dataset and Intrusion Traffic Characterization.” In: Proceedings of the 4th International
+           Conference on Information Systems Security and Privacy (ICISSP). 2018, pp. 108–116. doi:
+           10.5220/0006639801080116 (cit. on p. 1).
+[XDP]      XDP project. xdp-tools. url: https://github.com/xdp-project/xdp-tools (visited on 11/15/2026) (cit. on
+           p. 1).
+
+
+
+
+                                                      21
+Eidesstattliche Erklärung
+Hiermit versichere ich, dass ich diese MasterLab selbstständig und ohne Benutzung anderer als der
+angegebenen Quellen und Hilfsmittel angefertigt habe und alle Ausführungen, die wörtlich oder
+sinngemäß übernommen wurden, als solche gekennzeichnet sind, sowie, dass ich die MasterLab in
+gleicher oder ähnlicher Form noch keiner anderen Prüfungsbehörde vorgelegt habe.
+
+
+
+
+Passau, 26. November 2026
+
+
+
+
+Justlyn Kaniyanthara Johnson                           Aayush Kapoor
+
+
+
+
+                                               22
+

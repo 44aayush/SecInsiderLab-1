@@ -22,6 +22,7 @@ button { border: 0; border-radius: .25rem; padding: .6rem 1.2rem; font: inherit;
 #stop { background: var(--line); color: var(--fg); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+#note { text-align: center; color: #9aa0a8; font-size: .9rem; margin: .75rem 0 0; }
 #status { margin: 1rem 0; text-align: center; min-height: 1.5rem; }
 .scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; background: var(--panel); }
@@ -42,9 +43,12 @@ tr.normal td:nth-child(6) { color: var(--ok); }
     <input id="timespan" name="timespan" type="number" min="1" max="3600" value="30" required></label>
   <label>Model <select id="model" name="model">
     <option>DT</option><option>XGB</option><option selected>ALL</option></select></label>
+  <label>Replay dataset flows
+    <input id="replay" name="replay" type="number" min="0" max="100" value="20" required></label>
   <button id="start" type="submit">Start Packet Capture</button>
   <button id="stop" type="button" disabled>Stop</button>
 </form>
+<p id="note">Replayed flows come from the CIC-IDS2017 test split (half Normal, half DDoS, chosen at random). They enter the kernel program as rebuilt packets; nothing is sent on the network.</p>
 <p id="status" role="status" aria-live="polite">Idle.</p>
 <div class="scroll">
 <table>
@@ -68,11 +72,13 @@ async function api(path, body) {
 
 function render(s) {
   const st = s.stats || {};
+  const counters = `packets ${st.ST_PKTS ?? 0}, dropped ${st.ST_DROP ?? 0}, `
+    + `classified ${st.ST_FLOWS_CLASSIFIED ?? 0}, malicious ${st.ST_FLOWS_MALICIOUS ?? 0}, `
+    + `blocks ${st.ST_BLOCKS_ADDED ?? 0}`;
+  const idle = s.iface ? `Finished on ${s.iface} (${s.model}) | ${counters}` : "Idle.";
   $("status").textContent = s.running
-    ? `Running on ${s.iface} (${s.model}), ${s.remaining_s} s left | packets ${st.ST_PKTS ?? 0}, `
-      + `dropped ${st.ST_DROP ?? 0}, classified ${st.ST_FLOWS_CLASSIFIED ?? 0}, `
-      + `malicious ${st.ST_FLOWS_MALICIOUS ?? 0}, blocks ${st.ST_BLOCKS_ADDED ?? 0}`
-    : "Idle.";
+    ? `Running on ${s.iface} (${s.model}), ${s.remaining_s} s left | ${counters}`
+    : idle;
   $("start").disabled = s.running;
   $("stop").disabled = !s.running;
   // textContent only: flow data never becomes markup.
@@ -91,7 +97,8 @@ async function poll() {
 $("ctl").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const {ok, data} = await api("/api/start",
-    {iface: $("iface").value, timespan: Number($("timespan").value), model: $("model").value});
+    {iface: $("iface").value, timespan: Number($("timespan").value), model: $("model").value,
+     replay: Number($("replay").value)});
   if (!ok) $("status").textContent = "Error: " + (data.error ?? "start failed");
   else poll();
 });

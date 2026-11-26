@@ -1,6 +1,7 @@
 """Session, CLI and output contract of agent.py with a fake bpf_ctl (no kernel needed)."""
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 from pathlib import Path
@@ -114,7 +115,8 @@ def test_cli_model_case_insensitive() -> None:
 
 @pytest.mark.parametrize("flag,value", [("--timespan", "0"), ("--timespan", "3601"),
                                         ("--block-seconds", "0"), ("--block-seconds", "3601"),
-                                        ("--model", "RF")])
+                                        ("--model", "RF"), ("--replay", "-1"), ("--replay", "101"),
+                                        ("--replay", "x")])
 def test_cli_bounds(flag: str, value: str) -> None:
     """Out-of-range numbers and unknown models exit with the argparse error code."""
     with pytest.raises(SystemExit) as exc:
@@ -148,6 +150,15 @@ def test_jsonl_one_line_per_new_or_changed_flow(tmp_path: Path, capsys: pytest.C
     assert json.loads(lines[2])["result"] == "Malicious"
 
 
+def test_jsonl_keeps_middle_dot(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The ALL-mode separator is written as the character, not a backslash-u escape."""
+    row = dataclasses.replace(_row(), models="DT: x \xb7 XGB: y")
+    with open(tmp_path / "o.jsonl", "w", encoding="utf-8") as sink:
+        agent.emit_changes([row], {}, sink)
+    for text in (capsys.readouterr().out, (tmp_path / "o.jsonl").read_text(encoding="utf-8")):
+        assert "\xb7" in text and "\\u" not in text
+
+
 class FakeSession:
     """Session stand-in whose poll returns one Malicious flow."""
 
@@ -160,6 +171,17 @@ class FakeSession:
 
     def __exit__(self, *_exc: object) -> None:
         """Do nothing."""
+
+    def replay(self, flows: list[Any]) -> list[dict[str, Any]]:
+        """Return one ground-truth entry per flow.
+
+        Args:
+            flows: Flows to replay.
+
+        Returns:
+            Fake ground truth.
+        """
+        return [{"src_ip": "10.99.0.1", "sport": 1, "label": f, "retvals": [2]} for f in flows]
 
     def poll(self) -> tuple[list[flowview.FlowRow], dict[str, int]]:
         """Return one Malicious row and fixed stats.
@@ -187,6 +209,28 @@ def test_summary_keys_and_chown(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
                                                                                 {"ST_PKTS": 9})
     assert len(list(tmp_path.glob("*.jsonl"))) == 1
     assert chowned and all(c[1:] == (1234, 5678) for c in chowned)
+
+
+def test_replay_flag_writes_ground_truth(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """--replay N draws N flows, replays them and writes <stamp>_replay.json."""
+    monkeypatch.setattr(agent, "Session", FakeSession)
+    monkeypatch.setattr(agent, "POLL_INTERVAL_S", 0.01)
+    monkeypatch.setattr(agent, "setup_logging", lambda _out: None)
+    monkeypatch.setattr(agent.replay, "pick", lambda n: ["DDoS"] * n)
+    monkeypatch.setattr(agent.replay, "SPREAD", 0.1)
+    assert agent.main(["--timespan", "1", "--out", str(tmp_path), "--iface", IFACE,
+                       "--replay", "3"]) == 0
+    (truth,) = tmp_path.glob("*_replay.json")
+    assert [e["label"] for e in json.loads(truth.read_text(encoding="utf-8"))] == ["DDoS"] * 3
+
+
+def test_no_replay_file_by_default(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Without --replay nothing is replayed or written."""
+    monkeypatch.setattr(agent, "Session", FakeSession)
+    monkeypatch.setattr(agent, "POLL_INTERVAL_S", 0.01)
+    monkeypatch.setattr(agent, "setup_logging", lambda _out: None)
+    assert agent.main(["--timespan", "1", "--out", str(tmp_path), "--iface", IFACE]) == 0
+    assert not list(tmp_path.glob("*_replay.json"))
 
 
 def test_chown_skipped_without_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

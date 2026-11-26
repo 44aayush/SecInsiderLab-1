@@ -9,7 +9,7 @@ The user chose the **Best case** of slide 9 only: the classifier (Decision Tree 
 - **Scope rule:** build what the spec and the user's decisions (§2) ask for, plus the tests needed to trust the results. Do not add tasks, features, models or demos without the user's approval.
 - **Self-contained:** Lab 4 never imports from `../Lab2` or `../Lab3`. Porting verified logic (copy and adapt) is encouraged; name the source file in the module docstring.
 - **Task work starts only when the user prompts.** The user reviews these docs first.
-- **Wednesday data is excluded for now (user, 2026-11-26).** Do not include `Wednesday_dataset/` or anything derived from it (CSV, `Wednesday_dataset/outputs/`, §3.7 numbers) in commits, the README, `run.sh`, `USER_COMMANDS_RUN.md`, the report or the deck. The folder is git-ignored (`Lab4/.gitignore`). The code (`script/crossday.py`, its tests) stays, but no deliverable references its results until the user says otherwise.
+- **No Wednesday data (user, 2026-11-26).** The cross-day experiment was removed from the deliverable: no `Wednesday_dataset/` data, code (`crossday.py` and its tests were deleted; recoverable from commit `7ac22cd`), results or references in commits, docs, the report or the deck. The folder stays git-ignored (`Lab4/.gitignore`).
 - **Screenshots** taken by the user go to `Lab4/SS/` (names in `USER_COMMANDS_RUN.md`).
 
 ---
@@ -51,16 +51,13 @@ Binding user instructions (2026-11-25):
 - **D5** Opus writes these docs; no task work until the user prompts (plan-review gate).
 - **D6 (2026-11-25, Lab 3 side experiment):** the user asked for XGBoost with **20 trees, depth 4–6**. Lab 4 uses **20 trees** for the kernel XGBoost; the depth is selected on validation from {4, 5, 6} (§4.4). Evidence: `../Lab3/outputs_xgb20/` (§3.3).
 
-- **D7 (2026-11-26, user): cross-day test on Wednesday.** After training, testing and the kernel work, use `Wednesday_dataset/Wednesday-workingHours.pcap_ISCX.csv` as a test dataset; every output goes under `Wednesday_dataset/`.
-  - File: sha256 `893c27dc968bf7a8adef1689f90be55ca4a4dc3088fb63d6ff247ac56856df2a`, 225,166,395 B, 692,703 rows × 79 columns (same columns as Friday).
-  - Labels: BENIGN 440,031; DoS Hulk 231,073; DoS GoldenEye 10,293; DoS slowloris 5,796; DoS Slowhttptest 5,499; Heartbleed 11.
-  - inf/NaN occur only in Flow Bytes/s and Flow Packets/s.
-  - Opus design (O14):
-    - Score the **frozen** `models/kernel_model.json` (the deployed artefact; no retraining or refitting).
-    - Row cleaning only: inf/NaN rows and duplicate rows, as Lab 3 steps 2–4. No column drops, so Wednesday's data cannot remove a kernel feature.
-    - Labels: BENIGN → 0, every other label → 1. These are DoS attacks, which are **not** in the Friday training data, so this measures cross-day, cross-attack generalisation.
-    - Outputs: metrics for DT, XGB and ALL; per-label detection rate; BENIGN false-alarm rate; kernel parity on a stratified 1,024-row sample.
-    - The CSV is tracked with git-lfs (> 100 MB GitHub limit).
+- **D8 (2026-11-26, user): the UI shows at least 20 rows, a random mix of Normal and Malicious.**
+  - Opus design (slide 8 forbids attack tools): **dataset replay through the real kernel program**.
+  - `train.py` writes `models/replay_flows.json`: a pool of up to 500 BENIGN + 500 DDoS rows from the **test** split whose forward packets can be rebuilt exactly. Exact means Total Fwd Packets ≤ 32 and the payload list reproduces pkts, total, max, min, mean (×1000 floor) and act_data. Each entry is `{label, payloads}`.
+  - At capture start (`agent.py --replay N`, UI "Replay dataset flows", default 20, 0..100), the session samples N/2 + N/2 at random (no fixed seed). Each flow is rebuilt as TCP packets from a random source in 10.99.0.0/16 and a random source port to 172.28.2.10:80; the last packet carries FIN|ACK.
+  - The packets run through the session's **pinned `xdp_ids`** with `bpftool prog run` (BPF_PROG_TEST_RUN), so the real flowmeter, model and blocklist produce the verdicts. Rows appear in the same UI table.
+  - Inter-arrival times are not reproduced (µs apart in test_run). The IAT features carry < 0.5 % of importance (§3.4). This is stated in the UI/docs, together with the replay ground-truth labels (`<out>/..._replay.json`).
+  - No packet goes on the wire, and blocks hit only 10.99.x.y.
 
 ### 2.1 Opus design decisions (the user may override any of them at review; reasons in §4)
 
@@ -143,14 +140,15 @@ Depth selection (val F1, tolerance 0.0005): DT {6: 0.99904, 8: 0.99914, 10: 0.99
 ### 3.5 Kernel evidence (T4.4, 2026-11-25; `outputs/kernel/`)
 
 - Verifier accepts `xdp_ids` and `classify_test`; `xdp_ids` is 5,664 B xlated / 3,263 B JIT.
-- 16/16 kernel tests pass, including exact parity on 1,024 test vectors.
+- 18/18 kernel tests pass (2026-11-26, incl. D8 replay), including exact parity on 1,024 test vectors.
 - Average ns per packet (BPF_PROG_TEST_RUN, 100k repeats):
 
   | Packet | DT | XGB | ALL |
   |---|---:|---:|---:|
-  | not tracked | 11 | 11 | 11 |
-  | mid-flow | 84 | 69 | 65 |
-  | classifying (FIN) | 92 | 377 | 384 |
+  | mid-flow | 61 | 82 | 60 |
+  | classifying (FIN) | 120 | 366 | 542 |
+
+  (Re-measured 2026-11-26 after fixing `test_record_evidence`, which had timed an already-blocked source; not tracked 18 ns. `outputs/kernel/timing.json`, run that also wrote the 18-test `kernel_tests.log`. Single-run timings vary by tens of ns between runs (an earlier run gave 126/397/346); ALL ≈ DT + XGB as expected.)
 
 - bpftool `-j` dumps carry a `formatted` dict (BTF). Per-CPU stats come as `formatted.values[{cpu, value}]`. `saddr` is a little-endian read of the network-order bytes (33554442 = 10.0.0.2).
 
@@ -164,35 +162,6 @@ Depth selection (val F1, tolerance 0.0005): DT {6: 0.99904, 8: 0.99914, 10: 0.99
 - No XDP was left on `ext0` after the runs.
 - UI API: `/api/interfaces` gives `[ext0, int0, lo]` (mgmt0 hidden). A 20 s ALL capture via the API: 41 classifications, all Normal. Browser screenshot: not produced (no Chrome); it comes from the user (T6.5).
 
-
-### 3.7 Cross-day test on Wednesday (T10.2, 2026-11-26; `Wednesday_dataset/outputs/`, 71 s)
-
-Row cleaning: 1,297 inf/NaN rows (Hulk 949, BENIGN 348) and 80,914 duplicates removed → 610,492 rows (BENIGN 416,736; attacks 193,756). The frozen kernel model gives:
-
-| Mode | Recall (attacks) | Precision | F1 | False-alarm rate (BENIGN) | TP | FP | FN |
-|---|---|---|---|---|---:|---:|---:|
-| DT | 0.0033 | 0.7108 | 0.0065 | 0.0006 | 634 | 258 | 193,122 |
-| XGB | 0.0029 | 0.5895 | 0.0058 | 0.0009 | 560 | 390 | 193,196 |
-| ALL | 0.0025 | 0.7070 | 0.0050 | 0.0005 | 485 | 201 | 193,271 |
-
-Per-label detection (DT / XGB / ALL):
-
-| Label | Detection |
-|---|---|
-| Hulk (172,846) | 0.36 % / 0.32 % / 0.28 % |
-| GoldenEye (10,286) | 0 / 0 / 0 |
-| slowloris (5,385) | 0.02 % / 0 / 0 |
-| Slowhttptest (5,228) | 0.13 % / 0.17 % / 0 |
-| Heartbleed (11) | 0 / 0 / 0 |
-
-Kernel parity on 1,024 Wednesday vectors: exact.
-
-**Opus reading:**
-- The Friday-trained models **do not generalise** to Wednesday's DoS attacks; they detect almost nothing.
-- They also raise almost no false alarms (≤ 0.09 %).
-- This is consistent with §3.4: the model is a payload-size rule tuned to Friday's LOIC HTTP flood. My prior expectation that Hulk/GoldenEye would be partly detected was wrong.
-- For the report: within-day test F1 ≈ 0.999 says little about cross-attack robustness.
-- Remedies are out of scope unless the user asks: multi-day or DoS-labelled training data, more features.
 
 ---
 
@@ -459,6 +428,7 @@ Also:
 - **Report:** `G8.Report4.pdf`, **15–20 pages** (slide 12; slide 3's general 10–15 is superseded), screenshots, "document everything". Due **2026-12-09**. Send to tf@sec.uni-passau.de (slide 12). Slide 3 asks for every report in the **same email thread** (also to aeg@sec.uni-passau.de) with subject `Lab-2026: matriculation ID-1, matriculation ID-2`. The user sends it.
 - **Code:** GitHub repo with all labs and **clear reproduction instructions**, due **2026-12-10** (slide 12). Covered by P8 (README, run.sh, root README row). Pushing is the user's decision.
 - **Presentation:** **2026-12-16**; 10 min + 2 min discussion; each member presents their own task; standard slide design.
+- **Screenshots for the report (user, 2026-11-26):** use SS_T1_1–SS_T1_10 (with SS_T1_7_1/_2), SS_T2_3 (ALL), SS_T2_5, SS_T3_3 (ALL), SS_K_1–SS_K_7, SS_T4_1, SS_T4_2 and SS_DOCKER_IDS, as taken. **Only the ALL captures** for the CLI and the UI (user, 2026-11-26): SS_T2_1/_2 and SS_T3_1/_2 (DT, XGB) are not in the report. Report limit: **20 pages in total**. **Do not use** SS_T2_4 or SS_INITIALIZE_1. SS_T3_4 no longer exists (SS_T3_3 shows the Malicious rows and the block counter).
 - Numbers rule: every number in the report comes from `outputs/` or `models/kernel_model.json` meta; no hardware statements (Lab 3 rule). Report template and build rule: `../Lab3/report/` (`latexmkrc_2`).
 
 ---

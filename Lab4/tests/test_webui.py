@@ -15,7 +15,7 @@ import flowview
 import webui
 
 HEADERS = ["Src IP", "Src Port", "Dst IP", "Dst Port", "Timestamp", "Result", "Models"]
-IDS = ["iface", "timespan", "model", "start", "stop", "status", "flows"]
+IDS = ["iface", "timespan", "model", "replay", "start", "stop", "status", "flows"]
 
 
 class FakeSession:
@@ -25,11 +25,18 @@ class FakeSession:
 
     def __init__(self, iface: str, model: str = "ALL") -> None:
         self.args = (iface, model)
+        self.replayed: list = []
         self.stopped = False
         FakeSession.instances.append(self)
 
     def start(self) -> None:
         """No-op start."""
+
+    def replay(self, flows):
+        """Record the flows; return fake ground truth."""
+        self.replayed += flows
+        return [{"src_ip": "10.99.0.1", "sport": 1, "label": f["label"], "retvals": [2]}
+                for f in flows]
 
     def poll(self):
         """Return one malicious flow and stats."""
@@ -49,6 +56,7 @@ def srv_fixture(monkeypatch, tmp_path: Path):
         (tmp_path / name).mkdir()
     monkeypatch.setattr(agent, "SYS_NET", tmp_path)
     monkeypatch.setattr(agent, "Session", FakeSession)
+    monkeypatch.setattr(webui.replay, "pick", lambda n: [{"label": "DDoS", "payloads": [1]}] * n)
     FakeSession.instances = []
     server = webui.UiServer(("127.0.0.1", 0), "XGB")
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -94,7 +102,11 @@ def test_interfaces_excludes_mgmt(srv):
     {"iface": "ext0", "timespan": 0, "model": "DT"},
     {"iface": "ext0", "timespan": 3601, "model": "DT"},
     {"iface": "ext0", "timespan": "abc", "model": "DT"},
-    {"iface": "ext0", "timespan": 5, "model": "RF"}, {"timespan": 5}, {"iface": "ext0"}, {}])
+    {"iface": "ext0", "timespan": 5, "model": "RF"},
+    {"iface": "ext0", "timespan": 5, "replay": -1}, {"iface": "ext0", "timespan": 5, "replay": 101},
+    {"iface": "ext0", "timespan": 5, "replay": "x"},
+    {"iface": "ext0", "timespan": 5, "replay": True},
+    {"timespan": 5}, {"iface": "ext0"}, {}])
 def test_start_rejects_bad_input(srv, body):
     """Bad input gives 400 and never creates a session."""
     assert call(srv, "/api/start", body)[0] == 400
@@ -114,6 +126,33 @@ def test_start_accepts_and_passes_args(srv):
     assert FakeSession.instances[0].args == ("ext0", "DT")
 
 
+def test_replay_default_20_injected_over_time(srv, monkeypatch):
+    """Default 20 flows are injected as they come due; /api/flows replay grows to 20."""
+    monkeypatch.setattr(webui.replay, "SPREAD", 0.01)
+    monkeypatch.setattr(webui, "POLL_INTERVAL_S", 0.02)
+    call(srv, "/api/start", {"iface": "ext0", "timespan": 5, "model": "ALL"})
+    deadline = time.monotonic() + 4
+    while len(call(srv, "/api/flows")[1]["replay"]) < 20 and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert len(FakeSession.instances[0].replayed) == 20
+    assert len(call(srv, "/api/flows")[1]["replay"]) == 20
+
+
+def test_replay_zero_replays_nothing(srv):
+    """replay 0 skips the replay."""
+    call(srv, "/api/start", {"iface": "ext0", "timespan": 30, "model": "ALL", "replay": 0})
+    assert FakeSession.instances[0].replayed == []
+
+
+def test_replay_failure_stops_session(srv, monkeypatch):
+    """A missing pool file stops the session and is reported (not 202)."""
+    def boom(_n):
+        raise FileNotFoundError("replay_flows.json")
+    monkeypatch.setattr(webui.replay, "pick", boom)
+    assert call(srv, "/api/start", {"iface": "ext0", "timespan": 30})[0] == 500
+    assert FakeSession.instances[0].stopped
+
+
 def test_second_start_conflicts(srv):
     """Only one capture at a time."""
     body = {"iface": "ext0", "timespan": 30, "model": "ALL"}
@@ -130,7 +169,7 @@ def test_flows_shape(srv):
         if data["rows"]:
             break
         time.sleep(0.05)
-    assert set(data) == {"running", "remaining_s", "iface", "model", "stats", "rows"}
+    assert set(data) == {"running", "remaining_s", "iface", "model", "stats", "rows", "replay"}
     assert data["running"] and data["rows"][0]["src_ip"] == "10.0.0.2"
     assert data["stats"] == {"ST_PKTS": 5}
 

@@ -1,0 +1,33 @@
+% !TeX encoding = UTF-8
+\chapter{Task 1: xdp-tools}\label{chap:task1}
+
+\section{Installation}
+xdp-tools \cite{xdptools_github} is a collection of utilities around libxdp. We built the source tree (version \texttt{v1.6.3-32-g92a9828}) and installed it with \texttt{make \&\& sudo make install \&\& sudo ldconfig}. The binaries (\texttt{xdp-loader}, \texttt{xdp-filter}, \texttt{xdpdump}, \texttt{xdp-bench}) go to \texttt{/usr/local/sbin}, libxdp to \texttt{/usr/local/lib} and the BPF objects of xdp-filter to \texttt{/usr/local/lib/bpf}. We deliberately did not install a second copy from the distribution packages, because two copies on the \texttt{PATH} would conflict.
+
+\section{Sandbox}
+xdp-filter attaches a program to an interface, and a wrong rule on the main uplink can lock a remote user out. All Task~1 commands therefore run in a sandbox that \texttt{xdp\_tools/task1\_demo.sh} creates and removes: a network namespace \texttt{lab4t1} with a veth pair. The host end \texttt{t1-host} (10.10.0.1/24) carries the XDP program in generic (skb) mode; the other end \texttt{t1-ns} (10.10.0.2/24) lives in the namespace. A \texttt{trap} unloads xdp-filter, stops the test web server and deletes the namespace and the veth pair when the script ends, also after an error. The script prints ten numbered sections, one per screenshot. The commands are the examples of the xdp-filter and xdpdump READMEs with the interface name replaced.
+
+\section{xdpdump: listing and loading}
+\texttt{xdpdump -D} lists the interfaces and the XDP programs attached to them. In Figure~\ref{fig:SS_T1_1} nothing is loaded. \texttt{xdp-filter load --mode skb t1-host} attaches the filter; \texttt{xdp-filter} uses libxdp's dispatcher, so the next \texttt{xdpdump -D} shows \texttt{xdp\_dispatcher} with the filter program behind it (Figure~\ref{fig:SS_T1_2}). With no rule defined the filter passes all packets, and a ping from the namespace shows 0\,\% loss (Figure~\ref{fig:SS_T1_3}).
+
+\ssgrp{Task 1, sections 1--3: loading the filter.}{grpT1a}{\ssub{SS_T1_1}{Section 1: \texttt{xdpdump -D}, no XDP program loaded.}\hfill\ssub{SS_T1_2}{Section 2: after \texttt{xdp-filter load}, the dispatcher and filter program are listed.}}
+\ssgrp{Task 1, sections 3--4: ping without and with the source-IP rule.}{grpT1b}{\ssub{SS_T1_3}{Section 3: the ping passes (0\,\% loss) while the filter has no rule.}\hfill\ssub{SS_T1_4}{Section 4: with the source-IP rule the ping loses all packets; \texttt{status} shows the rule and counters.}}
+
+\section{xdp-filter: IP and port rules}
+\texttt{xdp-filter ip 10.10.0.2 -m src} adds the namespace address as a blocked \emph{source} address. The next ping loses all packets, and \texttt{xdp-filter status} lists the address with non-zero hit counters (Figure~\ref{fig:SS_T1_4}). The rule is removed with \texttt{-r}, after which the ping works again (Figure~\ref{fig:SS_T1_5}).
+
+For a port rule, a Python web server runs inside the namespace on 10.10.0.2:8000. A request from the host returns HTTP 200. After \texttt{xdp-filter port 8000 -m src} the request times out, because the replies carry source port 8000 and enter \texttt{t1-host}; \texttt{status} shows the port, and after the removal the request returns 200 again (Figure~\ref{fig:SS_T1_6}).
+
+
+\section{xdpdump: capturing at the XDP hook}
+\texttt{xdpdump} attaches itself to the program already running on the interface. With \texttt{--rx-capture=entry,exit} it records every packet twice: at program entry and at program exit together with the action the program returned. While the IP rule is active, the exit records show \texttt{XDP\_DROP} (Figure~\ref{fig:SS_T1_5}). Option \texttt{-x} prints a hex dump of each packet (Figure~\ref{fig:SS_T1_7_1}, \ref{fig:SS_T1_7_2}). Writing a pcap stream to standard output and piping it into \texttt{tcpdump -r - -n} decodes the same packets as ICMP echo requests and replies (Figure~\ref{fig:SS_T1_8}).
+
+\ssgrp{Task 1, sections 5--6: capture at the hook and the port rule.}{grpT1c}{\ssub{SS_T1_5}{Section 5: \texttt{xdpdump --rx-capture=entry,exit} shows the exit action \texttt{XDP\_DROP}; after the rule is removed the ping works.}\hfill\ssub{SS_T1_6}{Section 6: port filter: HTTP 200, timeout while the rule exists, \texttt{status}, HTTP 200 after removal.}}
+\ssgrp{Task 1, section 7: \texttt{xdpdump -x}.}{grpT1d}{\ssub{SS_T1_7_1}{Hex dump of the packets seen at the XDP hook (start of the output).}\hfill\ssub{SS_T1_7_2}{Further packets.}}
+\ssgrp{Task 1, sections 8--10: pcap pipe, poll counters and unload.}{grpT1e}{\ssub[0.52\linewidth]{SS_T1_8}{Section 8: \texttt{xdpdump -w - | tcpdump -r - -n} decodes the captured packets.}\hfill\ssub[0.45\linewidth]{SS_T1_9}{Section 9: \texttt{xdp-filter poll -i 1000}, counters per action for five seconds.}\\[3pt]\ssub[0.52\linewidth]{SS_T1_10}{Section 10: after \texttt{xdp-filter unload} no program is loaded.}}
+
+\section{xdp-filter poll and unload}
+\texttt{xdp-filter poll -i 1000} prints the packet and byte rates per XDP action once per second. Figure~\ref{fig:SS_T1_9} shows 16 packets counted as \texttt{XDP\_DROP} and a slowly growing \texttt{XDP\_PASS} count in every period of the five-second run. Finally \texttt{xdp-filter unload t1-host} removes the program, and \texttt{xdpdump -D} shows nothing loaded again (Figure~\ref{fig:SS_T1_10}).
+
+
+xdp-filter is a ready-made, \emph{static} filter: it drops by address or port rules that an operator adds. It has no notion of a flow and no classifier. Task~2 builds what is missing for DDoS defense: a filter whose rules the kernel program writes itself, from a per-flow classification.

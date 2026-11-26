@@ -12,3 +12,4 @@ xdp/*.o
 .~lock.*#
 # Excluded for now (user, 2026-11-26)
 Wednesday_dataset/
+SS/_unused/

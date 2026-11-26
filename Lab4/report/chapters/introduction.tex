@@ -1,0 +1,17 @@
+% !TeX encoding = UTF-8
+\chapter{Introduction}\label{chap:introduction}
+
+In the fourth lab of the Security Insider Lab, we move the DDoS detection of Lab~3 from user space into the Linux kernel. A flow classifier that runs in a Python process sees a packet only after the kernel has received, queued and copied it. The eXpress Data Path (XDP) \cite{hoiland2018xdp} runs a small, verified eBPF program at the earliest point of the receive path, before the network stack allocates its packet structures. A program at this hook can read a packet, update state in kernel maps and drop the packet at once. The lab has four tasks:
+
+\begin{enumerate}\setlength\itemsep{0pt}
+	\item \textbf{Task 1:} configure the xdp-tools collection \cite{xdptools_github} and run example commands of \texttt{xdp-filter} and \texttt{xdpdump}.
+	\item \textbf{Task 2:} build a real-time cycle: capture packets, compute flow features, classify each flow, and filter it. We chose the \emph{best case} of the task sheet: the classifier \emph{and} the filter both run in the kernel, inside one XDP program. User space only loads the models, configures the program and displays results.
+	\item \textbf{Task 3:} build a web interface with an interface selector, a timespan, a start button and a table with the algorithm output.
+	\item \textbf{Task 4:} run Nginx, Apache and a pinging container in Docker and check that they can communicate.
+\end{enumerate}
+
+\paragraph{Scope and rules.} The task sheet forbids attacking tools in the real-time test. We therefore show the filter without any attack tool: with normal client traffic, with a stub model that always answers \enquote{malicious}, and by replaying flows of the dataset through the attached kernel program (Section~\ref{sec:replay}). The classifier is a Decision Tree (DT), an XGBoost model (XGB), or both (\texttt{--model DT|XGB|ALL}).
+
+\paragraph{Data.} We use the Friday-afternoon DDoS file of CIC-IDS2017 \cite{sharafaldin2018cicids} with the cleaning and the 70/15/15 stratified split of Lab~3: 225,745 raw flows become 223,082 after removing 34 rows with infinite or missing values and 2,629 duplicates, and the split gives 156,157 training, 33,462 validation and 33,463 test flows (test: 19,202 DDoS, 14,261 benign; \texttt{outputs/metrics/preprocess\_summary.json}). Labels are BENIGN\,=\,0 and DDoS\,=\,1.
+
+\paragraph{Structure.} Chapter~\ref{chap:task2} is the core of the report; Appendix~\ref{app:repro} lists the commands to reproduce everything. Every number comes from files under \texttt{outputs/} or from the metadata of \texttt{models/kernel\_model.json}; the file is named in the caption or the text.

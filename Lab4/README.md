@@ -65,7 +65,7 @@ docker compose up -d
 docker compose exec ids python3 script/agent.py --iface ext0 --model ALL --timespan 30
 ```
 
-Flags: `--iface` (default `ext0`), `--model {DT,XGB,ALL}` (default ALL), `--timespan` seconds, `--block-seconds` (default 60), `--model-file`, `--xdp-mode {skb,native}` (default skb), `--out`. Output: one JSON line per classified flow and `outputs/realtime/<time>_<iface>_<model>.jsonl` plus `_summary.json`.
+Flags: `--iface` (default `ext0`), `--model {DT,XGB,ALL}` (default ALL), `--timespan` seconds, `--block-seconds` (default 60), `--model-file`, `--xdp-mode {skb,native}` (default skb), `--replay N` (0..100, default 0; dataset flows replayed through the kernel program), `--out`. Output: one JSON line per classified flow and `outputs/realtime/<time>_<iface>_<model>.jsonl` plus `_summary.json`.
 
 ALL runs both models in the kernel; a flow is Malicious only if DT and XGB agree. A Malicious source is blocked for `--block-seconds`. Only IPv4 TCP/UDP is classified; everything else passes. XDP sees ingress only, so only forward-direction features are used.
 
@@ -88,7 +88,9 @@ The UI starts with the stack (the IDS container's default command). Open it from
 xdg-open http://172.28.0.2:8080
 ```
 
-Controls: Available Local Interfaces, Enter Timespan, Model (DT/XGB/ALL), Start Packet Capture, and the Algorithm Output table (Src IP, Src Port, Dst IP, Dst Port, Timestamp, Result). The UI listens only on `mgmt0`.
+Controls: Available Local Interfaces, Enter Timespan, Model (DT/XGB/ALL), Replay dataset flows (0..100, default 20), Start Packet Capture, and the Algorithm Output table (Src IP, Src Port, Dst IP, Dst Port, Timestamp, Result). The UI listens only on `mgmt0`.
+
+**Dataset replay.** To show a random mix of Normal and Malicious rows without attack tools, each start replays N flows (half BENIGN, half DDoS) from the CIC-IDS2017 test split through the real kernel program: `train.py` writes `models/replay_flows.json` (rows whose forward packets can be rebuilt exactly), the packets come from random 10.99.x.y sources and run through `bpftool prog run`. Nothing is sent on the wire. Inter-arrival times are not reproduced (the IAT features carry under 0.5 % of the importance). The ground-truth labels are in `outputs/realtime/*_replay.json` (CLI) and in the `replay` key of `/api/flows`. Details: `REALTIME.md` section 7.4.
 
 ## Task 4: containers (Nginx, Apache, ping)
 

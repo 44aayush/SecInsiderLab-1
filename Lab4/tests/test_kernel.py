@@ -6,21 +6,21 @@ bpftool JSON: every map element carries a "formatted" dict with the BTF-decoded 
 from __future__ import annotations
 
 import json
-import os
+import random
 import socket
 import struct
 import time
 import uuid
-from pathlib import Path
 from typing import Any, Iterator
 
 import pytest
 
 import bpf_ctl
 import kmodel
-import pktgen
+import pktbuild
+import replay
 from common import (BPF_OBJ, KERNEL_MODEL_PATH, LAB4_DIR, MODE_ALL, MODE_DT, MODE_XGB, N_FEATURES,
-                    N_TEST_VECS, STAT_NAMES, TEST_VECTORS_PATH)
+                    N_TEST_VECS, REPLAY_POOL_PATH, STAT_NAMES, TEST_VECTORS_PATH)
 from conftest import FIXTURES
 
 pytestmark = pytest.mark.kernel
@@ -29,14 +29,13 @@ PASS, DROP = 2, 1  # XDP_PASS, XDP_DROP
 SRC, SRC2, DST = "10.0.0.2", "10.0.0.3", "10.0.0.1"
 SPORT, DPORT = 40000, 80
 BLOCK_NS = 60 * 10**9
-# LAB4_VECTORS selects another vector file (e.g. the Wednesday cross-day vectors).
-VECTORS_PATH = Path(os.environ.get("LAB4_VECTORS", str(TEST_VECTORS_PATH)))
+VECTORS_PATH = TEST_VECTORS_PATH
 EVIDENCE_DIR = LAB4_DIR / "outputs" / "kernel"
 TIMING_REPEAT = 100_000
 NS_PER_MS = 1_000_000
 EXPIRY_SLEEP_S = 0.05
 UDP_PKTS_BELOW, UDP_PAYLOAD = 7, 10
-MID_PAYLOAD, FIN_FLAGS = 100, pktgen.FIN | pktgen.ACK
+MID_PAYLOAD, FIN_FLAGS = 100, pktbuild.FIN | pktbuild.ACK
 LEAF_ONE = 1 << 16
 SHORT_FRAME, DUMMY_FRAME = 20, bytes(64)
 NORMAL = {"nodes": [[-1, 0, 0, 0, 0]], "dt_root": 0, "xgb_roots": [0], "xgb_base_margin": 0}
@@ -81,9 +80,9 @@ def _blocked(pin: str) -> list[int]:
 
 def _fin_flow(pin: str, src: str = SRC) -> list[int]:
     """Send SYN, PSH/ACK (100 B), ACK (50 B), FIN/ACK and return the four actions."""
-    steps = [(pktgen.SYN, 0), (pktgen.PSH | pktgen.ACK, MID_PAYLOAD), (pktgen.ACK, 50),
+    steps = [(pktbuild.SYN, 0), (pktbuild.PSH | pktbuild.ACK, MID_PAYLOAD), (pktbuild.ACK, 50),
              (FIN_FLAGS, 0)]
-    return [_send(pin, pktgen.tcp(src, DST, SPORT, DPORT, f, n)) for f, n in steps]
+    return [_send(pin, pktbuild.tcp(src, DST, SPORT, DPORT, f, n)) for f, n in steps]
 
 
 @pytest.fixture(name="pin")
@@ -109,7 +108,7 @@ def test_flowmeter_tcp_fin(pin: str) -> None:
 def test_classify_trigger(pin: str) -> None:
     """A UDP flow without FIN is classified at its 8th packet, not before."""
     _configure(pin, NORMAL, MODE_DT)
-    frame = pktgen.udp(SRC, DST, SPORT, DPORT, UDP_PAYLOAD)
+    frame = pktbuild.udp(SRC, DST, SPORT, DPORT, UDP_PAYLOAD)
     for _ in range(UDP_PKTS_BELOW):
         _send(pin, frame)
     assert _flows(pin)[0]["classified_ns"] == 0
@@ -122,8 +121,8 @@ def test_filter_blocks_after_malicious(pin: str) -> None:
     _configure(pin, kmodel.load(FIXTURES / "always_malicious.json"), MODE_DT)
     assert _fin_flow(pin)[-1] == DROP
     assert _blocked(pin) == [_ip_key(SRC)]
-    assert _send(pin, pktgen.tcp(SRC, DST, SPORT, DPORT, pktgen.ACK)) == DROP
-    assert _send(pin, pktgen.tcp(SRC2, DST, SPORT, DPORT, pktgen.ACK)) == PASS
+    assert _send(pin, pktbuild.tcp(SRC, DST, SPORT, DPORT, pktbuild.ACK)) == DROP
+    assert _send(pin, pktbuild.tcp(SRC2, DST, SPORT, DPORT, pktbuild.ACK)) == PASS
     stats = _stats(pin)
     assert (stats["ST_DROP"], stats["ST_BLOCKS_ADDED"]) == (2, 1)
 
@@ -133,7 +132,7 @@ def test_block_expiry(pin: str) -> None:
     _configure(pin, kmodel.load(FIXTURES / "always_malicious.json"), MODE_DT, NS_PER_MS)
     assert _fin_flow(pin)[-1] == DROP
     time.sleep(EXPIRY_SLEEP_S)
-    assert _send(pin, pktgen.tcp(SRC, DST, SPORT, DPORT, pktgen.ACK)) == PASS
+    assert _send(pin, pktbuild.tcp(SRC, DST, SPORT, DPORT, pktbuild.ACK)) == PASS
     assert not _blocked(pin)
 
 
@@ -156,15 +155,15 @@ def test_mode_off(pin: str) -> None:
 
 
 NOT_TRACKED = {
-    "arp": pktgen.arp(),
-    "ipv6": pktgen.ipv6(),
-    "icmp": pktgen.icmp(SRC, DST),
-    "fragment": pktgen.tcp(SRC, DST, SPORT, DPORT, pktgen.ACK, frag=pktgen.MF),
-    "short": pktgen.truncated(pktgen.tcp(SRC, DST, SPORT, DPORT, pktgen.ACK), SHORT_FRAME),
-    "ihl4": pktgen.tcp(SRC, DST, SPORT, DPORT, pktgen.ACK, ihl=4),
-    "doff4": pktgen.tcp(SRC, DST, SPORT, DPORT, pktgen.ACK, doff=4),
-    "vlan": pktgen.vlan(pktgen.ipv4(SRC, DST, pktgen.PROTO_TCP,
-                                    pktgen.tcp_segment(SPORT, DPORT, pktgen.ACK))),
+    "arp": pktbuild.arp(),
+    "ipv6": pktbuild.ipv6(),
+    "icmp": pktbuild.icmp(SRC, DST),
+    "fragment": pktbuild.tcp(SRC, DST, SPORT, DPORT, pktbuild.ACK, frag=pktbuild.MF),
+    "short": pktbuild.truncated(pktbuild.tcp(SRC, DST, SPORT, DPORT, pktbuild.ACK), SHORT_FRAME),
+    "ihl4": pktbuild.tcp(SRC, DST, SPORT, DPORT, pktbuild.ACK, ihl=4),
+    "doff4": pktbuild.tcp(SRC, DST, SPORT, DPORT, pktbuild.ACK, doff=4),
+    "vlan": pktbuild.vlan(pktbuild.ipv4(SRC, DST, pktbuild.PROTO_TCP,
+                                    pktbuild.tcp_segment(SPORT, DPORT, pktbuild.ACK))),
 }
 
 
@@ -195,9 +194,72 @@ def test_kernel_parity(pin: str) -> None:
     assert [g["xgb_margin"] for g in got] == vecs["xgb_margin"]
 
 
+def _replay_flows(pin: str, count: int) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+    """Replay count pool flows with the real model; return the ground truth and flows by source."""
+    _configure(pin, kmodel.load(KERNEL_MODEL_PATH), MODE_ALL)
+    truth = replay.run(pin, replay.sample(replay.load_pool(), count, random.Random(7)),
+                       random.Random(8))
+    by_src = {}
+    for entry in bpf_ctl.dump("flows", pin):
+        key, value = entry["formatted"]["key"], entry["formatted"]["value"]
+        by_src[socket.inet_ntoa(key["saddr"].to_bytes(4, "little"))] = value
+    return truth, by_src
+
+
+@pytest.mark.skipif(not (REPLAY_POOL_PATH.exists() and KERNEL_MODEL_PATH.exists()),
+                    reason="replay pool or kernel model not built")
+def test_replay_through_xdp_ids(pin: str) -> None:
+    """4 replayed flows (2 per class) give 4 classified flows from 10.99.x.y; blocks stay there."""
+    truth, by_src = _replay_flows(pin, 4)
+    assert sorted(by_src) == sorted(t["src_ip"] for t in truth)
+    assert all(ip.startswith("10.99.") and v["classified_ns"] > 0 for ip, v in by_src.items())
+    blocked = [socket.inet_ntoa(k.to_bytes(4, "little")) for k in _blocked(pin)]
+    assert all(ip.startswith("10.99.") for ip in blocked)
+
+
+@pytest.mark.skipif(not (REPLAY_POOL_PATH.exists() and KERNEL_MODEL_PATH.exists()),
+                    reason="replay pool or kernel model not built")
+def test_replay_evidence(pin: str) -> None:
+    """Replay 100 flows and record how many of each label the kernel called Malicious."""
+    truth, by_src = _replay_flows(pin, 100)
+    counts: dict[str, dict[str, int]] = {}
+    for entry in truth:
+        stat = counts.setdefault(entry["label"], {"flows": 0, "malicious": 0})
+        stat["flows"] += 1
+        stat["malicious"] += by_src[entry["src_ip"]]["verdict"] == 1
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(counts, indent=1)
+    (EVIDENCE_DIR / "replay_summary.json").write_text(text, encoding="utf-8")
+    assert sum(c["flows"] for c in counts.values()) == 100
+
+
 def _avg_ns(pin: str, frame: bytes) -> int:
     """Average ns per run of xdp_ids on one frame (TIMING_REPEAT runs)."""
     return bpf_ctl.prog_run("xdp_ids", pin, frame, TIMING_REPEAT)[1]
+
+
+def _timing(pin: str, model: dict[str, Any]) -> dict[str, int]:
+    """Time mid-flow, classifying-FIN and not-tracked packets, each on a fresh source.
+
+    A reused source would already be blocked by the earlier stub run and the packet would be
+    dropped before the flowmeter (the 46 ns bug), so every measurement gets its own source.
+    """
+    timing: dict[str, int] = {}
+    for i, (mode_name, mode) in enumerate((("DT", MODE_DT), ("XGB", MODE_XGB), ("ALL", MODE_ALL))):
+        _configure(pin, model, mode)
+        src_mid, src_fin = f"10.1.{i}.1", f"10.1.{i}.2"
+        timing[f"mid_flow_{mode_name}"] = _avg_ns(
+            pin, pktbuild.tcp(src_mid, DST, SPORT, DPORT, pktbuild.PSH | pktbuild.ACK, MID_PAYLOAD))
+        timing[f"classify_fin_{mode_name}"] = _avg_ns(
+            pin, pktbuild.tcp(src_fin, DST, SPORT, DPORT, FIN_FLAGS))
+        # The FIN path must have classified (Normal), otherwise the number measures something else.
+        fin_flow = [e["formatted"]["value"] for e in bpf_ctl.dump("flows", pin)
+                    if e["formatted"]["key"]["saddr"] == _ip_key(src_fin)]
+        assert len(fin_flow) == 1
+        assert fin_flow[0]["classified_ns"] > 0 and fin_flow[0]["verdict"] == 0
+        assert not {_ip_key(src_mid), _ip_key(src_fin)} & set(_blocked(pin))
+    timing["not_tracked"] = _avg_ns(pin, pktbuild.arp())
+    return timing
 
 
 def test_record_evidence(pin: str) -> None:
@@ -218,13 +280,6 @@ def test_record_evidence(pin: str) -> None:
     sizes = {k: size[k] for k in ("bytes_xlated", "bytes_jited")}
     (EVIDENCE_DIR / "prog_sizes.json").write_text(json.dumps(sizes, indent=1), encoding="utf-8")
     model = kmodel.load(KERNEL_MODEL_PATH) if KERNEL_MODEL_PATH.exists() else NORMAL
-    mid = pktgen.tcp(SRC, DST, SPORT, DPORT, pktgen.PSH | pktgen.ACK, MID_PAYLOAD)
-    fin = pktgen.tcp(SRC2, DST, SPORT, DPORT, FIN_FLAGS)
-    timing: dict[str, int] = {}
-    for mode_name, mode in (("DT", MODE_DT), ("XGB", MODE_XGB), ("ALL", MODE_ALL)):
-        _configure(pin, model, mode, 0)  # block_ns 0: a Malicious verdict never blocks the loop
-        timing[f"mid_flow_{mode_name}"] = _avg_ns(pin, mid)
-        timing[f"classify_fin_{mode_name}"] = _avg_ns(pin, fin)
-    timing["not_tracked"] = _avg_ns(pin, pktgen.arp())
+    timing = _timing(pin, model)
     (EVIDENCE_DIR / "timing.json").write_text(json.dumps(timing, indent=1), encoding="utf-8")
     assert all(v > 0 for v in timing.values())

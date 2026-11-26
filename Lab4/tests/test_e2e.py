@@ -4,7 +4,6 @@ from __future__ import annotations
 import pytest
 
 import common
-import crossday
 import preprocess as pp
 
 pytestmark = pytest.mark.e2e
@@ -20,19 +19,6 @@ def test_full_csv_counts() -> None:
     assert s["split_sizes"] == {"train": 156_157, "val": 33_462, "test": 33_463}
     assert splits.x_test.shape == (33_463, common.N_FEATURES)
     assert splits.feature_names == [n for n, _ in common.KERNEL_FEATURES]
-
-
-WEDNESDAY = {"BENIGN": 440_031, "DoS Hulk": 231_073, "DoS GoldenEye": 10_293,
-             "DoS slowloris": 5_796, "DoS Slowhttptest": 5_499, "Heartbleed": 11}
-
-
-def test_wednesday_raw_counts() -> None:
-    """Raw shape and label counts of the Wednesday CSV match CLAUDE.md 2 D7."""
-    if not crossday.DEFAULT_WED_CSV.exists():
-        pytest.skip("Wednesday CSV absent")
-    raw = pp.load_raw(crossday.DEFAULT_WED_CSV)
-    assert raw.shape == (692_703, 79)
-    assert raw[pp.LABEL_COL].value_counts().to_dict() == WEDNESDAY
 
 
 def test_full_csv_split_class_counts() -> None:

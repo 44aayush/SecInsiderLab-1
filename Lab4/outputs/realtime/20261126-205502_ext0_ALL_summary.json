@@ -1,0 +1,18 @@
+{
+ "iface": "ext0",
+ "model": "ALL",
+ "timespan_s": 120,
+ "started": "2026-11-26T20:55:02",
+ "ended": "2026-11-26T20:57:03",
+ "stats": {
+  "ST_PKTS": 1757,
+  "ST_PASS": 1730,
+  "ST_DROP": 33,
+  "ST_FLOWS_CLASSIFIED": 308,
+  "ST_FLOWS_MALICIOUS": 30,
+  "ST_BLOCKS_ADDED": 30,
+  "ST_NOT_TRACKED": 6
+ },
+ "flows_classified": 294,
+ "flows_malicious": 30
+}

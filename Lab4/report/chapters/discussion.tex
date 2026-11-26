@@ -1,0 +1,14 @@
+% !TeX encoding = UTF-8
+\chapter{Discussion}\label{chap:discussion}
+
+\paragraph{What the results show.} A decision tree and a 20-tree XGBoost model fit into one XDP program of 5,664 translated bytes, and the kernel reproduces the Python integer models exactly. A classification costs between about 120\,ns (DT) and 366\,ns (XGB); mode ALL runs both models and costs about their sum (542\,ns) in the measurement of Table~\ref{tab:timing}. The F1 scores of 0.9991 and 0.9989 are within about 0.001 of the models of Lab~3 that use 59 features, although the kernel models use ten.
+
+\paragraph{The model is a payload-size rule.} Two features, the largest forward payload and the total forward payload, carry about 99\,\% of the importance (Table~\ref{tab:imp}). The Friday DDoS flows are an HTTP flood with a characteristic request size, and the trees learned that size. The high F1 therefore says that this attack is easy to separate by request size within the test split. It says little about other attacks or other networks, and the live demo traffic (small \texttt{wget} requests) happens to fall on the normal side. We did not tune the thresholds for the demo. Had normal flows come out malicious, we would have reported it instead of changing features.
+
+\paragraph{Ingress only.} XDP runs on receive, so the program sees only the forward direction. Backward and bidirectional features (flow duration, bytes per second, backward packet lengths) are absent, because computing them differently from CICFlowMeter would change their meaning (Section~\ref{sec:features}).
+
+\paragraph{Partial flows.} CICFlowMeter rows describe completed flows. The kernel classifies at FIN or RST and at power-of-two packet counts from 8 on, so a flow with fewer than 8 packets and no FIN or RST (for example a short UDP exchange) is never classified, and a source can send many such flows unblocked. A timer-based idle expiry would close this gap and is out of scope. A reused 5-tuple continues the old flow entry, which is rare with ephemeral ports. Flow counters are not atomic across CPUs, which is accepted at demo rates.
+
+\paragraph{No attack tools.} The task sheet forbids attacking tools. The filter is therefore shown with a stub model on normal traffic and with the dataset replay. The replay (Section~\ref{sec:replay}) does not reproduce inter-arrival times and uses test-split flows, so it does not measure robustness against a new attack. Classifier performance on live malicious traffic was not checked, as the sheet allows.
+
+\paragraph{Other limits.} Only IPv4 TCP and UDP are inspected; everything else passes. The program runs in generic (skb) mode, because native mode on veth needs extra setup. The privileged container is root-equivalent. The consensus rule of \texttt{ALL} drops fewer flows than either model alone, so a flow that only one model flags is passed. Remedies such as multi-day training data or more features were not part of this lab.

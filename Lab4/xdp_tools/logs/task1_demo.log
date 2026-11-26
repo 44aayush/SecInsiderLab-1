@@ -1,0 +1,272 @@
++ ip netns add lab4t1
++ ip link add t1-host type veth peer name t1-ns
++ ip link set t1-ns netns lab4t1
++ ip addr add 10.10.0.1/24 dev t1-host
++ ip link set t1-host up
++ ip netns exec lab4t1 ip addr add 10.10.0.2/24 dev t1-ns
++ ip netns exec lab4t1 ip link set t1-ns up
++ ip netns exec lab4t1 ip link set lo up
+
+== 1. xdpdump -D (nothing loaded) ==
++ xdpdump -D
+Interface        Prio  Program name      Mode     ID   Tag               Chain actions
+--------------------------------------------------------------------------------------
+lo                     <No XDP program loaded!>
+enp0s3                 <No XDP program loaded!>
+docker0                <No XDP program loaded!>
+t1-host                <No XDP program loaded!>
+
+(exit status 1 -- tolerated)
+
+== 2. xdp-filter load --mode skb t1-host, then xdpdump -D ==
++ xdp-filter load --mode skb t1-host
++ xdpdump -D
+Interface        Prio  Program name      Mode     ID   Tag               Chain actions
+--------------------------------------------------------------------------------------
+lo                     <No XDP program loaded!>
+enp0s3                 <No XDP program loaded!>
+docker0                <No XDP program loaded!>
+t1-host                xdp_dispatcher    skb      137  ba2e1a15f08cd656 
+ =>              10     xdpfilt_alw_all           146  77070e124af7fb9c  XDP_PASS
+
+(exit status 1 -- tolerated)
+
+== 3. ping from the netns (0% loss) ==
++ in_ns ping -c 3 10.10.0.1
+PING 10.10.0.1 (10.10.0.1) 56(84) bytes of data.
+64 bytes from 10.10.0.1: icmp_seq=1 ttl=64 time=0.053 ms
+64 bytes from 10.10.0.1: icmp_seq=2 ttl=64 time=0.071 ms
+64 bytes from 10.10.0.1: icmp_seq=3 ttl=64 time=0.096 ms
+
+--- 10.10.0.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2081ms
+rtt min/avg/max/mdev = 0.053/0.073/0.096/0.017 ms
+
+== 4. block source 10.10.0.2, ping again (expected to fail), xdp-filter status ==
++ xdp-filter ip 10.10.0.2 -m src
++ in_ns ping -c 3 -W 1 10.10.0.1
+PING 10.10.0.1 (10.10.0.1) 56(84) bytes of data.
+
+--- 10.10.0.1 ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 2071ms
+
+(exit status 1 -- tolerated)
++ xdp-filter status
+CURRENT XDP-FILTER STATUS:
+
+Aggregate per-action statistics:
+  XDP_ABORTED                                   0 pkts           0 KiB
+  XDP_DROP                                      3 pkts           0 KiB
+  XDP_PASS                                     67 pkts           8 KiB
+
+Loaded on interfaces:
+                                           Enabled features
+xdpfilt_alw_all
+  t1-host (skb mode)                       tcp,udp,ipv6,ipv4,ethernet,allow
+
+Filtered ports:
+                                           Mode             Hit counter
+
+Filtered IP addresses:
+                                           Mode             Hit counter
+  10.10.0.2                                src              3
+
+Filtered MAC addresses:
+                                           Mode             Hit counter
+
+
+== 5. xdpdump entry,exit while pinging (exit action XDP_DROP), then remove the rule ==
++ timeout 8 xdpdump -i t1-host --rx-capture=entry,exit
+listening on t1-host, ingress XDP program ID 146 func xdpfilt_alw_all, capture mode entry/exit, capture size 262144 bytes
+1795713998.804636656: xdpfilt_alw_all()@entry: packet size 166 bytes on if_index 7, rx queue 0, id 1
+1795713998.805297748: xdpfilt_alw_all()@exit[PASS]: packet size 166 bytes on if_index 7, rx queue 0, id 1
+1795713998.806086463: xdpfilt_alw_all()@entry: packet size 186 bytes on if_index 7, rx queue 0, id 2
+1795713998.806656762: xdpfilt_alw_all()@exit[PASS]: packet size 186 bytes on if_index 7, rx queue 0, id 2
+1795713999.179489122: xdpfilt_alw_all()@entry: packet size 42 bytes on if_index 7, rx queue 0, id 3
+1795713999.179888111: xdpfilt_alw_all()@exit[DROP]: packet size 42 bytes on if_index 7, rx queue 0, id 3
+1795713999.180546744: xdpfilt_alw_all()@entry: packet size 98 bytes on if_index 7, rx queue 0, id 4
+1795713999.180668008: xdpfilt_alw_all()@entry: packet size 70 bytes on if_index 7, rx queue 0, id 5
+1795713999.182065890: xdpfilt_alw_all()@exit[PASS]: packet size 70 bytes on if_index 7, rx queue 0, id 5
+1795713999.181249519: xdpfilt_alw_all()@exit[DROP]: packet size 98 bytes on if_index 7, rx queue 0, id 4
+1795713999.857437561: xdpfilt_alw_all()@entry: packet size 169 bytes on if_index 7, rx queue 0, id 6
+1795713999.857799681: xdpfilt_alw_all()@exit[PASS]: packet size 169 bytes on if_index 7, rx queue 0, id 6
+1795714000.213212676: xdpfilt_alw_all()@entry: packet size 42 bytes on if_index 7, rx queue 0, id 7
+1795714000.214447342: xdpfilt_alw_all()@exit[DROP]: packet size 42 bytes on if_index 7, rx queue 0, id 7
+1795714000.213004645: xdpfilt_alw_all()@entry: packet size 98 bytes on if_index 7, rx queue 0, id 8
+1795714000.214469020: xdpfilt_alw_all()@exit[DROP]: packet size 98 bytes on if_index 7, rx queue 0, id 8
+1795714001.225788551: xdpfilt_alw_all()@entry: packet size 98 bytes on if_index 7, rx queue 0, id 9
+1795714001.226106459: xdpfilt_alw_all()@exit[DROP]: packet size 98 bytes on if_index 7, rx queue 0, id 9
+1795714001.555552637: xdpfilt_alw_all()@entry: packet size 189 bytes on if_index 7, rx queue 0, id 10
+1795714001.556003359: xdpfilt_alw_all()@exit[PASS]: packet size 189 bytes on if_index 7, rx queue 0, id 10
+1795714002.248248408: xdpfilt_alw_all()@entry: packet size 98 bytes on if_index 7, rx queue 0, id 11
+1795714002.248393895: xdpfilt_alw_all()@exit[DROP]: packet size 98 bytes on if_index 7, rx queue 0, id 11
+1795714003.272606837: xdpfilt_alw_all()@entry: packet size 98 bytes on if_index 7, rx queue 0, id 12
+1795714003.274387203: xdpfilt_alw_all()@exit[DROP]: packet size 98 bytes on if_index 7, rx queue 0, id 12
+
+24 packets captured
+0 packets dropped by perf ring
+(exit status 124 -- tolerated)
++ xdp-filter ip 10.10.0.2 -m src -r
++ in_ns ping -c 3 10.10.0.1
+PING 10.10.0.1 (10.10.0.1) 56(84) bytes of data.
+64 bytes from 10.10.0.1: icmp_seq=1 ttl=64 time=0.095 ms
+64 bytes from 10.10.0.1: icmp_seq=2 ttl=64 time=0.048 ms
+64 bytes from 10.10.0.1: icmp_seq=3 ttl=64 time=0.056 ms
+
+--- 10.10.0.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2060ms
+rtt min/avg/max/mdev = 0.048/0.066/0.095/0.020 ms
+
+== 6. port filter on TCP 8000 ==
++ http_get
+200
++ xdp-filter port 8000 -m src
++ http_get
+timeout
+(exit status 1 -- tolerated)
++ xdp-filter status
+CURRENT XDP-FILTER STATUS:
+
+Aggregate per-action statistics:
+  XDP_ABORTED                                   0 pkts           0 KiB
+  XDP_DROP                                     16 pkts           1 KiB
+  XDP_PASS                                     91 pkts          14 KiB
+
+Loaded on interfaces:
+                                           Enabled features
+xdpfilt_alw_all
+  t1-host (skb mode)                       tcp,udp,ipv6,ipv4,ethernet,allow
+
+Filtered ports:
+                                           Mode             Hit counter
+  8000                                     src,tcp,udp      4
+
+Filtered IP addresses:
+                                           Mode             Hit counter
+
+Filtered MAC addresses:
+                                           Mode             Hit counter
+
++ xdp-filter port 8000 -m src -r
++ http_get
+200
+
+== 7. xdpdump -x (hex dump) while pinging ==
++ timeout 6 xdpdump -i t1-host -x
+listening on t1-host, ingress XDP program ID 146 func xdpfilt_alw_all, capture mode entry, capture size 262144 bytes
+1795714020.040633871: xdpfilt_alw_all()@entry: packet size 74 bytes, captured 74 bytes on if_index 7, rx queue 0, id 1
+  0x0000:  6a 2b 24 85 f3 32 86 28 6e 8b 87 f1 08 00 45 00  j+$..2.(n.....E.
+  0x0010:  00 3c 00 00 40 00 40 06 26 a6 0a 0a 00 02 0a 0a  .<..@.@.&.......
+  0x0020:  00 01 1f 40 ce 62 8f 0e 59 da ad f5 a4 8e a0 12  ...@.b..Y.......
+  0x0030:  fe 88 14 45 00 00 02 04 05 b4 04 02 08 0a a2 db  ...E............
+  0x0040:  e2 15 14 3d 78 1b 01 03 03 0a                    ...=x.....
+1795714020.169610989: xdpfilt_alw_all()@entry: packet size 98 bytes, captured 98 bytes on if_index 7, rx queue 0, id 2
+  0x0000:  6a 2b 24 85 f3 32 86 28 6e 8b 87 f1 08 00 45 00  j+$..2.(n.....E.
+  0x0010:  00 54 75 40 40 00 40 01 b1 52 0a 0a 00 02 0a 0a  .Tu@@.@..R......
+  0x0020:  00 01 08 00 10 d4 29 4a 00 02 e4 6b 08 6b 00 00  ......)J...k.k..
+  0x0030:  00 00 10 36 02 00 00 00 00 00 10 11 12 13 14 15  ...6............
+  0x0040:  16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25  .......... !"#$%
+  0x0050:  26 27 28 29 2a 2b 2c 2d 2e 2f 30 31 32 33 34 35  &'()*+,-./012345
+  0x0060:  36 37                                            67
+1795714021.194370631: xdpfilt_alw_all()@entry: packet size 98 bytes, captured 98 bytes on if_index 7, rx queue 0, id 3
+  0x0000:  6a 2b 24 85 f3 32 86 28 6e 8b 87 f1 08 00 45 00  j+$..2.(n.....E.
+  0x0010:  00 54 78 83 40 00 40 01 ae 0f 0a 0a 00 02 0a 0a  .Tx.@.@.........
+  0x0020:  00 01 08 00 0c 72 29 4a 00 03 e5 6b 08 6b 00 00  .....r)J...k.k..
+  0x0030:  00 00 13 97 02 00 00 00 00 00 10 11 12 13 14 15  ................
+  0x0040:  16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25  .......... !"#$%
+  0x0050:  26 27 28 29 2a 2b 2c 2d 2e 2f 30 31 32 33 34 35  &'()*+,-./012345
+  0x0060:  36 37                                            67
+1795714022.215764650: xdpfilt_alw_all()@entry: packet size 98 bytes, captured 98 bytes on if_index 7, rx queue 0, id 4
+  0x0000:  6a 2b 24 85 f3 32 86 28 6e 8b 87 f1 08 00 45 00  j+$..2.(n.....E.
+  0x0010:  00 54 78 f3 40 00 40 01 ad 9f 0a 0a 00 02 0a 0a  .Tx.@.@.........
+  0x0020:  00 01 08 00 e7 1a 29 4a 00 04 e6 6b 08 6b 00 00  ......)J...k.k..
+  0x0030:  00 00 37 ed 02 00 00 00 00 00 10 11 12 13 14 15  ..7.............
+  0x0040:  16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25  .......... !"#$%
+  0x0050:  26 27 28 29 2a 2b 2c 2d 2e 2f 30 31 32 33 34 35  &'()*+,-./012345
+  0x0060:  36 37                                            67
+1795714023.240296968: xdpfilt_alw_all()@entry: packet size 98 bytes, captured 98 bytes on if_index 7, rx queue 0, id 5
+  0x0000:  6a 2b 24 85 f3 32 86 28 6e 8b 87 f1 08 00 45 00  j+$..2.(n.....E.
+  0x0010:  00 54 7c cd 40 00 40 01 a9 c5 0a 0a 00 02 0a 0a  .T|.@.@.........
+  0x0020:  00 01 08 00 ca b8 29 4a 00 05 e7 6b 08 6b 00 00  ......)J...k.k..
+  0x0030:  00 00 52 4e 03 00 00 00 00 00 10 11 12 13 14 15  ..RN............
+  0x0040:  16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25  .......... !"#$%
+  0x0050:  26 27 28 29 2a 2b 2c 2d 2e 2f 30 31 32 33 34 35  &'()*+,-./012345
+  0x0060:  36 37                                            67
+1795714024.231262462: xdpfilt_alw_all()@entry: packet size 169 bytes, captured 169 bytes on if_index 7, rx queue 0, id 6
+  0x0000:  45 00 00 a9 52 d0 40 00 ff 11 3d 6d 0a 0a 00 01  E...R.@...=m....
+  0x0010:  e0 00 00 fb 14 e9 14 e9 00 95 eb ac 00 00 00 00  ................
+  0x0020:  00 09 00 00 00 00 00 00 04 5f 6e 66 73 04 5f 74  ........._nfs._t
+  0x0030:  63 70 05 6c 6f 63 61 6c 00 00 0c 00 01 04 5f 69  cp.local......_i
+  0x0040:  70 70 c0 11 00 0c 00 01 05 5f 69 70 70 73 c0 11  pp......._ipps..
+  0x0050:  00 0c 00 01 04 5f 66 74 70 c0 11 00 0c 00 01 07  ....._ftp.......
+  0x0060:  5f 77 65 62 64 61 76 c0 11 00 0c 00 01 08 5f 77  _webdav......._w
+  0x0070:  65 62 64 61 76 73 c0 11 00 0c 00 01 09 5f 73 66  ebdavs......._sf
+  0x0080:  74 70 2d 73 73 68 c0 11 00 0c 00 01 04 5f 73 6d  tp-ssh......._sm
+  0x0090:  62 c0 11 00 0c 00 01 0b 5f 61 66 70 6f 76 65 72  b......._afpover
+  0x00a0:  74 63 70 c0 11 00 0c 00 01                       tcp......
+
+6 packets captured
+0 packets dropped by perf ring
+(exit status 124 -- tolerated)
+
+== 8. xdpdump -w - | tcpdump -r - -n while pinging ==
++ timeout 6 xdpdump -i t1-host -w - | tcpdump -r - -n
+reading from file -, link-type EN10MB (Ethernet), snapshot length 262144
+listening on t1-host, ingress XDP program ID 146 func xdpfilt_alw_all, capture mode entry, capture size 262144 bytes
+
+6 packets captured
+0 packets dropped by perf ring
+18:27:05.870172  [|llc]
+18:27:06.214837 IP 10.10.0.2 > 10.10.0.1: ICMP echo request, id 10594, seq 2, length 64
+18:27:07.237633 IP 10.10.0.2 > 10.10.0.1: ICMP echo request, id 10594, seq 3, length 64
+18:27:07.621631 IP6 fe80::8428:6eff:fe8b:87f1 > ff02::2: ICMP6, router solicitation, length 16
+18:27:08.282876 IP 10.10.0.2 > 10.10.0.1: ICMP echo request, id 10594, seq 4, length 64
+18:27:09.284854 IP 10.10.0.2 > 10.10.0.1: ICMP echo request, id 10594, seq 5, length 64
+(exit status 124 -- tolerated)
+
+== 9. xdp-filter poll -i 1000 (5 s) ==
++ timeout -s INT 5 stdbuf -oL xdp-filter poll -i 1000
+Period of 0.255081s ending at 1795714031.454473
+XDP_DROP              16 pkts (         0 pps)           1 KiB (     0 Mbits/s)
+XDP_PASS             112 pkts (         0 pps)          18 KiB (     0 Mbits/s)
+XDP_TX                 0 pkts (         0 pps)           0 KiB (     0 Mbits/s)
+XDP_REDIRECT           0 pkts (         0 pps)           0 KiB (     0 Mbits/s)
+
+Period of 1.007628s ending at 1795714032.462093
+XDP_DROP              16 pkts (         0 pps)           1 KiB (     0 Mbits/s)
+XDP_PASS             113 pkts (         1 pps)          18 KiB (     0 Mbits/s)
+XDP_TX                 0 pkts (         0 pps)           0 KiB (     0 Mbits/s)
+XDP_REDIRECT           0 pkts (         0 pps)           0 KiB (     0 Mbits/s)
+
+Period of 1.022270s ending at 1795714033.484368
+XDP_DROP              16 pkts (         0 pps)           1 KiB (     0 Mbits/s)
+XDP_PASS             114 pkts (         1 pps)          18 KiB (     0 Mbits/s)
+XDP_TX                 0 pkts (         0 pps)           0 KiB (     0 Mbits/s)
+XDP_REDIRECT           0 pkts (         0 pps)           0 KiB (     0 Mbits/s)
+
+Period of 1.020659s ending at 1795714034.505034
+XDP_DROP              16 pkts (         0 pps)           1 KiB (     0 Mbits/s)
+XDP_PASS             115 pkts (         1 pps)          18 KiB (     0 Mbits/s)
+XDP_TX                 0 pkts (         0 pps)           0 KiB (     0 Mbits/s)
+XDP_REDIRECT           0 pkts (         0 pps)           0 KiB (     0 Mbits/s)
+
+Period of 1.002681s ending at 1795714035.507714
+XDP_DROP              16 pkts (         0 pps)           1 KiB (     0 Mbits/s)
+XDP_PASS             116 pkts (         1 pps)          18 KiB (     0 Mbits/s)
+XDP_TX                 0 pkts (         0 pps)           0 KiB (     0 Mbits/s)
+XDP_REDIRECT           0 pkts (         0 pps)           0 KiB (     0 Mbits/s)
+
+(exit status 124 -- tolerated)
+
+== 10. xdp-filter unload, then xdpdump -D (nothing loaded) ==
++ xdp-filter unload t1-host
++ xdpdump -D
+Interface        Prio  Program name      Mode     ID   Tag               Chain actions
+--------------------------------------------------------------------------------------
+lo                     <No XDP program loaded!>
+enp0s3                 <No XDP program loaded!>
+docker0                <No XDP program loaded!>
+t1-host                <No XDP program loaded!>
+
+(exit status 1 -- tolerated)
+== cleanup ==

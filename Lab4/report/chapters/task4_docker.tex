@@ -1,0 +1,29 @@
+% !TeX encoding = UTF-8
+\chapter{Task 4: Containerization}\label{chap:task4}
+
+Task~4 asks for Docker containers for Nginx and Apache and a container that pings both, and to check whether they can communicate. \texttt{docker-compose.yml} (project \texttt{lab4}) starts these three services and also the IDS gateway and the normal-traffic client that Tasks~2 and~3 need. Table~\ref{tab:topo} lists the networks and services, Figure~\ref{fig:arch} shows the data path.
+
+\begin{table}[htb]
+\centering\small
+\begin{tabular}{@{}lllll@{}}
+\toprule
+Service & Image & Network (IP, interface) & Role \\
+\midrule
+\texttt{nginx} & \texttt{nginx:stable-alpine} & back: 172.28.2.10 & web server (Task 4)\\
+\texttt{apache} & \texttt{httpd:2.4-alpine} & back: 172.28.2.11 & web server (Task 4)\\
+\texttt{pinger} & \texttt{alpine:3} & back: 172.28.2.30 & pings both servers (Task 4)\\
+\texttt{client} & \texttt{alpine:3} & front: 172.28.1.20 & normal HTTP traffic via the IDS\\
+\texttt{ids} & \texttt{lab4-ids:latest} & mgmt: 172.28.0.2 (\texttt{mgmt0}) & UI and agent\\
+ & & front: 172.28.1.2 (\texttt{ext0}) & XDP hook\\
+ & & back: 172.28.2.2 (\texttt{int0}) & forwarding with NAT\\
+\bottomrule
+\end{tabular}
+\caption{Compose topology (\texttt{docker-compose.yml}). Networks: \texttt{mgmt} 172.28.0.0/24, \texttt{front} 172.28.1.0/24, \texttt{back} 172.28.2.0/24.}\label{tab:topo}
+\end{table}
+
+The IDS container is privileged (loading BPF needs CAP\_BPF, CAP\_NET\_ADMIN and CAP\_SYS\_ADMIN; membership of the \texttt{docker} group is root-equivalent, which is acceptable for a lab machine). It owns its network namespace, so XDP can never touch the host uplink, and removing the container removes the program, the pins and all blocks. The \texttt{interface\_name} option gives the three interfaces fixed names, and the client reaches the servers through the IDS via a route to 172.28.2.0/24 through 172.28.1.2. The image builds the BPF object in a build stage (clang, libbpf) and ships only \texttt{bpftool}, \texttt{iproute2}, \texttt{iptables} and the Python scripts in the runtime stage, so it contains no numpy or scikit-learn.
+
+\section{Communication check}
+\texttt{docker/task4\_check.sh} runs from the pinger: three pings each to \texttt{nginx} and \texttt{apache} by name and to 172.28.2.10 and 172.28.2.11 by address, and an HTTP request to each server. All checks pass (\texttt{outputs/task4/task4\_check.log} ends with \texttt{RESULT: all checks PASSED}; ping round trips are below 1\,ms with 0\,\% loss). Figure~\ref{fig:SS_T4_1} shows the running services and Figure~\ref{fig:SS_T4_2} the check.
+
+\ssgrp{Task 4: running services and communication check.}{grpT4}{\ssub[0.52\linewidth]{SS_T4_1}{\texttt{docker compose ps}: all five services are up.}\hfill\ssub[0.42\linewidth]{SS_T4_2}{\texttt{docker/task4\_check.sh}: ping by name and IP, HTTP to Nginx and Apache.}}

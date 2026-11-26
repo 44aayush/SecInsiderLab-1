@@ -1,0 +1,18 @@
+% !TeX encoding = UTF-8
+\chapter{Reproduction}\label{app:repro}
+
+All commands run from \texttt{Lab4/}. The complete, step-by-step list is in \texttt{README.md} and \texttt{USER\_COMMANDS\_RUN.md}; \texttt{bash run.sh} runs training, build and kernel tests in one go.
+
+\begin{lstlisting}[style=bashsh]
+uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt
+.venv/bin/python script/train.py          # clean, split, depth selection, train, export, parity
+.venv/bin/pytest -m "not kernel and not docker" -q
+make -C xdp && docker compose build ids
+docker run --rm --privileged -v "$PWD/models:/lab4/models:ro" lab4-ids:latest \
+    python3 -m pytest tests/test_kernel.py -m kernel -q
+docker compose up -d && bash docker/task4_check.sh
+docker compose exec ids python3 script/agent.py --iface ext0 --model ALL --timespan 30
+sudo bash xdp_tools/task1_demo.sh 2>&1 | tee xdp_tools/logs/task1_demo.log
+\end{lstlisting}
+
+The web interface opens at \texttt{http://172.28.0.2:8080} on the host. The kernel-proof screenshots (Section~\ref{sec:proof}) use \texttt{agent.py --replay 60} with the \texttt{bpftool} commands of Section~7 of \texttt{USER\_COMMANDS\_RUN.md}.

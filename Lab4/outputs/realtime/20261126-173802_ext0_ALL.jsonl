@@ -1,0 +1,6 @@
+{"src_ip": "172.28.1.20", "src_port": 36320, "dst_ip": "172.28.2.10", "dst_port": 80, "proto": "TCP", "timestamp": "26-11-2026 05:38:02 PM", "result": "Malicious", "models": "DT: Malicious · XGB: Malicious", "pkts": 6}
+{"src_ip": "172.28.1.20", "src_port": 36336, "dst_ip": "172.28.2.10", "dst_port": 80, "proto": "TCP", "timestamp": "26-11-2026 05:38:07 PM", "result": "Malicious", "models": "DT: Malicious · XGB: Malicious", "pkts": 6}
+{"src_ip": "172.28.1.20", "src_port": 60440, "dst_ip": "172.28.2.10", "dst_port": 80, "proto": "TCP", "timestamp": "26-11-2026 05:38:12 PM", "result": "Malicious", "models": "DT: Malicious · XGB: Malicious", "pkts": 6}
+{"src_ip": "172.28.1.20", "src_port": 60450, "dst_ip": "172.28.2.10", "dst_port": 80, "proto": "TCP", "timestamp": "26-11-2026 05:38:17 PM", "result": "Malicious", "models": "DT: Malicious · XGB: Malicious", "pkts": 6}
+{"src_ip": "172.28.1.20", "src_port": 42994, "dst_ip": "172.28.2.10", "dst_port": 80, "proto": "TCP", "timestamp": "26-11-2026 05:38:23 PM", "result": "Malicious", "models": "DT: Malicious · XGB: Malicious", "pkts": 6}
+{"src_ip": "172.28.1.20", "src_port": 43000, "dst_ip": "172.28.2.10", "dst_port": 80, "proto": "TCP", "timestamp": "26-11-2026 05:38:28 PM", "result": "Malicious", "models": "DT: Malicious · XGB: Malicious", "pkts": 6}

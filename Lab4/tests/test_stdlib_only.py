@@ -8,7 +8,7 @@ import pytest
 
 TESTS = Path(__file__).resolve().parent
 SCRIPT = TESTS.parent / "script"
-NAMES = ("common", "kmodel", "bpf_ctl", "flowview", "agent", "webui")
+NAMES = ("common", "kmodel", "bpf_ctl", "flowview", "agent", "webui", "pktbuild", "replay")
 MODULES = [SCRIPT / f"{m}.py" for m in NAMES]
 MODULES.append(TESTS / "conftest.py")
 FORBIDDEN = {"numpy", "pandas", "sklearn", "xgboost"}

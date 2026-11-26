@@ -9,6 +9,7 @@ import argparse
 import dataclasses
 import json
 import logging
+import random
 import sys
 import threading
 import time
@@ -18,8 +19,9 @@ from typing import Any
 
 import agent
 import flowview
-from common import (DEFAULT_IFACE, LAB4_DIR, MAX_TIMESPAN_S, MGMT_IFACE, MODEL_MODES,
-                    POLL_INTERVAL_S, setup_logging, DEFAULT_OUT)
+import replay
+from common import (DEFAULT_IFACE, DEFAULT_REPLAY_UI, LAB4_DIR, MAX_REPLAY, MAX_TIMESPAN_S,
+                    MGMT_IFACE, MODEL_MODES, POLL_INTERVAL_S, setup_logging, DEFAULT_OUT)
 
 LOG = logging.getLogger(__name__)
 INDEX_HTML = LAB4_DIR / "web" / "index.html"
@@ -48,7 +50,7 @@ class Capture:
         self._thread: threading.Thread | None = None
         self._flows: dict[FlowKey, flowview.FlowRow] = {}
         self._stats: dict[str, int] = {}
-        self._info: dict[str, Any] = {"iface": "", "model": "", "deadline": 0.0}
+        self._info: dict[str, Any] = {"iface": "", "model": "", "deadline": 0.0, "replay": []}
 
     def running(self) -> bool:
         """Report whether a capture thread is alive.
@@ -58,13 +60,14 @@ class Capture:
         """
         return self._thread is not None and self._thread.is_alive()
 
-    def start(self, iface: str, timespan: int, model: str) -> None:
+    def start(self, iface: str, timespan: int, model: str, n_replay: int = 0) -> None:
         """Start a capture; the session is started here so failures reach the client.
 
         Args:
             iface: Validated interface.
             timespan: Seconds to run.
             model: "DT", "XGB" or "ALL".
+            n_replay: Dataset flows to replay through the kernel program (0 = none).
 
         Raises:
             RuntimeError: If a capture is already running (here or on another process).
@@ -74,24 +77,35 @@ class Capture:
                 raise RuntimeError("capture already running")
             session = agent.Session(iface, model)
             session.start()
+            try:
+                pool = replay.pick(n_replay) if n_replay else []
+                sched = replay.Schedule(pool, timespan, random.Random())
+            except (RuntimeError, ValueError, OSError):
+                session.stop()
+                raise
             self._flows, self._stats = {}, {}
-            self._info = {"iface": iface, "model": model, "deadline": time.monotonic() + timespan}
+            self._info = {"iface": iface, "model": model, "replay": [],
+                          "deadline": time.monotonic() + timespan}
             self._stop = threading.Event()
-            self._thread = threading.Thread(target=self._run, args=(session, self._stop),
+            self._thread = threading.Thread(target=self._run, args=(session, self._stop, sched),
                                             daemon=True)
             self._thread.start()
 
-    def _run(self, session: Any, stop: threading.Event) -> None:
+    def _run(self, session: Any, stop: threading.Event, sched: replay.Schedule) -> None:
         """Poll the session until the deadline or stop, then always stop it.
 
         Args:
             session: A started agent.Session.
             stop: Set by Capture.stop.
+            sched: Replay schedule; its due flows are injected on each tick.
         """
         try:
             while not stop.is_set() and time.monotonic() < self._info["deadline"]:
+                flows = sched.due()
+                truth = session.replay(flows) if flows else []
                 rows, stats = session.poll()
                 with self._lock:
+                    self._info["replay"] += truth
                     for row in rows:
                         self._flows[(row.src_ip, row.src_port, row.dst_ip, row.dst_port,
                                      row.proto)] = row
@@ -112,17 +126,38 @@ class Capture:
         """Build the /api/flows payload.
 
         Returns:
-            running, remaining_s, iface, model, stats and rows (newest first, capped).
+            running, remaining_s, iface, model, stats, rows (newest first, capped) and replay
+            (ground truth of the replayed flows).
         """
         with self._lock:
             rows = [dataclasses.asdict(r) for r in reversed(list(self._flows.values()))]
             remaining = max(0, round(self._info["deadline"] - time.monotonic()))
             return {"running": self.running(), "remaining_s": remaining if self.running() else 0,
                     "iface": self._info["iface"], "model": self._info["model"],
-                    "stats": dict(self._stats), "rows": rows[:MAX_ROWS]}
+                    "stats": dict(self._stats), "rows": rows[:MAX_ROWS],
+                    "replay": list(self._info["replay"])}
 
 
-def parse_start(body: bytes, default_model: str) -> tuple[str, int, str]:
+def _to_int(value: Any, name: str) -> int:
+    """Convert a JSON int or digit string.
+
+    Args:
+        value: Parsed JSON value.
+        name: Field name for the error message.
+
+    Returns:
+        The integer.
+
+    Raises:
+        BadRequest: If the value is a bool or neither int nor str.
+        ValueError: If a string is not an integer.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise BadRequest(f"{name} must be an integer")
+    return int(value)
+
+
+def parse_start(body: bytes, default_model: str) -> tuple[str, int, str, int]:
     """Validate a /api/start body (trust boundary).
 
     Args:
@@ -130,7 +165,7 @@ def parse_start(body: bytes, default_model: str) -> tuple[str, int, str]:
         default_model: Used when "model" is absent.
 
     Returns:
-        (iface, timespan, model).
+        (iface, timespan, model, replay).
 
     Raises:
         BadRequest: On any invalid value.
@@ -139,9 +174,8 @@ def parse_start(body: bytes, default_model: str) -> tuple[str, int, str]:
         data = json.loads(body)
         iface, span = data["iface"], data["timespan"]
         model = str(data.get("model", default_model)).upper()
-        if isinstance(span, bool) or not isinstance(span, (int, str)):
-            raise BadRequest("timespan must be an integer")
-        span = int(span)
+        span = _to_int(span, "timespan")
+        n_replay = _to_int(data.get("replay", DEFAULT_REPLAY_UI), "replay")
         agent.validate_iface(str(iface))
     except (ValueError, KeyError, TypeError, AttributeError) as exc:
         raise BadRequest(str(exc)) from exc
@@ -149,7 +183,9 @@ def parse_start(body: bytes, default_model: str) -> tuple[str, int, str]:
         raise BadRequest(f"timespan must be 1..{MAX_TIMESPAN_S}")
     if model not in MODEL_MODES:
         raise BadRequest(f"model must be one of {sorted(MODEL_MODES)}")
-    return str(iface), span, model
+    if not 0 <= n_replay <= MAX_REPLAY:
+        raise BadRequest(f"replay must be 0..{MAX_REPLAY}")
+    return str(iface), span, model, n_replay
 
 
 class Handler(BaseHTTPRequestHandler):

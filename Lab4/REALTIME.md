@@ -193,18 +193,19 @@ If any step raises, `stop()` runs. `stop()` order: detach, unpin, close the lock
 
 - stdout: one JSON line per **new or changed** flow (change = a different `(result, models)` pair; `pkts` changes are not reported).
 - `outputs/realtime/<YYYYmmdd-HHMMSS>_<iface>_<model>.jsonl`: the same lines.
+- `..._replay.json` (only with `--replay N`): the ground truth of the replayed flows (`src_ip`, `sport`, `label`, `retvals`; section 7.4).
 - `..._summary.json`: `iface`, `model`, `timespan_s`, `started`, `ended`, `stats` (the 7 counters), `flows_classified`, `flows_malicious`. `run.log` in the same folder. Files are `chown`ed to `LAB4_UID`/`LAB4_GID` when set (the container writes as root).
 - Exit code 0 on success, 1 if the capture could not start or failed.
 
 ### 6.4 UI API (`webui.py`, stdlib `ThreadingHTTPServer`, one capture at a time)
 
-`GET /` (`web/index.html`), `GET /api/interfaces` -> `{"interfaces": [...], "default": "ext0"}` (mgmt0 excluded), `POST /api/start` `{iface, timespan, model}` -> 202 / 400 / 409, `GET /api/flows` -> `{running, remaining_s, iface, model, stats, rows}` (newest first, at most 500 rows), `POST /api/stop` -> 200. Inputs are validated at the trust boundary: interface exists and is not `mgmt0`, timespan an int in 1..3600, model in DT/XGB/ALL, body at most 4096 B. A second start fails with 409 (in-process or via the flock).
+`GET /` (`web/index.html`), `GET /api/interfaces` -> `{"interfaces": [...], "default": "ext0"}` (mgmt0 excluded), `POST /api/start` `{iface, timespan, model, replay}` (`replay` 0..100, default 20) -> 202 / 400 / 409, `GET /api/flows` -> `{running, remaining_s, iface, model, stats, rows, replay}` (`replay` = ground truth of the replayed flows) (newest first, at most 500 rows), `POST /api/stop` -> 200. Inputs are validated at the trust boundary: interface exists and is not `mgmt0`, timespan an int in 1..3600, model in DT/XGB/ALL, body at most 4096 B. A second start fails with 409 (in-process or via the flock).
 
 CLI (inside the container):
 ```bash
 docker compose exec ids python3 script/agent.py --iface ext0 --model ALL --timespan 30
 # options: --model DT|XGB|ALL  --block-seconds 60  --model-file models/kernel_model.json
-#          --xdp-mode skb|native  --out outputs/realtime
+#          --xdp-mode skb|native  --out outputs/realtime  --replay 0..100 (default 0)
 ```
 
 ---
@@ -266,11 +267,25 @@ Together with the offline check on all 33,463 test rows, this chain gives: float
 
 ### 7.3 Crafted packets through `xdp_ids` (no dataset)
 
-The other kernel tests send frames built by `tests/pktgen.py` (stdlib; checksums stay 0 because XDP ignores them) with `bpf_ctl.prog_run("xdp_ids", pin, frame, repeat)` and read the maps afterwards:
+The other kernel tests send frames built by `script/pktbuild.py` (stdlib; checksums stay 0 because XDP ignores them) with `bpf_ctl.prog_run("xdp_ids", pin, frame, repeat)` and read the maps afterwards:
 
-- `pktgen.tcp(src, dst, sport, dport, flags, payload=0, ihl=5, doff=5, frag=0)`, `udp(...)`, `icmp`, `arp`, `ipv6`, `vlan(inner_ip)`, `truncated(frame, size)`; flags `SYN 0x02`, `FIN 0x01`, `PSH 0x08`, `ACK 0x10`, `RST 0x04`, `MF 0x2000`.
+- `pktbuild.tcp(src, dst, sport, dport, flags, payload=0, ihl=5, doff=5, frag=0)`, `udp(...)`, `icmp`, `arp`, `ipv6`, `vlan(inner_ip)`, `truncated(frame, size)`; flags `SYN 0x02`, `FIN 0x01`, `PSH 0x08`, `ACK 0x10`, `RST 0x04`, `MF 0x2000`.
 - Covered: flowmeter counters of a SYN/PSH/ACK/FIN flow, trigger at the 8th UDP packet and not before (7 packets leave `classified_ns == 0`), Malicious -> drop of the classifying packet + block of that source only (second source passes), block expiry, ALL needing both models (a `SPLIT` model with DT Malicious and XGB negative passes), mode off, and the not-tracked set (`arp`, `ipv6`, `icmp`, `fragment`, `short`, `ihl4`, `doff4`, `vlan`: pass, no flow created, `ST_NOT_TRACKED == 1`).
 - The Malicious path is proven **without attack tools** by `tests/fixtures/always_malicious.json` (DT = one leaf with value 1; XGB = one tree, leaf `+2**16`, base margin 0), on normal traffic.
+
+### 7.4 Dataset replay into the live program (`--replay N`, UI "Replay dataset flows")
+
+So that the UI shows a mix of Normal and Malicious rows without any attack tool, flows from the **CIC-IDS2017 test split** are rebuilt as packets and sent through the real, pinned `xdp_ids` with `BPF_PROG_TEST_RUN` (`bpftool prog run`). The real flowmeter, model and blocklist produce the verdicts; nothing goes on the wire.
+
+- **Pool:** `train.py` writes `models/replay_flows.json`: up to 500 BENIGN and 500 DDoS test-split rows (a seeded shuffle) whose forward packets can be rebuilt **exactly**: at most 32 packets, payloads of at most 1460 B, and a payload list that reproduces Total Fwd Packets, Total Length, Max, Min, Mean (x1000, floor) and act_data_pkt_fwd (`replay.payloads_from_row`; other rows are skipped). Entries are `{label, payloads}`.
+- **Sampling:** at capture start, N/2 flows of each class are drawn at random (no fixed seed) and shuffled (`replay.sample`). The UI default is 20; the CLI default is 0.
+- **Timing:** each sampled flow gets a random due time, uniform in [0, 0.8 x timespan) (`replay.Schedule`), and is injected on the first poll tick after it is due, so replayed rows interleave randomly with live rows instead of all appearing at start. The ground truth grows as flows are injected (UI `replay` key) and `<stamp>_replay.json` is written when the capture ends.
+- **Packets:** each flow gets its own random source in 10.99.0.0/16 and a random source port, destination 172.28.2.10:80. All packets are TCP ACK (PSH|ACK when they carry payload); the last one carries FIN|ACK, which triggers the classification.
+- **Ground truth:** `outputs/realtime/<stamp>_<iface>_<model>_replay.json` (CLI) and the `replay` key of `GET /api/flows` (UI) list `src_ip`, `sport`, dataset `label` and the XDP action of every packet. Join them with the table on (src_ip, src_port) to compare verdict and label.
+- **Blocks** hit only 10.99.x.y sources, never the client or the servers.
+- **Limits:** inter-arrival times are **not** reproduced (the packets are microseconds apart), so the four IAT features differ from the dataset; they carry under 0.5 % of the model importance (CLAUDE.md 3.4). A flow with more than 8 packets is also classified at its 8th packet (section 4.1). No attack tool is used.
+
+Kernel test evidence: `test_replay_through_xdp_ids` (4 flows) and `test_replay_evidence` (100 flows, `outputs/kernel/replay_summary.json`).
 
 ---
 
@@ -278,7 +293,7 @@ The other kernel tests send frames built by `tests/pktgen.py` (stdlib; checksums
 
 Only tools that exist on this machine are used (CLAUDE.md 3.1: tcpdump, tshark, nstat, nc, ping, ethtool; hping3, tcpreplay, iperf3, ncat, scapy are absent and not needed). **Per the slide 8 note, no attack tools are used: the interface carries normal traffic only, and classifier performance against malicious live traffic is not checked.**
 
-**Replaying pcaps through `xdp_ids` is NOT implemented.** There is no pcap reader, no `tcpreplay`, and no code path that feeds a capture file into the program. A pcap could only be turned into packets by a tool that does not exist in this repo; the supported ways to drive `xdp_ids` with chosen packets are `pktgen.py` + `BPF_PROG_TEST_RUN` (section 7.3) and the live client.
+**Replaying pcaps through `xdp_ids` is NOT implemented** (dataset flows are replayed instead, section 7.4). There is no pcap reader, no `tcpreplay`, and no code path that feeds a capture file into the program. A pcap could only be turned into packets by a tool that does not exist in this repo; the supported ways to drive `xdp_ids` with chosen packets are `pktbuild.py` + `BPF_PROG_TEST_RUN` (section 7.3) and the live client.
 
 ### 8.1 Drive `xdp_ids` by hand with the real model (composed from tested helpers; not run separately)
 
@@ -290,16 +305,16 @@ docker run --rm --privileged -v "$PWD/models:/lab4/models:ro" \
 ```python
 import sys
 sys.path[:0] = ["/lab4/script", "/lab4/tests"]
-import bpf_ctl, kmodel, pktgen
+import bpf_ctl, kmodel, pktbuild
 from common import BPF_OBJ, KERNEL_MODEL_PATH, MODE_ALL
 
 pin = "/sys/fs/bpf/lab4_manual"
 bpf_ctl.load(BPF_OBJ, pin)
 m = kmodel.load(KERNEL_MODEL_PATH)
 bpf_ctl.batch(kmodel.batch_lines(m, pin) + [kmodel.config_line(MODE_ALL, m, 60 * 10**9, pin)])
-steps = [(pktgen.SYN, 0), (pktgen.PSH | pktgen.ACK, 100), (pktgen.ACK, 50), (pktgen.FIN | pktgen.ACK, 0)]
+steps = [(pktbuild.SYN, 0), (pktbuild.PSH | pktbuild.ACK, 100), (pktbuild.ACK, 50), (pktbuild.FIN | pktbuild.ACK, 0)]
 for flags, n in steps:  # XDP_PASS = 2, XDP_DROP = 1
-    print("action", bpf_ctl.prog_run("xdp_ids", pin, pktgen.tcp("10.0.0.2", "10.0.0.1", 40000, 80, flags, n))[0])
+    print("action", bpf_ctl.prog_run("xdp_ids", pin, pktbuild.tcp("10.0.0.2", "10.0.0.1", 40000, 80, flags, n))[0])
 print(bpf_ctl.dump("flows", pin)[0]["formatted"]["value"])   # features' raw state + verdicts
 print({e["formatted"]["key"]: sum(v["value"] for v in e["formatted"]["values"]) for e in bpf_ctl.dump("stats", pin)})
 bpf_ctl.unpin(pin)

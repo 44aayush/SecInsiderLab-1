@@ -6,13 +6,16 @@ Depths are chosen on the validation split only; the test split is scored after t
 from __future__ import annotations
 
 import argparse
+import collections
 import hashlib
+import json
 import logging
 import time
 from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
+import pandas as pd
 from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score, precision_score,
                              recall_score, roc_auc_score)
 from sklearn.tree import DecisionTreeClassifier
@@ -22,6 +25,7 @@ import common
 import export_model as em
 import kmodel
 import preprocess as pp
+import replay
 import report
 
 log = logging.getLogger(__name__)
@@ -227,6 +231,19 @@ def _export(dt: Any, xgb: Any, dt_depth: int, xgb_depth: int,
     return kdict
 
 
+def _write_pool(splits: pp.KernelSplits, models_dir: Path) -> None:
+    """Write the replay pool (rebuildable test-split flows of both classes, CLAUDE.md D8).
+
+    Args:
+        splits: Kernel splits (only the test split is used).
+        models_dir: Output directory.
+    """
+    frame = pd.DataFrame(splits.x_test, columns=splits.feature_names)
+    pool = replay.build_pool(frame, splits.y_test)
+    (models_dir / common.REPLAY_POOL_PATH.name).write_text(json.dumps(pool), encoding="utf-8")
+    log.info("replay pool: %s", dict(collections.Counter(f["label"] for f in pool)))
+
+
 def _report(models: tuple[Any, Any], kdict: dict[str, Any], splits: pp.KernelSplits,
             train_s: tuple[float, float], args: argparse.Namespace) -> None:
     """Score on val and test, write metrics, parity and test vectors.
@@ -252,6 +269,7 @@ def _report(models: tuple[Any, Any], kdict: dict[str, Any], splits: pp.KernelSpl
     vectors = em.sample_test_vectors(em.to_int_features(splits.x_test), splits.y_test, kdict,
                                      N_VECTORS_PER_CLASS, common.SEED)
     report.dump_json(vectors, args.models_dir / common.TEST_VECTORS_PATH.name)
+    _write_pool(splits, args.models_dir)
     log.info("test metrics:\n%s", (metrics_dir / "comparison_test.md").read_text(encoding="utf-8"))
 
 

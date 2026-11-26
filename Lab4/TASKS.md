@@ -71,7 +71,7 @@ P5 (needs T4.4 dump fixtures) ─▶ P6 (needs P5) ─▶ P7 ─▶ P8 ;  P9 def
 
 ## P1: Prerequisites and environment
 
-- [ ] **T1.1 [U] Install xdp-tools on the host** (the build from 2026-11-15 is in `~/src/xdp-tools`, v1.6.3-32-g92a9828):
+- [x] **T1.1 [U] Install xdp-tools on the host** (the build from 2026-11-15 is in `~/src/xdp-tools`, v1.6.3-32-g92a9828):
   ```bash
   cd ~/src/xdp-tools
   make                      # no root; should report nothing to do
@@ -134,8 +134,8 @@ P5 (needs T4.4 dump fixtures) ─▶ P6 (needs P5) ─▶ P7 ─▶ P8 ;  P9 def
   *Checks (Sonnet):* `bash -n`; `shellcheck` if installed; running it without root prints the message and exits 1.
 
   *AC:* the quality gate for shell passes; every command is a README.org form; cleanup runs on success and on failure.
-- [ ] **T2.2 [U] Run Task 1.** `sudo bash xdp_tools/task1_demo.sh 2>&1 | tee xdp_tools/logs/task1_demo.log`; take the screenshots `SS/SS_T1_*.png`.
-- [ ] **T2.3 [O] Review the log.**
+- [x] **T2.2 [U] Run Task 1.** `sudo bash xdp_tools/task1_demo.sh 2>&1 | tee xdp_tools/logs/task1_demo.log`; take the screenshots `SS/SS_T1_*.png`.
+- [x] **T2.3 [O] Review the log.** (2026-11-26, re-run after the fixes: all 10 sections as expected; poll shows 5 periods; HTTP 200 → timeout → 200)
 
   *AC:*
   - section 3 shows 0 % loss and section 4 100 % loss;
@@ -359,6 +359,37 @@ P5 (needs T4.4 dump fixtures) ─▶ P6 (needs P5) ─▶ P7 ─▶ P8 ;  P9 def
 
   *AC:* the quality gate passes; the page renders in a browser with the sample's layout (checked by Opus from a [H] screenshot in T6.3).
 
+- [x] **T5.3 [S] Dataset replay into the live kernel program (D8).**
+
+  **Files:**
+  - Create `script/pktbuild.py` (stdlib frame builder, moved from `tests/pktgen.py`; tests import it from there) and `script/replay.py`.
+  - Edit `script/train.py` (write `models/replay_flows.json`), `script/agent.py` (`--replay N`, 0..100, default 0; `Session.replay(flows)`), `script/webui.py` (`replay` field 0..100, default 20) and `web/index.html` (number input "Replay dataset flows" plus a one-line note that replayed flows come from the CIC-IDS2017 test split).
+  - Tests: `tests/test_replay.py`, `tests/test_kernel.py::test_replay_through_xdp_ids`. Docs: `USER_COMMANDS_RUN.md`, `REALTIME.md`, `README.md`.
+
+  **Interfaces:**
+  - `replay.payloads_from_row(row: dict) -> list[int] | None`: returns None when the row is not exactly rebuildable.
+  - `replay.build_pool(df, y, per_class=500, max_pkts=32) -> list[dict]`.
+  - `replay.sample(pool, n, rng) -> list[dict]`: n/2 of each class, shuffled.
+  - `replay.frames(flow, src_ip, sport) -> list[bytes]`.
+  - `replay.run(pin, flows, rng) -> list[dict]` returns `{src_ip, sport, label, retvals}`; it uses `bpf_ctl.prog_run("xdp_ids", pin, frame)`.
+  - Ground truth goes to `<out>/<stamp>_replay.json` (agent) and to the `/api/flows` payload key `replay` (webui).
+
+  Tests:
+  - `payloads_from_row` reproduces the 6 packet features exactly for a hand row and returns None for an infeasible one.
+  - `sample` is balanced and has no duplicates.
+  - The agent and webui validate `replay` bounds (400 on -1, 101, "x").
+  - Kernel: replaying 4 flows (2 per class) with the real model creates 4 classified flows from 10.99.x.y in the `flows` map, and the blocklist holds only 10.99.x.y addresses.
+
+  *AC:* the quality gate passes; the kernel suite passes; the docs say IATs are not reproduced and no attack tool is used.
+- [x] **T5.4 [H] Verify D8 live:**
+  - rebuild the image; run the kernel tests;
+  - `docker compose up -d --build`;
+  - POST `/api/start` with `{"iface":"ext0","timespan":30,"model":"ALL","replay":24}`, wait 35 s, GET `/api/flows`;
+  - report the row count, Normal/Malicious counts, how many replayed flows of each label were classified Malicious, and that the client logged 0 FAIL;
+  - then `docker compose down --rmi all --volumes --remove-orphans` and `docker rmi python:3.12-slim`.
+
+  *AC:* ≥ 20 rows with both results present; the client is unaffected.
+
 ---
 
 ## P6: Task 4 and the live cycle in Docker
@@ -391,7 +422,7 @@ P5 (needs T4.4 dump fixtures) ─▶ P6 (needs P5) ─▶ P7 ─▶ P8 ;  P9 def
 
   *AC:* all runs exit 0 with no XDP left on `ext0`; outputs are saved under `outputs/realtime/`.
 - [x] **T6.4 [O] Gate: normal traffic.** If any normal flow was Malicious, or the client logged FAIL outside the filter demo: stop, compare the flow's 10 features with the training distribution (DDoS vs BENIGN quantiles from `train.py` data), and present options to the user (for example more realistic client traffic, `CLASSIFY_MIN_PKTS`, the feature set). **No silent fixes.** Otherwise record the results (the counts per model) in CLAUDE.md §3 and the review log.
-- [ ] **T6.5 [U] Screenshots:**
+- [x] **T6.5 [U] Screenshots:**
   - `SS_T2_1–3`: agent CLI per model;
   - `SS_T2_4`: the filter demo summary;
   - `SS_T3_1–3`: the UI with normal traffic per model;
@@ -414,7 +445,7 @@ P5 (needs T4.4 dump fixtures) ─▶ P6 (needs P5) ─▶ P7 ─▶ P8 ;  P9 def
   Paste everything verbatim.
 
   *AC:* pylint 10.00/10; radon `-n C` empty; every suite passes.
-- [x] **T7.2 [O] Audit.** (2026-11-26: all suites green in T7.1, parity chain complete (T3.5 + T4.4), UI only on mgmt0 and validated (T5.2/T6.1 tests), no stale XDP after runs, §3 numbers match outputs; one fix: `models_quick/` not git-ignored → T10.1)
+- [x] **T7.2 [O] Audit.** (2026-11-26: all suites green in T7.1, parity chain complete (T3.5 + T4.4), UI only on mgmt0 and validated (T5.2/T6.1 tests), no stale XDP after runs, §3 numbers match outputs; one fix: `models_quick/` git-ignored)
   - The contracts (§5) hold.
   - **No leakage:** depth selection on val only; test touched once; no labels in cleaning.
   - The parity chain is complete (T3.5 + T4.4).
@@ -449,7 +480,7 @@ P5 (needs T4.4 dump fixtures) ─▶ P6 (needs P5) ─▶ P7 ─▶ P8 ;  P9 def
 
 ## P9: Report and presentation (deferred until the user asks; CLAUDE.md §10)
 
-- [ ] **T9.1 [S] `G8.Report4.pdf`** (LaTeX, Lab 3 template and build rule; 15–20 pages):
+- [ ] **T9.1 [S] `G8.Report4.pdf`** (started 2026-11-26; user: "continue with next tasks"; SS_K_1–7 kernel-proof shots as placeholders until taken) (LaTeX, Lab 3 template and build rule; 15–20 pages):
   - Task 1 with the SS_T1 screenshots;
   - Task 2: method (kernel features, integer trees, classification trigger, blocking), the verification chain, metrics vs Lab 3, kernel timing/size, limitations;
   - Task 3 (UI);
@@ -459,40 +490,6 @@ P5 (needs T4.4 dump fixtures) ─▶ P6 (needs P5) ─▶ P7 ─▶ P8 ;  P9 def
 - [ ] **T9.2 [U] Submit by 2026-12-09** (recipients per CLAUDE.md §10).
 - [ ] **T9.3 [S] Presentation for 2026-12-16** (10 + 2 min; each member presents their own task).
 
-## P10: Cross-day test on Wednesday (user D7, 2026-11-26; after P3–P6)
-
-- [x] **T10.1 [S] `script/crossday.py` and tests.**
-
-  **Files:** create `script/crossday.py`, `tests/test_crossday.py`. Edit `tests/test_e2e.py` (Wednesday e2e), `tests/test_kernel.py` (vector file from env var `LAB4_VECTORS`, default `models/test_vectors.json`), the root `.gitattributes` (lfs line for `Lab4/Wednesday_dataset/Wednesday-workingHours.pcap_ISCX.csv`) and `.gitignore` (add `models_quick/`).
-
-  **Interfaces:**
-  - Consumes `preprocess.load_raw` and its row-drop helpers (inf/NaN, duplicates), `preprocess.select_kernel_features`, `export_model.to_int_features`, `kmodel.load/dt_verdict/xgb_margin/xgb_verdict/final_verdict`, `train.compute_metrics`, `export_model.sample_test_vectors`.
-  - Produces `main(argv) -> int` with `--csv` (default `Wednesday_dataset/Wednesday-workingHours.pcap_ISCX.csv`), `--model-file` (default `models/kernel_model.json`) and `--out` (default `Wednesday_dataset/outputs`).
-
-  Outputs under `--out`:
-  - `run.log`;
-  - `preprocess_summary.json` (raw shape, raw label counts, inf/NaN rows and duplicates per label, clean label counts);
-  - `metrics.json` + `comparison.{csv,md}`: modes DT, XGB, ALL; the Lab 3 metric columns plus TP/TN/FP/FN and the BENIGN false-alarm rate; ROC-AUC from the DT leaf / XGB sigmoid(margin);
-  - `per_label.{csv,md}`: rows per original label, columns n, detected (predicted 1) per mode, rate per mode;
-  - `test_vectors.json`: stratified 1,024 rows over BENIGN and the attacks, seed 42, same schema as `models/test_vectors.json`, Python-evaluated.
-
-  The per-label table is the main result.
-
-  Tests (`tests/test_crossday.py`, synthetic multi-label DataFrame plus a tiny hand model): every non-BENIGN label maps to 1; the per-label counts add up to n; the ALL detections are ≤ min(DT, XGB); no column drops; `main` on a small CSV in `tmp_path` writes every listed file.
-
-  `tests/test_e2e.py::test_wednesday_raw_counts` (e2e, skipped if the file is absent): raw shape and label counts equal CLAUDE.md §2 D7.
-
-  *AC:* the quality gate passes; `git check-attr filter` on the Wednesday CSV prints `lfs`.
-- [x] **T10.2 [H] Run:**
-  1. `time .venv/bin/python script/crossday.py`;
-  2. `.venv/bin/pytest -m e2e -q`;
-  3. the kernel parity on the Wednesday vectors: `docker run --rm --privileged -e LAB4_VECTORS=/lab4/wed/test_vectors.json -v "$PWD/models:/lab4/models:ro" -v "$PWD/Wednesday_dataset/outputs:/lab4/wed" -v "$PWD/outputs:/lab4/outputs" lab4-ids:latest python3 -m pytest tests/test_kernel.py -m kernel -k parity -v | tee Wednesday_dataset/outputs/kernel_parity.log`, then chown `outputs` and `Wednesday_dataset/outputs`.
-
-  Paste verbatim: the summary, `comparison.md`, `per_label.md` and the parity log.
-- [x] **T10.3 [O] Review:** check the counts (clean n per label, TP + FN = attacks); read the per-attack generalisation (expected: Hulk and GoldenEye are closer to the HTTP-flood profile, slowloris and Slowhttptest are low-and-slow and likely missed); record the results in CLAUDE.md §3.7 and the review log.
-
----
-
 ## Review log
 
 | Date | Source | Finding | Outcome |
@@ -501,5 +498,6 @@ P5 (needs T4.4 dump fixtures) ─▶ P6 (needs P5) ─▶ P7 ─▶ P8 ;  P9 def
 | 2026-11-25 | User + Lab 3 side run | XGBoost 20 trees, depth 4–6 (`../Lab3/outputs_xgb20/`) | Lab 4 XGB = 20 trees; depth by validation (D6, O4); results in CLAUDE.md §3.3 |
 | 2026-11-25 | Opus T3.6 gate | DT d6 F1 0.9991, XGB 20t d4 F1 0.9989 (≥ 0.99); parity 100 %/100 %, max err 4.5e-5; 387 nodes; depth rule followed; 2 size features ≈ 99 % importance | Passed; CLAUDE.md §3.4 |
 | 2026-11-25 | Opus T6.4 gate | Normal traffic DT/XGB/ALL: 118 flows each, 0 Malicious, 0 client FAIL; filter demo 55 drops, 2 blocks (expiry + re-block; the T6.3 "blocks 1" expectation was wrong) | Passed; CLAUDE.md §3.6 |
-| 2026-11-26 | Opus T10.3 | Wednesday cross-day: recall 0.25–0.33 %, false alarms ≤ 0.09 %, GoldenEye/slowloris/Heartbleed missed; counts reconcile (193,756 attacks); kernel parity exact | Recorded, CLAUDE.md §3.7 |
 | 2026-11-26 | Haiku T8.2 | `run.sh` full exit 0 (73 s); `--quick` failed: `test_kernel_parity` asserted exactly 1,024 vectors (fixture gives 439) | [S] fixed to 1 ≤ n ≤ 1,024; kernel suite 16/16 with `models/` and `models_quick/` |
+| 2026-11-26 | Haiku T5.4 + Opus | Replay 24 (ALL): 84 rows, 12 DDoS→Malicious, 12 BENIGN→Normal, 60 live Normal, client 0 FAIL; replay at start was buried under live rows → [S] spread replay over 0–80 % of the capture; recheck (another capture was already running) showed replay rows interleaved, 6/6 match labels | Done; stack and images torn down |
+| 2026-11-26 | Opus screenshot review (`Lab4/SS/`, 23 files) | Task 1 sections 1–8 and 10 OK; section 9 `xdp-filter poll` empty (output buffered through tee); SS_T3_2–4 missing; SS_T3_1 is ALL with 16 rows and "Idle" status (retake per model before timespan ends); SS_Docker_IDS shows 16 kernel tests (now 18) | Reported to the user; T2.3 open until SS_T1_9 retaken |

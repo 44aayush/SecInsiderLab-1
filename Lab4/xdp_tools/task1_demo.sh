@@ -36,8 +36,20 @@ run() { echo "+ $*"; "$@"; }
 try() { echo "+ $*"; "$@" || echo "(exit status $? -- tolerated)"; }
 in_ns() { ip netns exec "$NS" "$@"; }
 # Start a 1 Hz ping from the netns in the background (traffic for the capture sections).
-bg_ping() { in_ns ping -c "$1" -i 1 "$HOST_IP" >/dev/null 2>&1 & }
-http_get() { in_ns python3 -c "import urllib.request as u; print(u.urlopen('http://$HOST_IP:$HTTP_PORT/', timeout=3).status)"; }
+bg_ping() { in_ns ping -c "$1" -i 1 "$HOST_IP" >/dev/null 2>&1 & PING_PID=$!; }
+# Runs on the host against the server inside the netns; exit 0 only on HTTP 200, "timeout" instead of a traceback.
+http_get() {
+    python3 -c "
+import sys, urllib.request as u
+try:
+    s = u.urlopen('http://$NS_IP:$HTTP_PORT/', timeout=3).status
+    print(s)
+    sys.exit(0 if s == 200 else 1)
+except Exception:
+    print('timeout')
+    sys.exit(1)
+"
+}
 
 # Sandbox: stale leftovers first, then netns + veth pair.
 ip netns del "$NS" 2>/dev/null || true
@@ -69,36 +81,38 @@ run xdp-filter status
 banner "5. xdpdump entry,exit while pinging (exit action XDP_DROP), then remove the rule"
 bg_ping 6
 try timeout 8 xdpdump -i "$HOST_IF" --rx-capture=entry,exit
-wait || true
+wait "$PING_PID" 2>/dev/null || true
 run xdp-filter ip "$NS_IP" -m src -r
 run in_ns ping -c 3 "$HOST_IP"
 
 banner "6. port filter on TCP $HTTP_PORT"
-python3 -m http.server "$HTTP_PORT" --bind "$HOST_IP" >/dev/null 2>&1 &
+# Server inside the netns: the host's ufw drops inbound TCP SYNs on the host side.
+in_ns python3 -m http.server "$HTTP_PORT" --bind "$NS_IP" >/dev/null 2>&1 &
 HTTP_PID=$!
-sleep 1
+for _ in $(seq 10); do http_get >/dev/null 2>&1 && break; sleep 0.5; done
 run http_get
-run xdp-filter port "$HTTP_PORT"
+run xdp-filter port "$HTTP_PORT" -m src
 try http_get
 run xdp-filter status
-run xdp-filter port "$HTTP_PORT" -r
+run xdp-filter port "$HTTP_PORT" -m src -r
 run http_get
+kill "$HTTP_PID" 2>/dev/null || true; wait "$HTTP_PID" 2>/dev/null || true; HTTP_PID=
 
 banner "7. xdpdump -x (hex dump) while pinging"
 bg_ping 5
 try timeout 6 xdpdump -i "$HOST_IF" -x
-wait || true
+wait "$PING_PID" 2>/dev/null || true
 
 banner "8. xdpdump -w - | tcpdump -r - -n while pinging"
 bg_ping 5
 echo "+ timeout 6 xdpdump -i $HOST_IF -w - | tcpdump -r - -n"
 timeout 6 xdpdump -i "$HOST_IF" -w - | tcpdump -r - -n || echo "(exit status $? -- tolerated)"
-wait || true
+wait "$PING_PID" 2>/dev/null || true
 
 banner "9. xdp-filter poll -i 1000 (5 s)"
 bg_ping 5
-try timeout 5 xdp-filter poll -i 1000
-wait || true
+try timeout -s INT 5 stdbuf -oL xdp-filter poll -i 1000
+wait "$PING_PID" 2>/dev/null || true
 
 banner "10. xdp-filter unload, then xdpdump -D (nothing loaded)"
 run xdp-filter unload "$HOST_IF"

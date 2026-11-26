@@ -30,8 +30,8 @@ Netns `lab4t1` with a veth pair: `t1-host` (10.10.0.1/24, host side, where XDP i
 3. **Ping from the netns.** 3 packets, 0% loss: the filter passes everything by default. `SS_T1_3`.
 4. **`xdp-filter ip 10.10.0.2 -m src`, ping, `xdp-filter status`.** The ping fails with 100% loss (expected); status lists the IP with non-zero hit counters. `SS_T1_4`.
 5. **`xdpdump --rx-capture=entry,exit` during the ping, then remove the rule and ping.** Exit records show action `XDP_DROP`; after `-r` the ping has 0% loss. `SS_T1_5`.
-6. **Port filter.** A Python HTTP server on 10.10.0.1:8000; GET from the netns returns 200; after `xdp-filter port 8000` the GET times out (expected); `status` shows the port; after `-r` the GET returns 200 again. `SS_T1_6`.
+6. **Port filter.** A Python HTTP server runs inside the netns on 10.10.0.2:8000 (the host's ufw drops inbound SYNs); GET from the host returns 200; after `xdp-filter port 8000 -m src` the GET times out (expected, replies enter `t1-host` with source port 8000); `status` shows the port; after `-m src -r` the GET returns 200 again. `SS_T1_6`.
 7. **`xdpdump -x`.** Hex dump of the ICMP packets seen at the XDP hook. `SS_T1_7`.
 8. **`xdpdump -w - | tcpdump -r - -n`.** The same packets decoded by tcpdump (`IP 10.10.0.2 > 10.10.0.1: ICMP echo request`). `SS_T1_8`.
-9. **`xdp-filter poll -i 1000`.** Per-second packet and byte rates per action for 5 s. `SS_T1_9`.
+9. **`xdp-filter poll -i 1000`.** Per-second packet and byte rates per action for 5 s (`timeout -s INT 5 stdbuf -oL xdp-filter poll -i 1000`, so the output is line-buffered and the INT ends it cleanly). `SS_T1_9`.
 10. **`xdp-filter unload t1-host`, then `xdpdump -D`.** Nothing loaded again. `SS_T1_10`.

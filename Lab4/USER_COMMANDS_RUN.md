@@ -14,9 +14,9 @@ mkdir -p SS
 | SS_T4_1 | `docker compose ps` | 4 |
 | SS_T4_2 | `task4_check.sh` output | 4 |
 | SS_T2_1 .. SS_T2_3 | agent CLI: DT, XGB, ALL | 5 |
-| SS_T2_4 | filter demo summary | 5 |
-| SS_T3_1 .. SS_T3_3 | UI with normal traffic: DT, XGB, ALL | 6 |
-| SS_T3_4 | UI during the filter demo | 6 |
+| SS_T2_5 | filter demo: `docker compose logs -f client` (fails during a block, recovers) | 5 |
+| SS_K_1 .. SS_K_7 | kernel proof: XDP attached, program, maps, counters, blocklist, Malicious rows, detached | 7 |
+| SS_T3_1 .. SS_T3_3 | UI with 20 replayed dataset flows (mixed Normal and Malicious): DT, XGB, ALL (SS_T3_3 shows Malicious rows and the blocks counter) | 6 |
 
 ---
 
@@ -141,10 +141,10 @@ Filter demo (no attack tools): an always-Malicious stub model makes the filter f
 
 ```bash
 docker compose exec ids python3 script/agent.py --iface ext0 --model DT \
-  --model-file tests/fixtures/always_malicious.json --timespan 30 --block-seconds 20      # SS_T2_4
+  --model-file tests/fixtures/always_malicious.json --timespan 30 --block-seconds 20      # filter demo; evidence screenshot is SS_T2_5 (client log, below)
 ```
 
-Expect: drops greater than 0 and 2 blocks in the summary (the source is re-blocked after the 20 s expiry). Optionally, in a second terminal while it runs, watch the client fail and recover:
+Expect: drops greater than 0 and 2 blocks in the summary (the source is re-blocked after the 20 s expiry). Optionally, in a second terminal while it runs, watch the client fail and recover (**SS_T2_5**):
 
 ```bash
 docker compose logs -f client
@@ -167,22 +167,74 @@ For each model, in the page:
 3. Model: select **DT**, click **Start Packet Capture**, wait for the Algorithm Output table to fill (Src IP, Src Port, Dst IP, Dst Port, Timestamp, Result = Normal). Screenshot **SS_T3_1**.
 4. Repeat with **XGB** (**SS_T3_2**) and **ALL** (**SS_T3_3**), waiting for the previous capture to finish (or press stop).
 
-**SS_T3_4, UI during the filter demo.** The UI has no model-file option, so swap the model on the host for a minute, then restore it:
+Replay dataset flows is **20** by default (allowed 0..100, set it higher for a longer table). Each start replays that many CIC-IDS2017 test-split flows through the kernel program, half BENIGN and half DDoS, drawn at random and injected at random times during the first 80 % of the capture (so they interleave with live rows), so the table shows at least 20 rows with a random mix of Normal and Malicious (plus the client's own flows). Replayed sources are 10.99.x.y; no attack tool is used and nothing goes on the wire. Inter-arrival times are not reproduced.
+
+
+## 7. Proof: classifier and XDP filter run in the kernel and block malicious flows
+
+Use two terminals in `Lab4/` with the stack up. Terminal B only works while A runs: the pins under `/sys/fs/bpf/lab4/ext0/` vanish when the capture ends. All values below are real output from the 2026-11-26 live run; IDs, counts and addresses differ on every run.
+
+**Terminal A (keep running):**
 
 ```bash
-cp models/kernel_model.json /tmp/kernel_model.json.bak
-cp tests/fixtures/always_malicious.json models/kernel_model.json
+docker compose exec ids python3 script/agent.py --iface ext0 --model ALL --timespan 120 --replay 60
 ```
 
-In the browser: Model **DT**, timespan 30, Start Packet Capture. Rows now show Result = Malicious. Take **SS_T3_4**. Then restore:
+Malicious lines appear with `DT: Malicious · XGB: Malicious` from 10.99.x.y sources. Alternative: the UI with Replay 60 and timespan 120.
+
+**Terminal B (while A runs), one screenshot each:**
 
 ```bash
-cp /tmp/kernel_model.json.bak models/kernel_model.json
-rm /tmp/kernel_model.json.bak
-git status --short models/       # models/kernel_model.json must be unchanged
+# SS_K_1: XDP program attached in the kernel (skb mode)
+docker compose exec ids bpftool net show dev ext0
+```
+Expect under `xdp:` the line `ext0(3) generic id 611` (the id differs per run).
+
+```bash
+# SS_K_2: the verified, JIT-compiled kernel program
+docker compose exec ids bpftool prog show name xdp_ids
+```
+Expect `611: xdp  name xdp_ids … xlated 5664B  jited 3263B`.
+
+```bash
+# SS_K_3: the model and config live in kernel maps (one command, paste in Terminal B while A runs)
+docker compose exec ids sh -c 'P=/sys/fs/bpf/lab4/ext0; echo "== maps =="; ls $P/maps; echo "== programs =="; ls $P/progs; echo "== config (mode 3 = ALL) =="; bpftool map lookup pinned $P/maps/config key 0 0 0 0; echo "== first node of the decision tree =="; bpftool map lookup pinned $P/maps/nodes key 0 0 0 0'
+```
+- `maps` / `progs`: the model and the blocklist live in pinned kernel maps, next to the program.
+- Config: `mode: 3` = ALL, `n_xgb_trees: 20`, `block_ns: 60000000000` = 60 s block time.
+- Node 0 is the DT root: `feature 2` = Fwd Packet Length Max, its threshold, and the left/right child indices (`threshold 21, left 1, right 46` in the real run).
+
+```bash
+# SS_K_4: counters kept inside the XDP program
+docker compose exec ids python3 -c "import sys; sys.path.insert(0, 'script'); import bpf_ctl, flowview; print(flowview.parse_stats(bpf_ctl.dump('stats', '/sys/fs/bpf/lab4/ext0')))"
+```
+Real run: `ST_PKTS 1202, ST_PASS 1172, ST_DROP 33, ST_FLOWS_CLASSIFIED 208, ST_FLOWS_MALICIOUS 30, ST_BLOCKS_ADDED 30, ST_NOT_TRACKED 3`. Expect `ST_FLOWS_MALICIOUS`, `ST_BLOCKS_ADDED` and `ST_DROP` all greater than 0. `ST_DROP` is at least `ST_BLOCKS_ADDED` because later packets of a blocked source are dropped too.
+
+```bash
+# SS_K_5: the kernel blocklist
+docker compose exec ids bpftool map dump pinned /sys/fs/bpf/lab4/ext0/maps/blocklist
+```
+bpftool prints this map with BTF formatting, so key and value are decimal numbers, not hex bytes.
+- Key = the source IPv4 read as a little-endian u32. To decode, split it into bytes starting from the lowest: key `182543114` = 10.99.225.10 and `4272710410` = 10.99.172.254 (real values from the 2026-11-26 run). Every key decodes to 10.99.x.y, a blocked replay source.
+- Value = expiry time in ns (kernel monotonic clock).
+- Decode one-liner:
+
+```bash
+python3 -c "import socket,struct; print(socket.inet_ntoa(struct.pack('<I', 182543114)))"
 ```
 
-## 7. Full teardown
+**SS_K_6:** Terminal A with the Malicious rows (or the UI table and status counters). Take it while Terminal A is still running.
+
+**SS_K_7:** after A finishes:
+
+```bash
+docker compose exec ids bpftool net show dev ext0
+```
+Expect no `xdp:` entry: the program was cleanly detached.
+
+Note: the live client (172.28.1.20) stays Normal and is never blocked. The malicious flows are dataset replays (no attack tools, slide 8), pushed through the same attached program with BPF_PROG_TEST_RUN. Blocking of live requests on the real wire is shown by the filter demo in section 5 (SS_T2_5, client FAIL lines).
+
+## 8. Full teardown
 
 Stops and removes the containers, networks, every image the stack uses (lab4-ids, nginx, httpd, alpine) and volumes:
 

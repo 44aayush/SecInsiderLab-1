@@ -1,44 +1,44 @@
-NAME            IMAGE                 COMMAND                  SERVICE   CREATED          STATUS          PORTS
-lab4-apache-1   httpd:2.4-alpine      "httpd-foreground"       apache    22 minutes ago   Up 22 minutes   80/tcp
-lab4-client-1   alpine:3              "sh /client_traffic.…"   client    22 minutes ago   Up 22 minutes   
-lab4-ids-1      lab4-ids:latest       "/usr/local/bin/ids_…"   ids       16 seconds ago   Up 5 seconds    
-lab4-nginx-1    nginx:stable-alpine   "/docker-entrypoint.…"   nginx     22 minutes ago   Up 22 minutes   80/tcp
-lab4-pinger-1   alpine:3              "sleep infinity"         pinger    22 minutes ago   Up 22 minutes   
+NAME            IMAGE                 COMMAND                  SERVICE   CREATED         STATUS         PORTS
+lab4-apache-1   httpd:2.4-alpine      "httpd-foreground"       apache    3 hours ago     Up 6 seconds   80/tcp
+lab4-client-1   alpine:3              "sh /client_traffic.…"   client    3 hours ago     Up 5 seconds   
+lab4-ids-1      lab4-ids:latest       "/usr/local/bin/ids_…"   ids       7 seconds ago   Up 6 seconds   
+lab4-nginx-1    nginx:stable-alpine   "/docker-entrypoint.…"   nginx     3 hours ago     Up 6 seconds   80/tcp
+lab4-pinger-1   alpine:3              "sleep infinity"         pinger    3 hours ago     Up 7 seconds   
 PING nginx (172.28.2.10): 56 data bytes
-64 bytes from 172.28.2.10: seq=0 ttl=64 time=0.111 ms
-64 bytes from 172.28.2.10: seq=1 ttl=64 time=0.052 ms
-64 bytes from 172.28.2.10: seq=2 ttl=64 time=0.105 ms
+64 bytes from 172.28.2.10: seq=0 ttl=64 time=0.157 ms
+64 bytes from 172.28.2.10: seq=1 ttl=64 time=0.155 ms
+64 bytes from 172.28.2.10: seq=2 ttl=64 time=0.186 ms
 
 --- nginx ping statistics ---
 3 packets transmitted, 3 packets received, 0% packet loss
-round-trip min/avg/max = 0.052/0.089/0.111 ms
+round-trip min/avg/max = 0.155/0.166/0.186 ms
 PASS: ping nginx
 PING apache (172.28.2.11): 56 data bytes
-64 bytes from 172.28.2.11: seq=0 ttl=64 time=0.078 ms
-64 bytes from 172.28.2.11: seq=1 ttl=64 time=0.063 ms
-64 bytes from 172.28.2.11: seq=2 ttl=64 time=0.129 ms
+64 bytes from 172.28.2.11: seq=0 ttl=64 time=0.130 ms
+64 bytes from 172.28.2.11: seq=1 ttl=64 time=0.086 ms
+64 bytes from 172.28.2.11: seq=2 ttl=64 time=0.170 ms
 
 --- apache ping statistics ---
 3 packets transmitted, 3 packets received, 0% packet loss
-round-trip min/avg/max = 0.063/0.090/0.129 ms
+round-trip min/avg/max = 0.086/0.128/0.170 ms
 PASS: ping apache
 PING 172.28.2.10 (172.28.2.10): 56 data bytes
-64 bytes from 172.28.2.10: seq=0 ttl=64 time=0.058 ms
-64 bytes from 172.28.2.10: seq=1 ttl=64 time=0.117 ms
-64 bytes from 172.28.2.10: seq=2 ttl=64 time=0.183 ms
+64 bytes from 172.28.2.10: seq=0 ttl=64 time=0.324 ms
+64 bytes from 172.28.2.10: seq=1 ttl=64 time=0.133 ms
+64 bytes from 172.28.2.10: seq=2 ttl=64 time=0.184 ms
 
 --- 172.28.2.10 ping statistics ---
 3 packets transmitted, 3 packets received, 0% packet loss
-round-trip min/avg/max = 0.058/0.119/0.183 ms
+round-trip min/avg/max = 0.133/0.213/0.324 ms
 PASS: ping 172.28.2.10
 PING 172.28.2.11 (172.28.2.11): 56 data bytes
-64 bytes from 172.28.2.11: seq=0 ttl=64 time=0.057 ms
-64 bytes from 172.28.2.11: seq=1 ttl=64 time=0.172 ms
-64 bytes from 172.28.2.11: seq=2 ttl=64 time=0.068 ms
+64 bytes from 172.28.2.11: seq=0 ttl=64 time=0.063 ms
+64 bytes from 172.28.2.11: seq=1 ttl=64 time=0.177 ms
+64 bytes from 172.28.2.11: seq=2 ttl=64 time=0.164 ms
 
 --- 172.28.2.11 ping statistics ---
 3 packets transmitted, 3 packets received, 0% packet loss
-round-trip min/avg/max = 0.057/0.099/0.172 ms
+round-trip min/avg/max = 0.063/0.134/0.177 ms
 PASS: ping 172.28.2.11
 <!DOCTYPE html>
 <html>

@@ -62,6 +62,17 @@ XGB_DEPTHS = (4, 5, 6)
 XGB_LR = 0.1
 DEPTH_F1_TOL = 0.0005
 
+# Dataset replay (CLAUDE.md D8).
+REPLAY_POOL_PATH = MODELS_DIR / "replay_flows.json"
+REPLAY_PER_CLASS = 500
+REPLAY_MAX_PKTS = 32
+REPLAY_MAX_PAYLOAD = 1460  # largest TCP payload of a 1500-byte MTU frame
+MAX_REPLAY = 100
+DEFAULT_REPLAY_UI = 20
+REPLAY_DST_IP, REPLAY_DST_PORT = "172.28.2.10", 80
+REPLAY_SRC_PREFIX = "10.99"  # sources 10.99.x.y; blocks never touch real hosts
+EPHEMERAL_PORTS = (1024, 65535)
+
 # Runtime.
 PIN_DIR = "/sys/fs/bpf/lab4"
 MGMT_IFACE = "mgmt0"

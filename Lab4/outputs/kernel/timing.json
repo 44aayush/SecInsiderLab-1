@@ -1,9 +1,9 @@
 {
- "mid_flow_DT": 71,
- "classify_fin_DT": 51,
- "mid_flow_XGB": 75,
- "classify_fin_XGB": 51,
- "mid_flow_ALL": 67,
- "classify_fin_ALL": 57,
- "not_tracked": 17
+ "mid_flow_DT": 61,
+ "classify_fin_DT": 120,
+ "mid_flow_XGB": 82,
+ "classify_fin_XGB": 366,
+ "mid_flow_ALL": 60,
+ "classify_fin_ALL": 542,
+ "not_tracked": 18
 }
